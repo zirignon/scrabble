@@ -1,0 +1,179 @@
+// Schema Prisma - Plateforme de gestion de tournois de Scrabble (classique + duplicate)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ORGANIZER
+  REFEREE
+  PLAYER
+}
+
+enum TournamentType {
+  CLASSIC
+  DUPLICATE
+}
+
+enum TournamentStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum ClassicFormat {
+  ROUND_ROBIN
+  SWISS
+  GROUPS
+  KNOCKOUT
+}
+
+enum MatchStatus {
+  SCHEDULED
+  PLAYED
+  FORFEIT_HOME
+  FORFEIT_AWAY
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  WAITLIST
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(PLAYER)
+  createdAt    DateTime @default(now())
+
+  player      Player?
+  tournaments Tournament[] @relation("Organizer")
+}
+
+model Club {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  city    String?
+  players Player[]
+}
+
+model Player {
+  id            String  @id @default(cuid())
+  userId        String? @unique
+  user          User?   @relation(fields: [userId], references: [id])
+  firstName     String
+  lastName      String
+  clubId        String?
+  club          Club?   @relation(fields: [clubId], references: [id])
+  licenseNumber String?
+  category      String?
+
+  createdAt DateTime @default(now())
+
+  registrations    Registration[]
+  homeMatches      Match[]           @relation("HomePlayer")
+  awayMatches      Match[]           @relation("AwayPlayer")
+  duplicateResults DuplicateResult[]
+}
+
+model Tournament {
+  id           String            @id @default(cuid())
+  name         String
+  slug         String            @unique
+  type         TournamentType
+  format       ClassicFormat?
+  description  String?
+  venue        String?
+  startDate    DateTime
+  endDate      DateTime?
+  status       TournamentStatus  @default(DRAFT)
+  organizerId  String
+  organizer    User              @relation("Organizer", fields: [organizerId], references: [id])
+  createdAt    DateTime          @default(now())
+
+  registrations Registration[]
+  rounds        Round[]
+  games         Game[]
+}
+
+model Registration {
+  id           String             @id @default(cuid())
+  tournamentId String
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id])
+  playerId     String
+  player       Player             @relation(fields: [playerId], references: [id])
+  status       RegistrationStatus @default(CONFIRMED)
+  createdAt    DateTime           @default(now())
+
+  @@unique([tournamentId, playerId])
+}
+
+// ---- Scrabble classique ----
+
+model Round {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  number       Int
+  playedAt     DateTime?
+
+  matches Match[]
+
+  @@unique([tournamentId, number])
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  roundId      String
+  round        Round       @relation(fields: [roundId], references: [id])
+  table        Int?
+  homePlayerId String?
+  homePlayer   Player?     @relation("HomePlayer", fields: [homePlayerId], references: [id])
+  awayPlayerId String?
+  awayPlayer   Player?     @relation("AwayPlayer", fields: [awayPlayerId], references: [id])
+  homeScore    Int?
+  awayScore    Int?
+  status       MatchStatus @default(SCHEDULED)
+  isBye        Boolean     @default(false)
+}
+
+// ---- Scrabble duplicate ----
+
+model Game {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  number       Int
+  playedAt     DateTime?
+  top          Int?
+
+  results DuplicateResult[]
+
+  @@unique([tournamentId, number])
+}
+
+model DuplicateResult {
+  id       String @id @default(cuid())
+  gameId   String
+  game     Game   @relation(fields: [gameId], references: [id])
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+  score    Int
+  penalty  Int    @default(0)
+
+  @@unique([gameId, playerId])
+}
