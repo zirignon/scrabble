@@ -151,7 +151,10 @@ Après `npm run db:seed` :
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
   ODS9 chargé automatiquement par le seed `npm run db:seed`, ou importé
-  manuellement — fichier ou texte collé, jusqu'à 10 Mo) reste disponible
+  manuellement — fichier ou texte collé, découpé automatiquement en
+  petits blocs côté navigateur pour rester sous la limite de taille de
+  requête d'un hébergeur serverless, quelle que soit la taille du
+  fichier) reste disponible
   comme référence, sans intervenir dans la saisie
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre

@@ -4,23 +4,15 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/guards";
 import { importDictionaryWords, clearDictionaryWords } from "@/lib/dictionary";
 
-export async function importDictionaryAction(formData: FormData) {
+// Importe un bloc de mots (voir DictionaryImportForm) : le fichier ODS9 fait
+// plusieurs Mo, largement au-delà de la limite de taille de requête d'une
+// fonction serverless Vercel (4,5 Mo) — le fichier est donc découpé en petits
+// blocs côté navigateur, chacun envoyé séparément via cette action.
+export async function importDictionaryChunkAction(
+  text: string
+): Promise<{ imported: number; total: number }> {
   await requireRole(["ADMIN"]);
-
-  const file = formData.get("file");
-  const pasted = formData.get("text");
-
-  let text = "";
-  if (file instanceof File && file.size > 0) {
-    text = await file.text();
-  } else if (typeof pasted === "string") {
-    text = pasted;
-  }
-  if (!text.trim()) return;
-
-  await importDictionaryWords(text);
-
-  revalidatePath("/admin/dictionnaire");
+  return importDictionaryWords(text);
 }
 
 export async function clearDictionaryAction() {
