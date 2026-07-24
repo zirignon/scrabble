@@ -14,9 +14,9 @@ const bonusLabel: Record<string, string> = {
   DL: "LD",
 };
 
-// Notation Scrabble standard : colonnes A à O, lignes 1 à 15 (ex. "H8" pour
-// la case centrale), pour permettre de repérer une case sans ambiguïté.
-const COLUMN_LETTERS = Array.from({ length: BOARD_SIZE }, (_, i) => String.fromCharCode(65 + i));
+// Notation : lignes A à O, colonnes 1 à 15 (ex. "H8" pour la case
+// centrale), pour permettre de repérer une case sans ambiguïté.
+const ROW_LETTERS = Array.from({ length: BOARD_SIZE }, (_, i) => String.fromCharCode(65 + i));
 
 export function ScrabbleGrid({
   grid,
@@ -34,13 +34,13 @@ export function ScrabbleGrid({
   return (
     <div className="inline-grid" style={{ gridTemplateColumns: `${cellSize}px repeat(${BOARD_SIZE}, ${cellSize}px)` }}>
       <div style={{ width: cellSize, height: cellSize }} />
-      {COLUMN_LETTERS.map((letter) => (
+      {Array.from({ length: BOARD_SIZE }, (_, i) => i + 1).map((col) => (
         <div
-          key={letter}
+          key={col}
           className={`flex items-center justify-center font-semibold ${labelColor}`}
           style={{ width: cellSize, height: cellSize, fontSize: labelSize }}
         >
-          {letter}
+          {col}
         </div>
       ))}
 
@@ -50,7 +50,7 @@ export function ScrabbleGrid({
             className={`flex items-center justify-center font-semibold ${labelColor}`}
             style={{ width: cellSize, height: cellSize, fontSize: labelSize }}
           >
-            {r + 1}
+            {ROW_LETTERS[r]}
           </div>
           {row.map((letter, c) => {
             const b = bonus[r][c];
