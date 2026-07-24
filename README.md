@@ -79,11 +79,12 @@ Après `npm run db:seed` :
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
-- Validation des mots joués par rapport à un dictionnaire importé par
-  l'administrateur (page `/admin/dictionnaire` : import d'une liste
-  de mots, par exemple l'ODS dont l'organisateur possède les droits) ;
-  un mot absent de la liste est signalé par une alerte lors de la
-  saisie, sans bloquer l'enregistrement (l'arbitre tranche)
+- Validation des mots joués par rapport à un dictionnaire (page
+  `/admin/dictionnaire` pour importer/compléter la liste) ; un mot
+  absent de la liste est signalé par une alerte lors de la saisie,
+  sans bloquer l'enregistrement (l'arbitre tranche). Le dictionnaire
+  ODS9 (`prisma/data/ods9.txt`) est chargé automatiquement par le seed
+  (`npm run db:seed`)
 
 ### Tournois par équipes
 
