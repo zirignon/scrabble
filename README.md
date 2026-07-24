@@ -68,8 +68,9 @@ Après `npm run db:seed` :
 - Chronomètre d'échecs par match (temps propre à chaque camp, alterné
   manuellement par l'arbitre, avec pause/réinitialisation)
 - Saisie des scores, gestion des forfaits/annulations
-- Classement calculé automatiquement : points de match, différence de
-  score, départages Buchholz et Sonneborn-Berger
+- Classement calculé automatiquement : points de match, puis
+  départages Buchholz, Buchholz médian, Sonneborn-Berger et score
+  cumulé progressif, puis différence de score
 
 ### Scrabble duplicate
 - Création de parties

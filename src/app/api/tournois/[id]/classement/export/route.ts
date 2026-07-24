@@ -19,7 +19,20 @@ export async function GET(
   if (tournament.type === "CLASSIC") {
     const standings = await computeClassicStandings(tournament.id);
     csv = toCsv(
-      ["Rang", "Joueur", "Joués", "V", "N", "D", "Points", "Buchholz", "Sonneborn-Berger", "Diff"],
+      [
+        "Rang",
+        "Joueur",
+        "Joués",
+        "V",
+        "N",
+        "D",
+        "Points",
+        "Buchholz",
+        "Buchholz médian",
+        "Sonneborn-Berger",
+        "Cumul progressif",
+        "Diff",
+      ],
       standings.map((row, i) => [
         i + 1,
         `${row.firstName} ${row.lastName}`,
@@ -29,7 +42,9 @@ export async function GET(
         row.losses,
         row.matchPoints,
         row.buchholz,
+        row.buchholzMedian,
         row.sonnebornBerger,
+        row.cumulativeScore,
         row.diff,
       ])
     );
