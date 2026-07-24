@@ -150,8 +150,9 @@ Après `npm run db:seed` :
 - N'importe quel mot peut être saisi librement, sans validation
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
-  ODS9 chargé automatiquement par le seed `npm run db:seed`) reste
-  disponible comme référence, sans intervenir dans la saisie
+  ODS9 chargé automatiquement par le seed `npm run db:seed`, ou importé
+  manuellement — fichier ou texte collé, jusqu'à 10 Mo) reste disponible
+  comme référence, sans intervenir dans la saisie
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
 
