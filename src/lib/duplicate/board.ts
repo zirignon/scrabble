@@ -9,6 +9,21 @@ export interface ReferenceMoveLike {
   isPass: boolean;
 }
 
+// Référence alphanumérique d'une case (ligne = lettre A-O, colonne =
+// numéro 1-15), ex. "H4" pour ligne H (8), colonne 4.
+export function formatReference(row: number, col: number): string {
+  return `${String.fromCharCode(64 + row)}${col}`;
+}
+
+export function parseReference(value: string): { row: number; col: number } | null {
+  const match = value.trim().toUpperCase().match(/^([A-O])(\d{1,2})$/);
+  if (!match) return null;
+  const row = match[1].charCodeAt(0) - 64;
+  const col = Number(match[2]);
+  if (row < 1 || row > 15 || col < 1 || col > 15) return null;
+  return { row, col };
+}
+
 // Reconstruit la grille (15x15, lignes/colonnes numérotées 1 à 15 côté
 // saisie) en rejouant les coups de référence dans l'ordre des tours :
 // chaque lettre du mot est posée case par case selon le sens du coup.

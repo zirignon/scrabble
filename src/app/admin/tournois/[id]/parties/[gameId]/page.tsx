@@ -10,7 +10,7 @@ import {
   updateMoveAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
-import { reconstructBoard } from "@/lib/duplicate/board";
+import { reconstructBoard, formatReference } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 
 export default async function GameMovesPage({
@@ -80,8 +80,7 @@ export default async function GameMovesPage({
           <thead>
             <tr className="text-left border-b border-black/10 dark:border-white/10">
               <th className="py-2 pr-4">Coup</th>
-              <th className="py-2 pr-4">Ligne</th>
-              <th className="py-2 pr-4">Col.</th>
+              <th className="py-2 pr-4">Référence</th>
               <th className="py-2 pr-4">Sens</th>
               <th className="py-2 pr-4">Mot</th>
               <th className="py-2 pr-4">Points</th>
@@ -93,7 +92,7 @@ export default async function GameMovesPage({
             {game.referenceMoves.map((move) => (
               <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
                 {canManage ? (
-                  <td colSpan={8} className="py-1.5">
+                  <td colSpan={7} className="py-1.5">
                     <form
                       action={updateReferenceMoveAction.bind(
                         null,
@@ -107,20 +106,11 @@ export default async function GameMovesPage({
                         #{move.turnNumber}
                       </span>
                       <input
-                        type="number"
-                        name="row"
-                        min={1}
-                        max={15}
-                        defaultValue={move.row}
-                        className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                      />
-                      <input
-                        type="number"
-                        name="col"
-                        min={1}
-                        max={15}
-                        defaultValue={move.col}
-                        className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                        type="text"
+                        name="reference"
+                        defaultValue={formatReference(move.row, move.col)}
+                        placeholder="Ex. H4"
+                        className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
                       />
                       <select
                         name="direction"
@@ -170,8 +160,7 @@ export default async function GameMovesPage({
                 ) : (
                   <>
                     <td className="py-1.5 pr-4">{move.turnNumber}</td>
-                    <td className="py-1.5 pr-4">{move.row}</td>
-                    <td className="py-1.5 pr-4">{move.col}</td>
+                    <td className="py-1.5 pr-4">{formatReference(move.row, move.col)}</td>
                     <td className="py-1.5 pr-4">
                       {move.direction === "ACROSS" ? "Horizontal" : "Vertical"}
                     </td>
@@ -184,7 +173,7 @@ export default async function GameMovesPage({
             ))}
             {game.referenceMoves.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-2 text-black/50 dark:text-white/50">
+                <td colSpan={7} className="py-2 text-black/50 dark:text-white/50">
                   Aucun coup de référence saisi.
                 </td>
               </tr>
@@ -198,20 +187,10 @@ export default async function GameMovesPage({
               #{game.referenceMoves.length + 1}
             </span>
             <input
-              type="number"
-              name="row"
-              min={1}
-              max={15}
-              placeholder="Ligne"
-              className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-            />
-            <input
-              type="number"
-              name="col"
-              min={1}
-              max={15}
-              placeholder="Col."
-              className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+              type="text"
+              name="reference"
+              placeholder="Ex. H4"
+              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
             />
             <select
               name="direction"

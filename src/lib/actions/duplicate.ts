@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
+import { parseReference } from "@/lib/duplicate/board";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -279,8 +280,7 @@ export async function deleteMoveAction(
 }
 
 const referenceMoveSchema = z.object({
-  row: z.string().min(1),
-  col: z.string().min(1),
+  reference: z.string().min(2),
   direction: z.enum(["ACROSS", "DOWN"]),
   word: z.string().optional(),
   points: z.string().optional(),
@@ -289,8 +289,7 @@ const referenceMoveSchema = z.object({
 
 function parseReferenceMove(formData: FormData) {
   const parsed = referenceMoveSchema.safeParse({
-    row: formData.get("row"),
-    col: formData.get("col"),
+    reference: formData.get("reference"),
     direction: formData.get("direction"),
     word: formData.get("word") || undefined,
     points: formData.get("points") || undefined,
@@ -298,14 +297,12 @@ function parseReferenceMove(formData: FormData) {
   });
   if (!parsed.success) return null;
 
-  const row = Number(parsed.data.row);
-  const col = Number(parsed.data.col);
-  if (!Number.isInteger(row) || row < 1 || row > 15) return null;
-  if (!Number.isInteger(col) || col < 1 || col > 15) return null;
+  const position = parseReference(parsed.data.reference);
+  if (!position) return null;
 
   return {
-    row,
-    col,
+    row: position.row,
+    col: position.col,
     direction: parsed.data.direction,
     word: parsed.data.word?.toUpperCase() || null,
     points: parsed.data.points ? Number(parsed.data.points) : 0,
