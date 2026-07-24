@@ -128,12 +128,20 @@ export default async function TournamentPublicPage({
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">Classement</h2>
-          <a
-            href={`/api/tournois/${tournament.id}/classement/export`}
-            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
-          >
-            Exporter en CSV
-          </a>
+          <div className="flex gap-3">
+            <a
+              href={`/api/tournois/${tournament.id}/classement/export`}
+              className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+            >
+              Exporter en CSV
+            </a>
+            <a
+              href={`/api/tournois/${tournament.id}/classement/export/pdf`}
+              className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+            >
+              Exporter en PDF
+            </a>
+          </div>
         </div>
         {tournament.type === "CLASSIC" ? (
           <table className="w-full text-sm border-collapse">

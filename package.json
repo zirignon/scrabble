@@ -19,6 +19,7 @@
     "date-fns": "^4.4.0",
     "jose": "^6.2.4",
     "next": "16.2.11",
+    "pdfkit": "^0.19.1",
     "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

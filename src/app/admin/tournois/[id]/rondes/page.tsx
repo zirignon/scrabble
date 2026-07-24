@@ -61,6 +61,14 @@ export default async function RoundsPage({
         <h1 className="text-2xl font-semibold mt-1">
           Rondes — {tournament.name}
         </h1>
+        {canManage && tournament.rounds.length > 0 && (
+          <a
+            href={`/api/tournois/${tournament.id}/rondes/export`}
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Exporter les rondes en CSV
+          </a>
+        )}
       </div>
 
       {canManage && (

@@ -40,6 +40,14 @@ export default async function GamesPage({
         <h1 className="text-2xl font-semibold mt-1">
           Parties — {tournament.name}
         </h1>
+        {canManage && tournament.games.length > 0 && (
+          <a
+            href={`/api/tournois/${tournament.id}/parties/export`}
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Exporter les parties en CSV
+          </a>
+        )}
       </div>
 
       {canManage && (
