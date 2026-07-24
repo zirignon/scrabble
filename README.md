@@ -138,7 +138,8 @@ Après `npm run db:seed` :
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements
-- Projette la grille de référence de la partie en cours (duplicate)
+- Projette la grille de référence de la partie en cours (duplicate),
+  avec la liste des coups joués (référence, mot, points) à côté
 
 ### Exports
 
