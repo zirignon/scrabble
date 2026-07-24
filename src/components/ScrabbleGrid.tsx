@@ -14,6 +14,10 @@ const bonusLabel: Record<string, string> = {
   DL: "LD",
 };
 
+// Notation Scrabble standard : colonnes A à O, lignes 1 à 15 (ex. "H8" pour
+// la case centrale), pour permettre de repérer une case sans ambiguïté.
+const COLUMN_LETTERS = Array.from({ length: BOARD_SIZE }, (_, i) => String.fromCharCode(65 + i));
+
 export function ScrabbleGrid({
   grid,
   cellSize = 28,
@@ -24,42 +28,66 @@ export function ScrabbleGrid({
   dark?: boolean;
 }) {
   const bonus = getBonusGrid();
+  const labelColor = dark ? "text-white/60" : "text-black/60";
+  const labelSize = Math.max(14, Math.round(cellSize * 0.6));
 
   return (
-    <div
-      className={`inline-grid border-2 ${dark ? "border-white/40" : "border-black/40"}`}
-      style={{
-        gridTemplateColumns: `repeat(${BOARD_SIZE}, ${cellSize}px)`,
-        gridTemplateRows: `repeat(${BOARD_SIZE}, ${cellSize}px)`,
-      }}
-    >
-      {grid.map((row, r) =>
-        row.map((letter, c) => {
-          const b = bonus[r][c];
-          const border = dark ? "border-white/10" : "border-black/10";
-          let bg: string;
-          let textColor: string;
-          if (letter) {
-            bg = "bg-amber-100";
-            textColor = "text-black";
-          } else if (b) {
-            bg = bonusColor[b];
-            textColor = "text-white";
-          } else {
-            bg = dark ? "bg-white/5" : "bg-emerald-950/5";
-            textColor = dark ? "text-white/40" : "text-black/40";
-          }
-          return (
-            <div
-              key={`${r}-${c}`}
-              className={`flex items-center justify-center border ${border} ${bg} ${textColor} font-bold`}
-              style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
-            >
-              {letter ?? (b && cellSize >= 20 ? bonusLabel[b] : "")}
-            </div>
-          );
-        })
-      )}
+    <div className="inline-grid" style={{ gridTemplateColumns: `${cellSize}px repeat(${BOARD_SIZE}, ${cellSize}px)` }}>
+      <div style={{ width: cellSize, height: cellSize }} />
+      {COLUMN_LETTERS.map((letter) => (
+        <div
+          key={letter}
+          className={`flex items-center justify-center font-semibold ${labelColor}`}
+          style={{ width: cellSize, height: cellSize, fontSize: labelSize }}
+        >
+          {letter}
+        </div>
+      ))}
+
+      {grid.map((row, r) => (
+        <div key={`row-${r}`} className="contents">
+          <div
+            className={`flex items-center justify-center font-semibold ${labelColor}`}
+            style={{ width: cellSize, height: cellSize, fontSize: labelSize }}
+          >
+            {r + 1}
+          </div>
+          {row.map((letter, c) => {
+            const b = bonus[r][c];
+            const border = dark ? "border-white/10" : "border-black/10";
+            let bg: string;
+            let textColor: string;
+            if (letter) {
+              bg = "bg-amber-100";
+              textColor = "text-black";
+            } else if (b) {
+              bg = bonusColor[b];
+              textColor = "text-white";
+            } else {
+              bg = dark ? "bg-white/5" : "bg-emerald-950/5";
+              textColor = dark ? "text-white/40" : "text-black/40";
+            }
+            const edgeColor = dark ? "border-white/40" : "border-black/40";
+            const outerBorder = [
+              r === 0 && `border-t-2 ${edgeColor}`,
+              c === 0 && `border-l-2 ${edgeColor}`,
+              r === BOARD_SIZE - 1 && `border-b-2 ${edgeColor}`,
+              c === BOARD_SIZE - 1 && `border-r-2 ${edgeColor}`,
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <div
+                key={`${r}-${c}`}
+                className={`flex items-center justify-center border ${border} ${outerBorder} ${bg} ${textColor} font-bold`}
+                style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
+              >
+                {letter ?? (b && cellSize >= 20 ? bonusLabel[b] : "")}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
