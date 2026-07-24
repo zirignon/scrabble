@@ -20,9 +20,10 @@ export interface ClassicTeamStandingRow {
 // une confrontation d'équipes (ronde + paire d'équipes) est regroupée à
 // partir des matchs de ses différents échiquiers. Le résultat du match
 // d'équipes se décide à la majorité d'échiquiers gagnés (3 pts victoire,
-// 1 pt égalité, 0 pt défaite), la différence de points cumulés servant de
-// départage. Une confrontation n'est comptabilisée que lorsque tous ses
-// échiquiers sont joués (aucun encore SCHEDULED).
+// 1 pt égalité, 0 pt défaite). Départage : différentiel d'échiquiers
+// (gagnés − perdus) puis différence de points cumulés. Une confrontation
+// n'est comptabilisée que lorsque tous ses échiquiers sont joués (aucun
+// encore SCHEDULED).
 export async function computeClassicTeamStandings(
   tournamentId: string
 ): Promise<ClassicTeamStandingRow[]> {
@@ -147,6 +148,9 @@ export async function computeClassicTeamStandings(
 
   return [...rows.values()].sort((a, b) => {
     if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+    const aBoardDiff = a.boardsWon - a.boardsLost;
+    const bBoardDiff = b.boardsWon - b.boardsLost;
+    if (bBoardDiff !== aBoardDiff) return bBoardDiff - aBoardDiff;
     if (b.diff !== a.diff) return b.diff - a.diff;
     return b.pointsFor - a.pointsFor;
   });
