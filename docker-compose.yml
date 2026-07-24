@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scrabble
+      POSTGRES_PASSWORD: scrabble
+      POSTGRES_DB: scrabble
+    ports:
+      - "5432:5432"
+    volumes:
+      - scrabble_db_data:/var/lib/postgresql/data
+
+volumes:
+  scrabble_db_data:

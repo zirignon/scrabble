@@ -7,9 +7,7 @@ direct, pour les organisateurs, arbitres, joueurs et le public.
 ## Stack
 
 - [Next.js](https://nextjs.org) (App Router, TypeScript, Server Actions)
-- [Prisma](https://www.prisma.io) + SQLite en développement (facilement
-  migrable vers PostgreSQL en changeant `provider` dans
-  `prisma/schema.prisma` et `DATABASE_URL`)
+- [Prisma](https://www.prisma.io) + PostgreSQL
 - Tailwind CSS
 - Authentification maison par cookie de session signé (JWT via `jose`),
   mots de passe hachés avec `bcryptjs`
@@ -17,12 +15,16 @@ direct, pour les organisateurs, arbitres, joueurs et le public.
 ## Démarrage
 
 ```bash
+docker compose up -d      # lance une base PostgreSQL locale (voir docker-compose.yml)
 npm install
 cp .env.example .env      # puis ajustez SESSION_SECRET
-npx prisma migrate dev    # crée la base SQLite locale
+npx prisma migrate dev    # crée le schéma sur la base PostgreSQL
 npm run db:seed           # données de démonstration (voir ci-dessous)
 npm run dev
 ```
+
+Sans Docker, pointez simplement `DATABASE_URL` vers n'importe quelle
+instance PostgreSQL (locale ou hébergée).
 
 Le site est disponible sur http://localhost:3000.
 
@@ -50,19 +52,30 @@ Après `npm run db:seed` :
 ### Scrabble classique
 - Génération automatique des rondes en round-robin (méthode du cercle,
   avec gestion des exempts/bye si nombre impair)
-- Ajout manuel de rondes/matchs (pour suisse, poules, élimination... en
-  gérant les appariements à la main dans cette première version)
+- Génération round par round en système suisse (appariement par score,
+  évite les revanches quand possible)
+- Ajout manuel de rondes/matchs (poules, élimination... en gérant les
+  appariements à la main)
 - Saisie des scores, gestion des forfaits/annulations
-- Classement calculé automatiquement (points de match, différence de score)
+- Classement calculé automatiquement : points de match, différence de
+  score, départages Buchholz et Sonneborn-Berger
 
 ### Scrabble duplicate
 - Création de parties
 - Saisie des scores par joueur et par partie (mode simple), avec pénalités
+- Saisie détaillée coup par coup (tirage, mot joué, points, top,
+  passe) : le score de la partie est alors recalculé automatiquement
+  à partir des coups
 - Classement cumulé (score total, pénalités, net)
+
+### Exports
+
+- Classement : CSV et PDF (page publique du tournoi)
+- Rondes/matchs (classique) et parties/scores (duplicate) : CSV
+  (pages d'administration)
 
 ## Prochaines étapes possibles
 
-- Système suisse et départages avancés (Buchholz, Sonneborn-Berger...)
-- Saisie coup par coup en duplicate (tirages, top, arbitrage détaillé)
-- Exports CSV/PDF, affichage grand écran, temps réel
-- Migration vers PostgreSQL pour la production
+- Départages avancés supplémentaires (Buchholz médian, dégressif...)
+- Saisie coup par coup avec validation du dictionnaire, timer
+- Affichage grand écran, temps réel (WebSocket/SSE)
