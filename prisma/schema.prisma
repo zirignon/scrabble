@@ -91,6 +91,7 @@ model Player {
   duplicateResults DuplicateResult[]
   duplicateMoves   DuplicateMove[]
   teamMemberships  TeamMember[]
+  poolMemberships  PoolMember[]
 }
 
 model Tournament {
@@ -113,6 +114,7 @@ model Tournament {
   rounds        Round[]
   games         Game[]
   teams         Team[]
+  pools         Pool[]
 }
 
 model Registration {
@@ -160,6 +162,32 @@ model TeamMember {
   @@unique([teamId, board])
 }
 
+// Une poule regroupe des joueurs pour un tournoi classique au format
+// "Poules" : chaque poule joue son propre round-robin interne, et son
+// classement est calculé séparément.
+model Pool {
+  id           String @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  name         String
+  createdAt    DateTime @default(now())
+
+  members PoolMember[]
+  matches Match[]
+
+  @@unique([tournamentId, name])
+}
+
+model PoolMember {
+  id       String @id @default(cuid())
+  poolId   String
+  pool     Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  @@unique([poolId, playerId])
+}
+
 // ---- Scrabble classique ----
 
 model Round {
@@ -187,6 +215,8 @@ model Match {
   homeTeam     Team?       @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeamId   String?
   awayTeam     Team?       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  poolId       String?
+  pool         Pool?       @relation(fields: [poolId], references: [id])
   homeScore    Int?
   awayScore    Int?
   status       MatchStatus @default(SCHEDULED)

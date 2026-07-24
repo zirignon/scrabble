@@ -55,8 +55,12 @@ Après `npm run db:seed` :
   avec gestion des exempts/bye si nombre impair)
 - Génération round par round en système suisse (appariement par score,
   évite les revanches quand possible)
-- Ajout manuel de rondes/matchs (poules, élimination... en gérant les
-  appariements à la main)
+- Poules : chaque poule joue son propre round-robin interne, avec un
+  classement calculé séparément par poule
+- Élimination directe : génération du tableau initial (avec exempts si
+  l'effectif n'est pas une puissance de 2), puis génération du tour
+  suivant à partir des vainqueurs jusqu'à la finale
+- Ajout manuel de rondes/matchs pour composer un format sur mesure
 - Saisie des scores, gestion des forfaits/annulations
 - Classement calculé automatiquement : points de match, différence de
   score, départages Buchholz et Sonneborn-Berger

@@ -5,13 +5,16 @@ import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
   addManualRoundAction,
   addMatchAction,
+  generateKnockoutBracketAction,
+  generateNextKnockoutRoundAction,
   generateNextSwissRoundAction,
   generateNextTeamSwissRoundAction,
+  generatePoolsRoundRobinAction,
   generateRoundRobinAction,
   generateTeamRoundRobinAction,
   recordMatchResultAction,
 } from "@/lib/actions/classic";
-import type { Match, Player, Team } from "@prisma/client";
+import type { Match, Player, Pool, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -26,6 +29,7 @@ type MatchWithRelations = Match & {
   awayPlayer: Player | null;
   homeTeam: Team | null;
   awayTeam: Team | null;
+  pool: Pool | null;
 };
 
 function MatchRow({
@@ -161,6 +165,7 @@ export default async function RoundsPage({
               awayPlayer: true,
               homeTeam: true,
               awayTeam: true,
+              pool: true,
             },
             orderBy: { table: "asc" },
           },
@@ -177,6 +182,9 @@ export default async function RoundsPage({
   const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);
   const generateSwissBound = generateNextSwissRoundAction.bind(null, tournament.id);
   const generateTeamSwissBound = generateNextTeamSwissRoundAction.bind(null, tournament.id);
+  const generatePoolsBound = generatePoolsRoundRobinAction.bind(null, tournament.id);
+  const generateKnockoutBound = generateKnockoutBracketAction.bind(null, tournament.id);
+  const generateNextKnockoutBound = generateNextKnockoutRoundAction.bind(null, tournament.id);
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
 
   return (
@@ -247,6 +255,42 @@ export default async function RoundsPage({
               </button>
             </form>
           )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            tournament.rounds.length === 0 && (
+              <form action={generatePoolsBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer les rondes en poules
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "KNOCKOUT" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tableau (élimination directe)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "KNOCKOUT" &&
+            tournament.rounds.length > 0 && (
+              <form action={generateNextKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tour suivant
+                </button>
+              </form>
+            )}
           <form action={addRoundBound}>
             <button
               type="submit"
@@ -259,6 +303,40 @@ export default async function RoundsPage({
       )}
 
       {tournament.rounds.map((round) => {
+        if (!tournament.isTeamEvent && tournament.format === "GROUPS") {
+          // Tournoi en poules : regroupe les matchs de la ronde par poule
+          // (chaque poule joue son propre round-robin interne).
+          const byPool = new Map<string, { pool: Pool; matches: MatchWithRelations[] }>();
+          for (const match of round.matches) {
+            if (!match.pool) continue;
+            if (!byPool.has(match.pool.id)) {
+              byPool.set(match.pool.id, { pool: match.pool, matches: [] });
+            }
+            byPool.get(match.pool.id)!.matches.push(match);
+          }
+
+          return (
+            <section key={round.id} className="flex flex-col gap-5">
+              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              {[...byPool.values()].map(({ pool, matches }) => (
+                <div key={pool.id} className="flex flex-col gap-2">
+                  <h3 className="font-medium text-sm">{pool.name}</h3>
+                  <MatchTable
+                    matches={matches}
+                    canManage={canManage}
+                    tournamentId={tournament.id}
+                  />
+                </div>
+              ))}
+              {byPool.size === 0 && (
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  Aucun match dans cette ronde.
+                </p>
+              )}
+            </section>
+          );
+        }
+
         if (!tournament.isTeamEvent) {
           return (
             <section key={round.id} className="flex flex-col gap-3">

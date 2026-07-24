@@ -8,6 +8,11 @@ import { generateRoundRobinRounds } from "@/lib/classic/pairing";
 import { generateSwissRound } from "@/lib/classic/swiss";
 import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
+import {
+  generateKnockoutFirstRound,
+  getKnockoutWinner,
+  pairKnockoutWinners,
+} from "@/lib/classic/knockout";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -279,6 +284,149 @@ export async function generateNextTeamSwissRoundAction(tournamentId: string) {
         },
       });
     }
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generatePoolsRoundRobinAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS") {
+    throw new Error("Ce tournoi n'est pas au format poules.");
+  }
+
+  const existing = await prisma.round.count({ where: { tournamentId } });
+  if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
+
+  const pools = await prisma.pool.findMany({
+    where: { tournamentId },
+    include: { members: true },
+  });
+  if (pools.length === 0) throw new Error("Créez au moins une poule avec des joueurs.");
+  if (pools.some((p) => p.members.length < 2)) {
+    throw new Error("Chaque poule doit compter au moins 2 joueurs.");
+  }
+
+  async function getOrCreateRound(number: number) {
+    return prisma.round.upsert({
+      where: { tournamentId_number: { tournamentId, number } },
+      update: {},
+      create: { tournamentId, number },
+    });
+  }
+
+  // Chaque poule joue son propre round-robin interne ; la ronde N d'une
+  // poule partage le même numéro de ronde tournoi que la ronde N des
+  // autres poules (elles se jouent en parallèle). Une poule plus petite
+  // termine simplement plus tôt, sans matchs dans les rondes suivantes.
+  for (const pool of pools) {
+    const poolRounds = generateRoundRobinRounds(pool.members.map((m) => m.playerId));
+    for (let i = 0; i < poolRounds.length; i++) {
+      const round = await getOrCreateRound(i + 1);
+      let table = 1;
+      for (const pairing of poolRounds[i]) {
+        await prisma.match.create({
+          data: {
+            roundId: round.id,
+            poolId: pool.id,
+            table: pairing.away ? table++ : null,
+            homePlayerId: pairing.home,
+            awayPlayerId: pairing.away,
+            isBye: pairing.away === null,
+            status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          },
+        });
+      }
+    }
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateKnockoutBracketAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT") {
+    throw new Error("Ce tournoi n'est pas au format élimination directe.");
+  }
+  if (tournament.isTeamEvent) {
+    throw new Error("L'élimination directe par équipes n'est pas prise en charge.");
+  }
+
+  const existing = await prisma.round.count({ where: { tournamentId } });
+  if (existing > 0) throw new Error("Le tableau a déjà été généré pour ce tournoi.");
+
+  const registrations = await prisma.registration.findMany({
+    where: { tournamentId, status: "CONFIRMED" },
+    select: { playerId: true },
+  });
+  const playerIds = registrations.map((r) => r.playerId);
+  if (playerIds.length < 2) throw new Error("Il faut au moins 2 joueurs inscrits.");
+
+  const pairings = generateKnockoutFirstRound(playerIds);
+  const round = await prisma.round.create({ data: { tournamentId, number: 1 } });
+
+  let table = 1;
+  for (const pairing of pairings) {
+    await prisma.match.create({
+      data: {
+        roundId: round.id,
+        table: pairing.away ? table++ : null,
+        homePlayerId: pairing.home,
+        awayPlayerId: pairing.away,
+        isBye: pairing.away === null,
+        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+      },
+    });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateNextKnockoutRoundAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT") {
+    throw new Error("Ce tournoi n'est pas au format élimination directe.");
+  }
+
+  const last = await prisma.round.findFirst({
+    where: { tournamentId },
+    orderBy: { number: "desc" },
+    include: { matches: true },
+  });
+  if (!last) throw new Error("Générez d'abord le tableau initial.");
+
+  const winners: string[] = [];
+  for (const match of last.matches) {
+    const winner = getKnockoutWinner(match);
+    if (!winner) {
+      throw new Error(
+        `Le résultat de la table ${match.table ?? "?"} n'est pas encore tranché (terminez la saisie ou résolvez l'égalité avant de continuer).`
+      );
+    }
+    winners.push(winner);
+  }
+
+  if (winners.length === 1) {
+    throw new Error("Le tournoi est terminé : la finale a déjà été jouée.");
+  }
+
+  const pairings = pairKnockoutWinners(winners);
+  const round = await prisma.round.create({
+    data: { tournamentId, number: last.number + 1 },
+  });
+
+  let table = 1;
+  for (const pairing of pairings) {
+    await prisma.match.create({
+      data: {
+        roundId: round.id,
+        table: pairing.away ? table++ : null,
+        homePlayerId: pairing.home,
+        awayPlayerId: pairing.away,
+        isBye: pairing.away === null,
+        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+      },
+    });
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
