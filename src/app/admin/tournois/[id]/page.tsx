@@ -7,6 +7,7 @@ import {
   unregisterPlayerAction,
   updateTournamentStatusFormAction,
 } from "@/lib/actions/tournaments";
+import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 
 const statusOptions = [
   ["DRAFT", "Brouillon"],
@@ -212,6 +213,23 @@ export default async function ManageTournamentPage({
           </Link>
         )}
       </section>
+
+      {canManage && (
+        <section className="flex flex-col gap-3 rounded-md border border-red-600/30 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-red-600">Zone dangereuse</h2>
+            <p className="text-xs text-black/60 dark:text-white/60 mt-1">
+              Supprime définitivement ce tournoi et toutes ses données
+              (inscriptions, rondes/matchs, équipes, poules, parties). Aucun
+              retour en arrière possible.
+            </p>
+          </div>
+          <DeleteTournamentButton
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+          />
+        </section>
+      )}
     </div>
   );
 }

@@ -74,7 +74,9 @@ Après `npm run db:seed` :
   catégorie, club)
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
-  archivé)
+  archivé), et suppression définitive (avec confirmation) qui efface en
+  cascade tout ce qui en dépend : inscriptions, rondes/matchs, équipes,
+  poules, parties/coups en duplicate
 - Inscriptions gérées par l'organisateur, ou auto-inscription pour un joueur
   connecté quand les inscriptions sont ouvertes
 - Pages publiques : liste des tournois, fiche tournoi (participants,

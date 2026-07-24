@@ -150,6 +150,25 @@ export async function updateTournamentStatusAction(
   revalidatePath(`/tournois/${tournament.slug}`);
 }
 
+// Supprime définitivement un tournoi et tout ce qui en dépend (inscriptions,
+// rondes/matchs, équipes, poules, parties/coups en duplicate) — la cascade
+// est gérée au niveau de la base (voir schema.prisma), pas ici.
+export async function deleteTournamentAction(tournamentId: string) {
+  const session = await requireRole(STAFF_ROLES);
+  const tournament = await prisma.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+  });
+  if (!canManageTournament(session, tournament.organizerId)) {
+    throw new Error("Non autorisé.");
+  }
+
+  await prisma.tournament.delete({ where: { id: tournamentId } });
+
+  revalidatePath("/admin");
+  revalidatePath("/tournois");
+  redirect("/admin");
+}
+
 export async function updateTournamentStatusFormAction(
   tournamentId: string,
   formData: FormData
