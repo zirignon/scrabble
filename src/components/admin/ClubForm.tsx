@@ -32,6 +32,17 @@ export function ClubForm() {
           className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
         />
       </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="federation" className="text-xs font-medium">
+          Fédération
+        </label>
+        <input
+          id="federation"
+          name="federation"
+          placeholder="FFSc, FQSC..."
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+        />
+      </div>
       <button
         type="submit"
         disabled={pending}

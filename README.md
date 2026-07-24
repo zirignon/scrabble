@@ -40,7 +40,8 @@ Après `npm run db:seed` :
 
 ### Socle commun
 - Comptes utilisateurs avec rôles (`ADMIN`, `ORGANIZER`, `REFEREE`, `PLAYER`)
-- Gestion des clubs et des joueurs
+- Gestion des clubs (nom, ville, fédération) et des joueurs (licence,
+  catégorie, club)
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
   archivé)
@@ -67,6 +68,9 @@ Après `npm run db:seed` :
   passe) : le score de la partie est alors recalculé automatiquement
   à partir des coups
 - Classement cumulé (score total, pénalités, net)
+- Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
+  club, fédération, score, top, négatif, pourcentage, cumul au
+  tournoi), exportable en CSV/PDF
 
 ### Tournois par équipes
 

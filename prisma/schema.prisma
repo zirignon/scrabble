@@ -65,10 +65,11 @@ model User {
 }
 
 model Club {
-  id      String   @id @default(cuid())
-  name    String   @unique
-  city    String?
-  players Player[]
+  id          String   @id @default(cuid())
+  name        String   @unique
+  city        String?
+  federation  String?
+  players     Player[]
 }
 
 model Player {

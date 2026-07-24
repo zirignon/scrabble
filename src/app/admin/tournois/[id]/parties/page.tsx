@@ -84,6 +84,12 @@ export default async function GamesPage({
               >
                 Détail coup par coup →
               </Link>
+              <Link
+                href={`/admin/tournois/${tournament.id}/parties/${game.id}/classement`}
+                className="ml-3 text-sm font-normal text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                Fiche de classement →
+              </Link>
             </h2>
 
             <form
