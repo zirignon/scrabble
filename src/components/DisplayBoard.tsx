@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DisplayData } from "@/lib/display";
 import { LiveCountdown } from "@/components/LiveCountdown";
+import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 
 const ROTATE_MS = 12000;
 
@@ -120,35 +121,40 @@ function CurrentView({ data }: { data: DisplayData }) {
             />
           </div>
         )}
-        <table className="w-full text-2xl border-collapse">
-          <thead>
-            <tr className="text-left text-white/50 text-xl border-b border-white/20">
-              <th className="py-2 pr-4">#</th>
-              <th className="py-2 pr-4">Joueur</th>
-              <th className="py-2 pr-4 text-right">Score</th>
-              <th className="py-2 pr-4 text-right">Pénalité</th>
-              <th className="py-2 pr-4 text-right">Net</th>
-            </tr>
-          </thead>
-          <tbody>
-            {current.rows.map((r) => (
-              <tr key={r.rank} className="border-b border-white/10">
-                <td className="py-2 pr-4 font-bold">{r.rank}</td>
-                <td className="py-2 pr-4">{r.name}</td>
-                <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
-                <td className="py-2 pr-4 text-right tabular-nums">{r.penalty}</td>
-                <td className="py-2 pr-4 text-right tabular-nums font-semibold">{r.net}</td>
+        <div className="flex flex-wrap items-start justify-center gap-10">
+          {current.grid && (
+            <ScrabbleGrid grid={current.grid} cellSize={30} dark />
+          )}
+          <table className="text-2xl border-collapse flex-1 min-w-[420px]">
+            <thead>
+              <tr className="text-left text-white/50 text-xl border-b border-white/20">
+                <th className="py-2 pr-4">#</th>
+                <th className="py-2 pr-4">Joueur</th>
+                <th className="py-2 pr-4 text-right">Score</th>
+                <th className="py-2 pr-4 text-right">Pénalité</th>
+                <th className="py-2 pr-4 text-right">Net</th>
               </tr>
-            ))}
-            {current.rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-4 text-white/40 text-xl">
-                  Pas encore de partie jouée.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {current.rows.map((r) => (
+                <tr key={r.rank} className="border-b border-white/10">
+                  <td className="py-2 pr-4 font-bold">{r.rank}</td>
+                  <td className="py-2 pr-4">{r.name}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums">{r.penalty}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums font-semibold">{r.net}</td>
+                </tr>
+              ))}
+              {current.rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-white/40 text-xl">
+                    Pas encore de partie jouée.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }

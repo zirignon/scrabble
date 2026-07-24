@@ -259,10 +259,31 @@ model Game {
   timerRunning          Boolean   @default(false)
   timerStartedAt        DateTime?
 
-  results DuplicateResult[]
-  moves   DuplicateMove[]
+  results        DuplicateResult[]
+  moves          DuplicateMove[]
+  referenceMoves ReferenceMove[]
 
   @@unique([tournamentId, number])
+}
+
+// Grille officielle de la partie (arbitre) : le "coup de référence" joué
+// à chaque tour, contre lequel les propositions de tous les joueurs sont
+// comparées. Distinct de DuplicateMove (le coup par coup propre à chaque
+// joueur) — c'est cette grille unique par partie qui est reconstruite et
+// projetée sur l'affichage grand écran.
+model ReferenceMove {
+  id         String  @id @default(cuid())
+  gameId     String
+  game       Game    @relation(fields: [gameId], references: [id])
+  turnNumber Int
+  row        Int
+  col        Int
+  direction  String
+  word       String?
+  points     Int     @default(0)
+  isPass     Boolean @default(false)
+
+  @@unique([gameId, turnNumber])
 }
 
 model DuplicateResult {

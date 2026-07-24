@@ -78,6 +78,10 @@ Après `npm run db:seed` :
 - Saisie détaillée coup par coup (tirage, mot joué, points, top,
   passe) : le score de la partie est alors recalculé automatiquement
   à partir des coups
+- Grille de référence de l'arbitre (coup officiel joué à chaque tour,
+  contre lequel les propositions des joueurs sont comparées) :
+  reconstruite et affichée (plateau 15×15 avec cases bonus) sur la
+  page de saisie et sur l'affichage grand écran
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
@@ -127,6 +131,7 @@ Après `npm run db:seed` :
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements
+- Projette la grille de référence de la partie en cours (duplicate)
 
 ### Exports
 

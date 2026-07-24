@@ -5,6 +5,7 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
+import { reconstructBoard } from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -70,7 +71,13 @@ export interface DisplayGameTimer {
 
 export type DisplayCurrent =
   | { kind: "matches"; label: string; groups: DisplayRoundGroup[] }
-  | { kind: "duplicate"; label: string; rows: DisplayDuplicateRow[]; timer: DisplayGameTimer | null };
+  | {
+      kind: "duplicate";
+      label: string;
+      rows: DisplayDuplicateRow[];
+      timer: DisplayGameTimer | null;
+      grid: (string | null)[][] | null;
+    };
 
 export interface DisplayData {
   tournamentName: string;
@@ -264,9 +271,11 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
   const lastGame = await prisma.game.findFirst({
     where: { tournamentId: tournament.id },
     orderBy: { number: "desc" },
-    include: { results: { include: { player: true } } },
+    include: { results: { include: { player: true } }, referenceMoves: true },
   });
-  if (!lastGame) return { kind: "duplicate", label: "Aucune partie", rows: [], timer: null };
+  if (!lastGame) {
+    return { kind: "duplicate", label: "Aucune partie", rows: [], timer: null, grid: null };
+  }
 
   const rows = lastGame.results
     .map((r) => ({
@@ -282,6 +291,7 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     kind: "duplicate",
     label: `Partie ${lastGame.number}`,
     rows,
+    grid: lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null,
     timer: {
       durationSeconds: lastGame.timerDurationSeconds,
       remainingSeconds: lastGame.timerRemainingSeconds ?? lastGame.timerDurationSeconds,

@@ -4,9 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
   addMoveAction,
+  addReferenceMoveAction,
   deleteMoveAction,
+  deleteReferenceMoveAction,
   updateMoveAction,
+  updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
+import { reconstructBoard } from "@/lib/duplicate/board";
+import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 
 export default async function GameMovesPage({
   params,
@@ -29,6 +34,7 @@ export default async function GameMovesPage({
     include: {
       moves: { orderBy: { turnNumber: "asc" } },
       results: true,
+      referenceMoves: { orderBy: { turnNumber: "asc" } },
     },
   });
   if (!game || game.tournamentId !== tournament.id) notFound();
@@ -36,6 +42,8 @@ export default async function GameMovesPage({
   const canManage = canManageTournament(session, tournament.organizerId);
   const players = tournament.registrations.map((r) => r.player);
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
+  const board = reconstructBoard(game.referenceMoves);
+  const addReferenceMoveBound = addReferenceMoveAction.bind(null, tournament.id, game.id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -55,6 +63,189 @@ export default async function GameMovesPage({
           </p>
         )}
       </div>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Grille de référence (arbitre)</h2>
+        <p className="text-sm text-black/60 dark:text-white/60">
+          Le coup joué par l&apos;arbitre à chaque tour, contre lequel les
+          propositions des joueurs sont comparées. C&apos;est cette grille qui
+          est projetée sur l&apos;affichage grand écran.
+        </p>
+
+        <div className="overflow-auto">
+          <ScrabbleGrid grid={board} cellSize={26} />
+        </div>
+
+        <table className="w-full text-sm border-collapse max-w-3xl">
+          <thead>
+            <tr className="text-left border-b border-black/10 dark:border-white/10">
+              <th className="py-2 pr-4">Coup</th>
+              <th className="py-2 pr-4">Ligne</th>
+              <th className="py-2 pr-4">Col.</th>
+              <th className="py-2 pr-4">Sens</th>
+              <th className="py-2 pr-4">Mot</th>
+              <th className="py-2 pr-4">Points</th>
+              <th className="py-2 pr-4">Passe</th>
+              {canManage && <th className="py-2 pr-4"></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {game.referenceMoves.map((move) => (
+              <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
+                {canManage ? (
+                  <td colSpan={8} className="py-1.5">
+                    <form
+                      action={updateReferenceMoveAction.bind(
+                        null,
+                        tournament.id,
+                        game.id,
+                        move.id
+                      )}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <span className="w-10 text-black/60 dark:text-white/60">
+                        #{move.turnNumber}
+                      </span>
+                      <input
+                        type="number"
+                        name="row"
+                        min={1}
+                        max={15}
+                        defaultValue={move.row}
+                        className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                      />
+                      <input
+                        type="number"
+                        name="col"
+                        min={1}
+                        max={15}
+                        defaultValue={move.col}
+                        className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                      />
+                      <select
+                        name="direction"
+                        defaultValue={move.direction}
+                        className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+                      >
+                        <option value="ACROSS">Horizontal</option>
+                        <option value="DOWN">Vertical</option>
+                      </select>
+                      <input
+                        type="text"
+                        name="word"
+                        defaultValue={move.word ?? ""}
+                        placeholder="Mot joué"
+                        className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
+                      />
+                      <input
+                        type="number"
+                        name="points"
+                        defaultValue={move.points}
+                        className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                      />
+                      <label className="flex items-center gap-1 text-xs">
+                        <input type="checkbox" name="isPass" defaultChecked={move.isPass} />
+                        Passe
+                      </label>
+                      <button
+                        type="submit"
+                        className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
+                      >
+                        OK
+                      </button>
+                      <button
+                        type="submit"
+                        formAction={deleteReferenceMoveAction.bind(
+                          null,
+                          tournament.id,
+                          game.id,
+                          move.id
+                        )}
+                        className="rounded border border-red-600 text-red-600 px-2 py-1 text-xs"
+                      >
+                        Supprimer
+                      </button>
+                    </form>
+                  </td>
+                ) : (
+                  <>
+                    <td className="py-1.5 pr-4">{move.turnNumber}</td>
+                    <td className="py-1.5 pr-4">{move.row}</td>
+                    <td className="py-1.5 pr-4">{move.col}</td>
+                    <td className="py-1.5 pr-4">
+                      {move.direction === "ACROSS" ? "Horizontal" : "Vertical"}
+                    </td>
+                    <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word ?? "—"}</td>
+                    <td className="py-1.5 pr-4">{move.points}</td>
+                    <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
+                  </>
+                )}
+              </tr>
+            ))}
+            {game.referenceMoves.length === 0 && (
+              <tr>
+                <td colSpan={8} className="py-2 text-black/50 dark:text-white/50">
+                  Aucun coup de référence saisi.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {canManage && (
+          <form action={addReferenceMoveBound} className="flex flex-wrap items-center gap-2">
+            <span className="w-10 text-black/60 dark:text-white/60 text-sm">
+              #{game.referenceMoves.length + 1}
+            </span>
+            <input
+              type="number"
+              name="row"
+              min={1}
+              max={15}
+              placeholder="Ligne"
+              className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+            />
+            <input
+              type="number"
+              name="col"
+              min={1}
+              max={15}
+              placeholder="Col."
+              className="w-14 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+            />
+            <select
+              name="direction"
+              defaultValue="ACROSS"
+              className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-sm"
+            >
+              <option value="ACROSS">Horizontal</option>
+              <option value="DOWN">Vertical</option>
+            </select>
+            <input
+              type="text"
+              name="word"
+              placeholder="Mot joué"
+              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+            />
+            <input
+              type="number"
+              name="points"
+              placeholder="Points"
+              className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+            />
+            <label className="flex items-center gap-1 text-xs">
+              <input type="checkbox" name="isPass" />
+              Passe
+            </label>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            >
+              + Coup de référence
+            </button>
+          </form>
+        )}
+      </section>
 
       {players.map((player) => {
         const moves = game.moves.filter((m) => m.playerId === player.id);
