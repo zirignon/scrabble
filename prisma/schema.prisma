@@ -88,6 +88,7 @@ model Player {
   homeMatches      Match[]           @relation("HomePlayer")
   awayMatches      Match[]           @relation("AwayPlayer")
   duplicateResults DuplicateResult[]
+  duplicateMoves   DuplicateMove[]
 }
 
 model Tournament {
@@ -162,6 +163,7 @@ model Game {
   top          Int?
 
   results DuplicateResult[]
+  moves   DuplicateMove[]
 
   @@unique([tournamentId, number])
 }
@@ -176,4 +178,24 @@ model DuplicateResult {
   penalty  Int    @default(0)
 
   @@unique([gameId, playerId])
+}
+
+// Saisie coup par coup (détail arbitrage) : chaque coup joué par un joueur
+// dans une partie duplicate. Le score total d'un joueur pour la partie
+// (DuplicateResult.score) est recalculé comme la somme de ses coups dès
+// qu'au moins un coup est saisi.
+model DuplicateMove {
+  id         String  @id @default(cuid())
+  gameId     String
+  game       Game    @relation(fields: [gameId], references: [id])
+  playerId   String
+  player     Player  @relation(fields: [playerId], references: [id])
+  turnNumber Int
+  rack       String?
+  word       String?
+  points     Int     @default(0)
+  top        Int?
+  isPass     Boolean @default(false)
+
+  @@unique([gameId, playerId, turnNumber])
 }

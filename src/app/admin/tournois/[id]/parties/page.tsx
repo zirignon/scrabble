@@ -70,6 +70,12 @@ export default async function GamesPage({
                   {new Date(game.playedAt).toLocaleDateString("fr-FR")}
                 </span>
               )}
+              <Link
+                href={`/admin/tournois/${tournament.id}/parties/${game.id}`}
+                className="ml-3 text-sm font-normal text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                Détail coup par coup →
+              </Link>
             </h2>
 
             <form
