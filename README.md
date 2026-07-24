@@ -48,7 +48,8 @@ Après `npm run db:seed` :
 - Inscriptions gérées par l'organisateur, ou auto-inscription pour un joueur
   connecté quand les inscriptions sont ouvertes
 - Pages publiques : liste des tournois, fiche tournoi (participants,
-  planning, résultats, classement)
+  planning, résultats), et page de classement séparée
+  (`/tournois/[slug]/classement`)
 
 ### Scrabble classique
 - Génération automatique des rondes en round-robin (méthode du cercle,
