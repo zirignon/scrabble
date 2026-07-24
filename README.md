@@ -64,7 +64,12 @@ Après `npm run db:seed` :
 ## Fonctionnalités couvertes (MVP)
 
 ### Socle commun
-- Comptes utilisateurs avec rôles (`ADMIN`, `ORGANIZER`, `REFEREE`, `PLAYER`)
+- Comptes utilisateurs avec rôles (`ADMIN`, `ORGANIZER`, `REFEREE`, `PLAYER`).
+  L'inscription publique (`/register`) ne crée que des comptes joueurs ; les
+  comptes organisateur/arbitre/admin sont créés par un administrateur depuis
+  la page `/admin/utilisateurs` (nom, email, mot de passe, rôle), qui permet
+  aussi de changer le rôle ou réinitialiser le mot de passe d'un compte
+  existant
 - Gestion des clubs (nom, ville, fédération) et des joueurs (licence,
   catégorie, club)
 - Création de tournois (classique ou duplicate), statut de cycle de vie
