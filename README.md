@@ -36,6 +36,31 @@ Après `npm run db:seed` :
 - Deux tournois de démo sont créés : un tournoi **classique** en round-robin
   et un tournoi **duplicate** avec plusieurs parties.
 
+## Déploiement (Vercel + PostgreSQL managé)
+
+1. **Base de données** : créez une base PostgreSQL managée (Neon, Supabase,
+   ou équivalent) et récupérez sa chaîne de connexion (avec `?sslmode=require`
+   si le fournisseur l'exige).
+2. **Projet Vercel** : importez le dépôt GitHub dans Vercel. Le script
+   `vercel-build` (`prisma migrate deploy && next build`) est détecté
+   automatiquement et applique les migrations à chaque déploiement ;
+   `postinstall` (`prisma generate`) régénère le client Prisma après
+   `npm install`.
+3. **Variables d'environnement** (Project Settings → Environment Variables) :
+   - `DATABASE_URL` : la chaîne de connexion de l'étape 1.
+   - `SESSION_SECRET` : une valeur aléatoire longue (ex. `openssl rand -base64 32`).
+4. **Compte administrateur** : n'utilisez **pas** `npm run db:seed` en
+   production (il crée le compte de démo `admin@scrabble.local` /
+   `admin1234`, dont les identifiants sont publics dans ce README). Créez
+   plutôt un compte admin dédié, en local avec `DATABASE_URL` pointé sur la
+   base de production, ou via le terminal Vercel :
+
+   ```bash
+   npm run db:create-admin -- admin@votre-club.fr "un-mot-de-passe-solide" "Nom Prénom"
+   ```
+
+5. Déployez — l'URL fournie par Vercel est votre site public.
+
 ## Fonctionnalités couvertes (MVP)
 
 ### Socle commun
