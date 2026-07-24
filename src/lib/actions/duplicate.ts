@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
-import { parseReference } from "@/lib/duplicate/board";
+import { BOARD_SIZE, computeMoveScore, parseReference } from "@/lib/duplicate/board";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -283,7 +283,6 @@ const referenceMoveSchema = z.object({
   reference: z.string().min(2),
   direction: z.enum(["ACROSS", "DOWN"]),
   word: z.string().optional(),
-  points: z.string().optional(),
   isPass: z.string().optional(),
 });
 
@@ -292,7 +291,6 @@ function parseReferenceMove(formData: FormData) {
     reference: formData.get("reference"),
     direction: formData.get("direction"),
     word: formData.get("word") || undefined,
-    points: formData.get("points") || undefined,
     isPass: formData.get("isPass") || undefined,
   });
   if (!parsed.success) return null;
@@ -305,9 +303,47 @@ function parseReferenceMove(formData: FormData) {
     col: position.col,
     direction: parsed.data.direction,
     word: parsed.data.word?.toUpperCase() || null,
-    points: parsed.data.points ? Number(parsed.data.points) : 0,
     isPass: parsed.data.isPass === "on",
   };
+}
+
+// Recalcule et enregistre le score de chaque coup de référence de la
+// partie, dans l'ordre des tours : les bonus de lettre/mot ne s'appliquent
+// qu'aux cases nouvellement posées à chaque coup, donc tout changement
+// (ajout, modification, suppression) doit être répercuté sur les coups
+// suivants qui en dépendent.
+async function recomputeReferenceMoveScores(gameId: string) {
+  const moves = await prisma.referenceMove.findMany({
+    where: { gameId },
+    orderBy: { turnNumber: "asc" },
+  });
+
+  const board: (string | null)[][] = Array.from({ length: BOARD_SIZE }, () =>
+    Array(BOARD_SIZE).fill(null)
+  );
+
+  for (const move of moves) {
+    if (move.isPass || !move.word) continue;
+
+    const boardBefore = board.map((row) => [...row]);
+    const score = computeMoveScore(
+      boardBefore,
+      move.word,
+      move.row,
+      move.col,
+      move.direction as "ACROSS" | "DOWN"
+    );
+    if (score !== move.points) {
+      await prisma.referenceMove.update({ where: { id: move.id }, data: { points: score } });
+    }
+
+    for (let i = 0; i < move.word.length; i++) {
+      const r = move.direction === "DOWN" ? move.row - 1 + i : move.row - 1;
+      const c = move.direction === "ACROSS" ? move.col - 1 + i : move.col - 1;
+      if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
+      board[r][c] = move.word[i].toUpperCase();
+    }
+  }
 }
 
 export async function addReferenceMoveAction(
@@ -325,8 +361,9 @@ export async function addReferenceMoveAction(
   });
 
   await prisma.referenceMove.create({
-    data: { gameId, turnNumber: (last?.turnNumber ?? 0) + 1, ...data },
+    data: { gameId, turnNumber: (last?.turnNumber ?? 0) + 1, points: 0, ...data },
   });
+  await recomputeReferenceMoveScores(gameId);
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   notifyTournamentUpdate(tournamentId);
@@ -342,7 +379,8 @@ export async function updateReferenceMoveAction(
   const data = parseReferenceMove(formData);
   if (!data) return;
 
-  await prisma.referenceMove.update({ where: { id: moveId }, data });
+  const move = await prisma.referenceMove.update({ where: { id: moveId }, data });
+  await recomputeReferenceMoveScores(move.gameId);
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   notifyTournamentUpdate(tournamentId);
@@ -355,6 +393,7 @@ export async function deleteReferenceMoveAction(
 ) {
   await assertCanManage(tournamentId);
   await prisma.referenceMove.delete({ where: { id: moveId } });
+  await recomputeReferenceMoveScores(gameId);
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   notifyTournamentUpdate(tournamentId);

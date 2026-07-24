@@ -127,12 +127,9 @@ export default async function GameMovesPage({
                         placeholder="Mot joué"
                         className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
                       />
-                      <input
-                        type="number"
-                        name="points"
-                        defaultValue={move.points}
-                        className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                      />
+                      <span className="w-16 text-sm text-black/60 dark:text-white/60">
+                        {move.points} pts
+                      </span>
                       <label className="flex items-center gap-1 text-xs">
                         <input type="checkbox" name="isPass" defaultChecked={move.isPass} />
                         Passe
@@ -206,12 +203,6 @@ export default async function GameMovesPage({
               placeholder="Mot joué"
               className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
             />
-            <input
-              type="number"
-              name="points"
-              placeholder="Points"
-              className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-            />
             <label className="flex items-center gap-1 text-xs">
               <input type="checkbox" name="isPass" />
               Passe
@@ -224,6 +215,10 @@ export default async function GameMovesPage({
             </button>
           </form>
         )}
+        <p className="text-xs text-black/50 dark:text-white/50">
+          Le score est calculé automatiquement (valeur des lettres, cases
+          bonus, mots croisés, +50 points si les 7 lettres sont posées).
+        </p>
       </section>
 
       {players.map((player) => {

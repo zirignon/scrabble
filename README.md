@@ -82,7 +82,11 @@ Après `npm run db:seed` :
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
   alphanumériques, ex. H8) sur la page de saisie et sur l'affichage
-  grand écran
+  grand écran. Le score de chaque coup de référence est calculé
+  automatiquement (valeur des lettres, bonus de lettre/mot appliqués
+  uniquement aux cases nouvellement posées, mots secondaires formés
+  par les croisements, +50 points si les 7 lettres sont posées) — pas
+  de saisie manuelle des points
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
