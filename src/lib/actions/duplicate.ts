@@ -5,7 +5,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
-import { BOARD_SIZE, computeMoveScore, parseReference } from "@/lib/duplicate/board";
+import {
+  BOARD_SIZE,
+  computeMoveScore,
+  getBingoRules,
+  getFormulaTimerSeconds,
+  parseReference,
+} from "@/lib/duplicate/board";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -108,7 +114,11 @@ export async function addGameAction(tournamentId: string) {
     orderBy: { number: "desc" },
   });
   await prisma.game.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1 },
+    data: {
+      tournamentId,
+      number: (last?.number ?? 0) + 1,
+      timerDurationSeconds: getFormulaTimerSeconds(tournament.duplicateFormula),
+    },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
@@ -300,7 +310,10 @@ function parseReferenceMove(formData: FormData) {
     row: position.row,
     col: position.col,
     direction: position.direction,
-    word: parsed.data.word?.toUpperCase() || null,
+    // La casse est préservée (une minuscule signale une lettre blanche /
+    // joker, voir computeMoveScore) — contrairement au coup par coup de
+    // chaque joueur, dont le score n'est pas recalculé automatiquement.
+    word: parsed.data.word || null,
     isPass: parsed.data.isPass === "on",
   };
 }
@@ -311,6 +324,12 @@ function parseReferenceMove(formData: FormData) {
 // (ajout, modification, suppression) doit être répercuté sur les coups
 // suivants qui en dépendent.
 async function recomputeReferenceMoveScores(gameId: string) {
+  const game = await prisma.game.findUniqueOrThrow({
+    where: { id: gameId },
+    include: { tournament: true },
+  });
+  const bingoRules = getBingoRules(game.tournament.duplicateFormula);
+
   const moves = await prisma.referenceMove.findMany({
     where: { gameId },
     orderBy: { turnNumber: "asc" },
@@ -329,7 +348,8 @@ async function recomputeReferenceMoveScores(gameId: string) {
       move.word,
       move.row,
       move.col,
-      move.direction as "ACROSS" | "DOWN"
+      move.direction as "ACROSS" | "DOWN",
+      bingoRules
     );
     if (score !== move.points) {
       await prisma.referenceMove.update({ where: { id: move.id }, data: { points: score } });

@@ -80,6 +80,31 @@ export function TournamentForm() {
         </div>
       )}
 
+      {type === "DUPLICATE" && (
+        <div className="flex flex-col gap-1">
+          <label htmlFor="duplicateFormula" className="text-sm font-medium">
+            Formule
+          </label>
+          <select
+            id="duplicateFormula"
+            name="duplicateFormula"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent"
+            defaultValue="NORMALE"
+          >
+            <option value="NORMALE">Normale (3 min par coup)</option>
+            <option value="SEMI_RAPIDE">Semi-rapide (2 min par coup)</option>
+            <option value="BLITZ">Blitz (1 min par coup)</option>
+            <option value="JOKER">Joker (6 lettres + 1 joker)</option>
+            <option value="SEPT_SUR_HUIT">7 sur 8 (tirage de 8, 7 jouables)</option>
+            <option value="SEPT_ET_HUIT">7 et 8 (prime de 75 pts à 8 lettres)</option>
+          </select>
+          <p className="text-xs text-black/60 dark:text-white/60">
+            Détermine la durée par défaut du chronomètre des parties et,
+            pour 7 et 8, la prime de Scrabble à 8 lettres posées.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1">
         <label className="flex items-center gap-2 text-sm">
           <input

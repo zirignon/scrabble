@@ -110,8 +110,30 @@ export const FRENCH_LETTER_VALUES: Record<string, number> = {
   W: 10, X: 10, Y: 10, Z: 10,
 };
 
-const BINGO_BONUS = 50;
-const BINGO_TILE_COUNT = 7;
+export interface BingoRule {
+  tileCount: number;
+  bonus: number;
+}
+
+const DEFAULT_BINGO_RULES: BingoRule[] = [{ tileCount: 7, bonus: 50 }];
+
+// Prime de Scrabble selon la formule du tournoi duplicate : les formules
+// standards (normale, semi-rapide, blitz, joker, 7 sur 8) ne primetent que
+// les tirages de 7 lettres posées (+50) ; la formule 7 et 8 ajoute une
+// prime de 75 points pour 8 lettres posées.
+export function getBingoRules(formula: string | null | undefined): BingoRule[] {
+  if (formula === "SEPT_ET_HUIT") {
+    return [{ tileCount: 7, bonus: 50 }, { tileCount: 8, bonus: 75 }];
+  }
+  return DEFAULT_BINGO_RULES;
+}
+
+// Durée par défaut du chronomètre de partie selon la formule (secondes).
+export function getFormulaTimerSeconds(formula: string | null | undefined): number {
+  if (formula === "SEMI_RAPIDE") return 120;
+  if (formula === "BLITZ") return 60;
+  return 180;
+}
 
 // Repère, à partir d'une case occupée de la grille, l'ensemble contigu de
 // cases formant un mot dans la direction donnée (perpendiculaire au sens
@@ -151,26 +173,35 @@ function scanWordThroughCell(
 // sens donné) d'après l'état de la grille avant ce coup : valeur des
 // lettres, bonus de lettre/mot (qui ne s'appliquent qu'aux cases
 // nouvellement posées — une case déjà occupée garde sa valeur simple),
-// mots secondaires formés par les croisements, et bonus de 50 points si
-// les 7 lettres du coup sont nouvelles.
+// mots secondaires formés par les croisements, et prime de Scrabble selon
+// les règles fournies (par défaut +50 pour 7 lettres nouvelles).
+//
+// Une lettre saisie en minuscule est une lettre blanche (joker) : elle
+// vaut 0 point quelle que soit sa position, mais reste affichée en
+// majuscule sur la grille et compte normalement pour les bonus de case.
 export function computeMoveScore(
   boardBeforeMove: (string | null)[][],
   word: string,
   row: number,
   col: number,
-  direction: "ACROSS" | "DOWN"
+  direction: "ACROSS" | "DOWN",
+  bingoRules: BingoRule[] = DEFAULT_BINGO_RULES
 ): number {
   const bonus = getBonusGrid();
   const boardAfter = boardBeforeMove.map((r) => [...r]);
   const newCells = new Set<string>();
+  const blankCells = new Set<string>();
 
   for (let i = 0; i < word.length; i++) {
     const r = direction === "DOWN" ? row - 1 + i : row - 1;
     const c = direction === "ACROSS" ? col - 1 + i : col - 1;
     if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
     if (!boardBeforeMove[r][c]) {
-      boardAfter[r][c] = word[i].toUpperCase();
-      newCells.add(`${r}-${c}`);
+      const raw = word[i];
+      boardAfter[r][c] = raw.toUpperCase();
+      const key = `${r}-${c}`;
+      newCells.add(key);
+      if (raw === raw.toLowerCase() && raw !== raw.toUpperCase()) blankCells.add(key);
     }
   }
 
@@ -181,7 +212,7 @@ export function computeMoveScore(
       const key = `${r}-${c}`;
       const letter = boardAfter[r][c]!;
       const isNew = newCells.has(key);
-      const value = FRENCH_LETTER_VALUES[letter] ?? 0;
+      const value = blankCells.has(key) ? 0 : (FRENCH_LETTER_VALUES[letter] ?? 0);
       if (isNew) {
         const b = bonus[r][c];
         if (b === "DL") letterScore += value * 2;
@@ -208,6 +239,7 @@ export function computeMoveScore(
   }
 
   let total = wordsToScore.reduce((sum, cells) => sum + scoreWordCells(cells), 0);
-  if (newCells.size === BINGO_TILE_COUNT) total += BINGO_BONUS;
+  const rule = bingoRules.find((r) => r.tileCount === newCells.size);
+  if (rule) total += rule.bonus;
   return total;
 }

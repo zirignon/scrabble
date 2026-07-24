@@ -73,6 +73,13 @@ Après `npm run db:seed` :
   cumulé progressif, puis différence de score
 
 ### Scrabble duplicate
+- Formule du tournoi (FISF/FFSc), modifiable à tout moment depuis la
+  page des parties : Normale (3 min/coup), Semi-rapide (2 min), Blitz
+  (1 min), Joker, 7 sur 8, 7 et 8 — détermine la durée par défaut du
+  chronomètre des nouvelles parties et, pour 7 et 8, la prime de
+  Scrabble à 8 lettres posées (75 pts, contre 50 pour 7 lettres dans
+  les autres formules). Le duplicate par paires s'obtient en cochant
+  « Tournoi par équipes » avec des équipes de 2 joueurs
 - Création de parties
 - Saisie des scores par joueur et par partie (mode simple), avec pénalités
 - Saisie détaillée coup par coup (tirage, mot joué, points, top,
@@ -85,11 +92,13 @@ Après `npm run db:seed` :
   écran. Un seul champ de référence par coup, dont le sens (horizontal
   ou vertical) est déduit de la notation elle-même — lettre puis
   chiffre pour horizontal (ex. H4), chiffre puis lettre pour vertical
-  (ex. 4H), comme en notation duplicate standard. Le score de chaque
-  coup de référence est calculé automatiquement (valeur des lettres,
-  bonus de lettre/mot appliqués uniquement aux cases nouvellement
-  posées, mots secondaires formés par les croisements, +50 points si
-  les 7 lettres sont posées) — pas de saisie manuelle des points
+  (ex. 4H), comme en notation duplicate standard. Une lettre saisie en
+  minuscule est une lettre blanche (joker) : elle vaut 0 point. Le
+  score de chaque coup de référence est calculé automatiquement
+  (valeur des lettres, bonus de lettre/mot appliqués uniquement aux
+  cases nouvellement posées, mots secondaires formés par les
+  croisements, prime de Scrabble selon la formule du tournoi) — pas de
+  saisie manuelle des points
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au

@@ -116,7 +116,7 @@ export default async function GameMovesPage({
                         name="word"
                         defaultValue={move.word ?? ""}
                         placeholder="Mot joué"
-                        className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
+                        className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
                       />
                       <span className="w-16 text-sm text-black/60 dark:text-white/60">
                         {move.points} pts
@@ -183,7 +183,7 @@ export default async function GameMovesPage({
               type="text"
               name="word"
               placeholder="Mot joué"
-              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
             />
             <label className="flex items-center gap-1 text-xs">
               <input type="checkbox" name="isPass" />
@@ -199,9 +199,11 @@ export default async function GameMovesPage({
         )}
         <p className="text-xs text-black/50 dark:text-white/50">
           Référence : lettre puis chiffre pour un mot horizontal (ex. H4),
-          chiffre puis lettre pour un mot vertical (ex. 4H). Le score est
-          calculé automatiquement (valeur des lettres, cases bonus, mots
-          croisés, +50 points si les 7 lettres sont posées).
+          chiffre puis lettre pour un mot vertical (ex. 4H). Une lettre en
+          minuscule est une lettre blanche (joker) : elle vaut 0 point. Le
+          score est calculé automatiquement (valeur des lettres, cases
+          bonus, mots croisés, prime de Scrabble selon la formule du
+          tournoi).
         </p>
       </section>
 
