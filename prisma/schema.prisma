@@ -52,6 +52,20 @@ enum DuplicateFormula {
   SEPT_ET_HUIT
 }
 
+// Pénalité d'arbitrage appliquée à un coup joué (saisie coup par coup) :
+// - AVERTISSEMENT : aucun effet chiffré direct sur le coup, mais chaque
+//   groupe complet d'avertissements dans la même partie (4 en temps normal,
+//   6 en Blitz) coûte 5 points au joueur sur cette partie.
+// - PENALITE : retire 5 points au score de la partie, en plus des points
+//   du coup lui-même.
+// - ZERO : le coup concerné rapporte 0 point, quels que soient les points
+//   saisis.
+enum DuplicateMovePenalty {
+  AVERTISSEMENT
+  PENALITE
+  ZERO
+}
+
 enum MatchStatus {
   SCHEDULED
   PLAYED
@@ -330,6 +344,7 @@ model DuplicateMove {
   points          Int      @default(0)
   top             Int?
   isPass          Boolean  @default(false)
+  penaltyType     DuplicateMovePenalty?
 
   @@unique([gameId, playerId, turnNumber])
 }

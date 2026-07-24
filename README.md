@@ -85,6 +85,13 @@ Après `npm run db:seed` :
 - Saisie détaillée coup par coup (tirage, mot joué, points, top,
   passe) : le score de la partie est alors recalculé automatiquement
   à partir des coups
+- Pénalités d'arbitrage sur un coup, en saisie coup par coup :
+  avertissement (aucun effet chiffré direct, mais chaque groupe complet
+  d'avertissements sur la partie — 6 en Blitz, 4 dans les autres
+  formules — coûte 5 points), pénalité (-5 points immédiats) ou zéro
+  (les points du coup sont ramenés à 0). La pénalité totale de la
+  partie (colonne « Pénalité » de la fiche joueur) est recalculée
+  automatiquement à partir de ces marques, comme le score
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères

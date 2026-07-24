@@ -8,10 +8,13 @@ import { notifyTournamentUpdate } from "@/lib/displayEvents";
 import {
   BOARD_SIZE,
   computeMoveScore,
+  getAvertissementThreshold,
   getBingoRules,
   getFormulaTimerSeconds,
   parseReference,
 } from "@/lib/duplicate/board";
+
+const movePenaltyValues = ["AVERTISSEMENT", "PENALITE", "ZERO"] as const;
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -165,21 +168,32 @@ export async function saveGameScoresAction(
   revalidatePath(`/tournois`);
 }
 
+// Recalcule le score et la pénalité d'un joueur pour une partie à partir de
+// ses coups : la pénalité n'est plus saisie à la main dès qu'un coup est
+// détaillé — elle découle des pénalités d'arbitrage posées sur les coups
+// (une PENALITE coûte 5 points, et chaque groupe complet d'AVERTISSEMENT
+// coûte 5 points, le seuil du groupe dépendant de la formule du tournoi).
 async function recomputeGameScore(gameId: string, playerId: string) {
+  const game = await prisma.game.findUniqueOrThrow({
+    where: { id: gameId },
+    include: { tournament: true },
+  });
   const moves = await prisma.duplicateMove.findMany({
     where: { gameId, playerId },
-    select: { points: true },
+    select: { points: true, penaltyType: true },
   });
   const score = moves.reduce((sum, m) => sum + m.points, 0);
 
-  const existing = await prisma.duplicateResult.findUnique({
-    where: { gameId_playerId: { gameId, playerId } },
-  });
+  const avertissementThreshold = getAvertissementThreshold(game.tournament.duplicateFormula);
+  const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
+  const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
+  const penalty =
+    penaliteCount * 5 + Math.floor(avertissementCount / avertissementThreshold) * 5;
 
   await prisma.duplicateResult.upsert({
     where: { gameId_playerId: { gameId, playerId } },
-    update: { score },
-    create: { gameId, playerId, score, penalty: existing?.penalty ?? 0 },
+    update: { score, penalty },
+    create: { gameId, playerId, score, penalty },
   });
 }
 
@@ -189,7 +203,15 @@ const moveSchema = z.object({
   points: z.string().optional(),
   top: z.string().optional(),
   isPass: z.string().optional(),
+  penaltyType: z.string().optional(),
 });
+
+function parseMovePenaltyType(formData: FormData) {
+  const raw = formData.get("penaltyType");
+  return typeof raw === "string" && movePenaltyValues.includes(raw as never)
+    ? (raw as (typeof movePenaltyValues)[number])
+    : null;
+}
 
 export async function addMoveAction(
   tournamentId: string,
@@ -214,6 +236,8 @@ export async function addMoveAction(
 
   const isPass = parsed.data.isPass === "on";
   const word = parsed.data.word?.toUpperCase() || null;
+  const penaltyType = parseMovePenaltyType(formData);
+  const points = penaltyType === "ZERO" ? 0 : parsed.data.points ? Number(parsed.data.points) : 0;
 
   await prisma.duplicateMove.create({
     data: {
@@ -222,9 +246,10 @@ export async function addMoveAction(
       turnNumber: (last?.turnNumber ?? 0) + 1,
       rack: parsed.data.rack?.toUpperCase() || null,
       word,
-      points: parsed.data.points ? Number(parsed.data.points) : 0,
+      points,
       top: parsed.data.top ? Number(parsed.data.top) : null,
       isPass,
+      penaltyType,
     },
   });
 
@@ -254,15 +279,18 @@ export async function updateMoveAction(
 
   const isPass = parsed.data.isPass === "on";
   const word = parsed.data.word?.toUpperCase() || null;
+  const penaltyType = parseMovePenaltyType(formData);
+  const points = penaltyType === "ZERO" ? 0 : parsed.data.points ? Number(parsed.data.points) : 0;
 
   const move = await prisma.duplicateMove.update({
     where: { id: moveId },
     data: {
       rack: parsed.data.rack?.toUpperCase() || null,
       word,
-      points: parsed.data.points ? Number(parsed.data.points) : 0,
+      points,
       top: parsed.data.top ? Number(parsed.data.top) : null,
       isPass,
+      penaltyType,
     },
   });
 

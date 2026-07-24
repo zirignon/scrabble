@@ -10,8 +10,20 @@ import {
   updateMoveAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
-import { reconstructBoard, formatReference } from "@/lib/duplicate/board";
+import { reconstructBoard, formatReference, getAvertissementThreshold } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
+
+const penaltyLabel: Record<string, string> = {
+  AVERTISSEMENT: "Avertissement (A)",
+  PENALITE: "Pénalité -5 (P)",
+  ZERO: "Zéro (Z)",
+};
+
+const penaltyShort: Record<string, string> = {
+  AVERTISSEMENT: "A",
+  PENALITE: "P",
+  ZERO: "Z",
+};
 
 export default async function GameMovesPage({
   params,
@@ -207,11 +219,24 @@ export default async function GameMovesPage({
         </p>
       </section>
 
+      <p className="text-xs text-black/50 dark:text-white/50 max-w-3xl">
+        Pénalité d&apos;arbitrage sur un coup : l&apos;avertissement (A) n&apos;a
+        pas d&apos;effet chiffré direct, mais chaque groupe complet
+        d&apos;avertissements sur la partie ({getAvertissementThreshold(tournament.duplicateFormula)}{" "}
+        pour cette formule) coûte 5 points ; la pénalité (P) retire 5 points
+        immédiatement ; le zéro (Z) ramène les points du coup à 0. La
+        pénalité totale de la partie (colonne Pénalité de la fiche joueur)
+        est recalculée automatiquement à partir de ces marques.
+      </p>
+
       {players.map((player) => {
         const moves = game.moves.filter((m) => m.playerId === player.id);
         const result = resultByPlayer.get(player.id);
         const total = moves.reduce((sum, m) => sum + m.points, 0);
         const addMoveBound = addMoveAction.bind(null, tournament.id, game.id, player.id);
+        const avertissementThreshold = getAvertissementThreshold(tournament.duplicateFormula);
+        const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
+        const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
 
         return (
           <section key={player.id} className="flex flex-col gap-3">
@@ -220,6 +245,10 @@ export default async function GameMovesPage({
               <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
                 Total : {total}
                 {result && result.penalty > 0 ? ` · Pénalité : -${result.penalty}` : ""}
+                {avertissementCount > 0
+                  ? ` · Avertissements : ${avertissementCount} (seuil ${avertissementThreshold})`
+                  : ""}
+                {penaliteCount > 0 ? ` · Pénalités posées : ${penaliteCount}` : ""}
               </span>
             </h2>
 
@@ -232,6 +261,7 @@ export default async function GameMovesPage({
                   <th className="py-2 pr-4">Points</th>
                   <th className="py-2 pr-4">Top</th>
                   <th className="py-2 pr-4">Passe</th>
+                  <th className="py-2 pr-4">Pénalité</th>
                   {canManage && <th className="py-2 pr-4"></th>}
                 </tr>
               </thead>
@@ -239,7 +269,7 @@ export default async function GameMovesPage({
                 {moves.map((move) => (
                   <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
                     {canManage ? (
-                      <td colSpan={7} className="py-1.5">
+                      <td colSpan={8} className="py-1.5">
                         <form
                           action={updateMoveAction.bind(
                             null,
@@ -287,6 +317,18 @@ export default async function GameMovesPage({
                             />
                             Passe
                           </label>
+                          <select
+                            name="penaltyType"
+                            defaultValue={move.penaltyType ?? ""}
+                            className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-xs"
+                          >
+                            <option value="">Aucune pénalité</option>
+                            {Object.entries(penaltyLabel).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
                           <button
                             type="submit"
                             className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
@@ -317,13 +359,16 @@ export default async function GameMovesPage({
                         <td className="py-1.5 pr-4">{move.points}</td>
                         <td className="py-1.5 pr-4">{move.top ?? "—"}</td>
                         <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
+                        <td className="py-1.5 pr-4">
+                          {move.penaltyType ? penaltyShort[move.penaltyType] : "—"}
+                        </td>
                       </>
                     )}
                   </tr>
                 ))}
                 {moves.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-2 text-black/50 dark:text-white/50">
+                    <td colSpan={8} className="py-2 text-black/50 dark:text-white/50">
                       Aucun coup saisi.
                     </td>
                   </tr>
@@ -364,6 +409,18 @@ export default async function GameMovesPage({
                   <input type="checkbox" name="isPass" />
                   Passe
                 </label>
+                <select
+                  name="penaltyType"
+                  defaultValue=""
+                  className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-xs"
+                >
+                  <option value="">Aucune pénalité</option>
+                  {Object.entries(penaltyLabel).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="submit"
                   className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"

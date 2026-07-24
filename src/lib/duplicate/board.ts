@@ -145,6 +145,12 @@ export function getFormulaTimerSeconds(formula: string | null | undefined): numb
   return 180;
 }
 
+// Nombre d'avertissements (sur une même partie) qui déclenchent une
+// pénalité de 5 points : 6 en Blitz, 4 dans les autres formules.
+export function getAvertissementThreshold(formula: string | null | undefined): number {
+  return formula === "BLITZ" ? 6 : 4;
+}
+
 // Repère, à partir d'une case occupée de la grille, l'ensemble contigu de
 // cases formant un mot dans la direction donnée (perpendiculaire au sens
 // de jeu, pour retrouver les mots secondaires formés par un croisement).
