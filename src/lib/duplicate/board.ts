@@ -145,10 +145,11 @@ export function getFormulaTimerSeconds(formula: string | null | undefined): numb
   return 180;
 }
 
-// Nombre d'avertissements (sur une même partie) qui déclenchent une
-// pénalité de 5 points : 6 en Blitz, 4 dans les autres formules.
-export function getAvertissementThreshold(formula: string | null | undefined): number {
-  return formula === "BLITZ" ? 6 : 4;
+// Nombre d'avertissements gratuits (sur une même partie) avant que chaque
+// avertissement supplémentaire ne coûte 5 points : 5 en Blitz, 3 dans les
+// autres formules.
+export function getFreeAvertissementCount(formula: string | null | undefined): number {
+  return formula === "BLITZ" ? 5 : 3;
 }
 
 // Repère, à partir d'une case occupée de la grille, l'ensemble contigu de

@@ -8,7 +8,7 @@ import { notifyTournamentUpdate } from "@/lib/displayEvents";
 import {
   BOARD_SIZE,
   computeMoveScore,
-  getAvertissementThreshold,
+  getFreeAvertissementCount,
   getBingoRules,
   getFormulaTimerSeconds,
   parseReference,
@@ -171,8 +171,9 @@ export async function saveGameScoresAction(
 // Recalcule le score et la pénalité d'un joueur pour une partie à partir de
 // ses coups : la pénalité n'est plus saisie à la main dès qu'un coup est
 // détaillé — elle découle des pénalités d'arbitrage posées sur les coups
-// (une PENALITE coûte 5 points, et chaque groupe complet d'AVERTISSEMENT
-// coûte 5 points, le seuil du groupe dépendant de la formule du tournoi).
+// (une PENALITE coûte 5 points ; les AVERTISSEMENT sont gratuits jusqu'à un
+// certain nombre selon la formule du tournoi, puis chaque avertissement
+// supplémentaire coûte 5 points).
 async function recomputeGameScore(gameId: string, playerId: string) {
   const game = await prisma.game.findUniqueOrThrow({
     where: { id: gameId },
@@ -184,11 +185,11 @@ async function recomputeGameScore(gameId: string, playerId: string) {
   });
   const score = moves.reduce((sum, m) => sum + m.points, 0);
 
-  const avertissementThreshold = getAvertissementThreshold(game.tournament.duplicateFormula);
+  const freeAvertissements = getFreeAvertissementCount(game.tournament.duplicateFormula);
   const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
   const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
   const penalty =
-    penaliteCount * 5 + Math.floor(avertissementCount / avertissementThreshold) * 5;
+    penaliteCount * 5 + Math.max(0, avertissementCount - freeAvertissements) * 5;
 
   await prisma.duplicateResult.upsert({
     where: { gameId_playerId: { gameId, playerId } },

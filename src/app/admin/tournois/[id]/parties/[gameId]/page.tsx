@@ -10,7 +10,7 @@ import {
   updateMoveAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
-import { reconstructBoard, formatReference, getAvertissementThreshold } from "@/lib/duplicate/board";
+import { reconstructBoard, formatReference, getFreeAvertissementCount } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 
 const penaltyLabel: Record<string, string> = {
@@ -221,9 +221,10 @@ export default async function GameMovesPage({
 
       <p className="text-xs text-black/50 dark:text-white/50 max-w-3xl">
         Pénalité d&apos;arbitrage sur un coup : l&apos;avertissement (A) n&apos;a
-        pas d&apos;effet chiffré direct, mais chaque groupe complet
-        d&apos;avertissements sur la partie ({getAvertissementThreshold(tournament.duplicateFormula)}{" "}
-        pour cette formule) coûte 5 points ; la pénalité (P) retire 5 points
+        pas d&apos;effet chiffré direct, mais au-delà des{" "}
+        {getFreeAvertissementCount(tournament.duplicateFormula)} avertissements
+        gratuits de la partie (pour cette formule), chaque avertissement
+        supplémentaire coûte 5 points ; la pénalité (P) retire 5 points
         immédiatement ; le zéro (Z) ramène les points du coup à 0. La
         pénalité totale de la partie (colonne Pénalité de la fiche joueur)
         est recalculée automatiquement à partir de ces marques.
@@ -234,7 +235,7 @@ export default async function GameMovesPage({
         const result = resultByPlayer.get(player.id);
         const total = moves.reduce((sum, m) => sum + m.points, 0);
         const addMoveBound = addMoveAction.bind(null, tournament.id, game.id, player.id);
-        const avertissementThreshold = getAvertissementThreshold(tournament.duplicateFormula);
+        const freeAvertissements = getFreeAvertissementCount(tournament.duplicateFormula);
         const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
         const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
 
@@ -246,7 +247,7 @@ export default async function GameMovesPage({
                 Total : {total}
                 {result && result.penalty > 0 ? ` · Pénalité : -${result.penalty}` : ""}
                 {avertissementCount > 0
-                  ? ` · Avertissements : ${avertissementCount} (seuil ${avertissementThreshold})`
+                  ? ` · Avertissements : ${avertissementCount} (${freeAvertissements} gratuits)`
                   : ""}
                 {penaliteCount > 0 ? ` · Pénalités posées : ${penaliteCount}` : ""}
               </span>
