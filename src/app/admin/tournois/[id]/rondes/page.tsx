@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -5,13 +6,26 @@ import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
   addManualRoundAction,
   addMatchAction,
+  generateFinalPhaseFromPoolsAction,
+  generateKnockoutBracketAction,
+  generateNextKnockoutRoundAction,
   generateNextSwissRoundAction,
+  generateNextTeamKnockoutRoundAction,
   generateNextTeamSwissRoundAction,
+  generatePoolsRoundRobinAction,
   generateRoundRobinAction,
+  generateTeamFinalPhaseFromPoolsAction,
+  generateTeamKnockoutBracketAction,
+  generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
+  pauseMatchClockAction,
   recordMatchResultAction,
+  resetMatchClockAction,
+  setMatchClockDurationAction,
+  startMatchClockAction,
 } from "@/lib/actions/classic";
-import type { Match, Player, Team } from "@prisma/client";
+import { LiveCountdown } from "@/components/LiveCountdown";
+import type { Match, Player, Pool, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -26,7 +40,106 @@ type MatchWithRelations = Match & {
   awayPlayer: Player | null;
   homeTeam: Team | null;
   awayTeam: Team | null;
+  pool: Pool | null;
 };
+
+function MatchClockControls({
+  match,
+  canManage,
+  tournamentId,
+}: {
+  match: MatchWithRelations;
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  if (match.clockInitialSeconds == null) {
+    if (!canManage) return null;
+    return (
+      <form
+        action={setMatchClockDurationAction.bind(null, tournamentId, match.id)}
+        className="flex items-center gap-1"
+      >
+        <input
+          type="number"
+          name="minutes"
+          placeholder="min/camp"
+          className="w-20 rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5 bg-transparent"
+        />
+        <button
+          type="submit"
+          className="rounded border border-black/10 dark:border-white/20 px-2 py-0.5"
+        >
+          ⏱ Activer un chrono
+        </button>
+      </form>
+    );
+  }
+
+  const runningSince = match.clockStartedAt ? match.clockStartedAt.toISOString() : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-black/50 dark:text-white/50">⏱</span>
+      <LiveCountdown
+        baselineSeconds={match.homeClockRemainingSeconds ?? match.clockInitialSeconds}
+        runningSince={match.clockRunningSide === "HOME" ? runningSince : null}
+        className={
+          match.clockRunningSide === "HOME"
+            ? "font-semibold text-emerald-700 dark:text-emerald-400"
+            : ""
+        }
+      />
+      <span className="text-black/40 dark:text-white/40">/</span>
+      <LiveCountdown
+        baselineSeconds={match.awayClockRemainingSeconds ?? match.clockInitialSeconds}
+        runningSince={match.clockRunningSide === "AWAY" ? runningSince : null}
+        className={
+          match.clockRunningSide === "AWAY"
+            ? "font-semibold text-emerald-700 dark:text-emerald-400"
+            : ""
+        }
+      />
+      {canManage && (
+        <>
+          <form action={startMatchClockAction.bind(null, tournamentId, match.id)}>
+            <input type="hidden" name="side" value="HOME" />
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ▶ Dom.
+            </button>
+          </form>
+          <form action={startMatchClockAction.bind(null, tournamentId, match.id)}>
+            <input type="hidden" name="side" value="AWAY" />
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ▶ Ext.
+            </button>
+          </form>
+          <form action={pauseMatchClockAction.bind(null, tournamentId, match.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ⏸
+            </button>
+          </form>
+          <form action={resetMatchClockAction.bind(null, tournamentId, match.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ↺
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
 
 function MatchRow({
   match,
@@ -38,65 +151,78 @@ function MatchRow({
   tournamentId: string;
 }) {
   return (
-    <tr className="border-b border-black/5 dark:border-white/5">
-      <td className="py-2 pr-4">{match.table ?? "—"}</td>
-      <td className="py-2 pr-4">
-        {match.homePlayer
-          ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-          : "—"}
-      </td>
-      <td className="py-2 pr-4">
-        {match.isBye ? (
-          <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
-        ) : canManage ? (
-          <form
-            action={recordMatchResultAction.bind(null, tournamentId, match.id)}
-            className="flex items-center gap-1"
-          >
-            <input
-              type="number"
-              name="homeScore"
-              defaultValue={match.homeScore ?? ""}
-              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-            />
-            <span>-</span>
-            <input
-              type="number"
-              name="awayScore"
-              defaultValue={match.awayScore ?? ""}
-              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-            />
-            <select
-              name="status"
-              defaultValue={match.status}
-              className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+    <Fragment>
+      <tr className="border-b border-black/5 dark:border-white/5">
+        <td className="py-2 pr-4">{match.table ?? "—"}</td>
+        <td className="py-2 pr-4">
+          {match.homePlayer
+            ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+            : "—"}
+        </td>
+        <td className="py-2 pr-4">
+          {match.isBye ? (
+            <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
+          ) : canManage ? (
+            <form
+              action={recordMatchResultAction.bind(null, tournamentId, match.id)}
+              className="flex items-center gap-1"
             >
-              {Object.entries(statusLabel).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-            >
-              OK
-            </button>
-          </form>
-        ) : (
-          <span>
-            {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
-          </span>
-        )}
-      </td>
-      <td className="py-2 pr-4">
-        {match.awayPlayer
-          ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-          : "—"}
-      </td>
-      <td className="py-2 pr-4">{statusLabel[match.status]}</td>
-    </tr>
+              <input
+                type="number"
+                name="homeScore"
+                defaultValue={match.homeScore ?? ""}
+                className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+              />
+              <span>-</span>
+              <input
+                type="number"
+                name="awayScore"
+                defaultValue={match.awayScore ?? ""}
+                className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+              />
+              <select
+                name="status"
+                defaultValue={match.status}
+                className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+              >
+                {Object.entries(statusLabel).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
+              >
+                OK
+              </button>
+            </form>
+          ) : (
+            <span>
+              {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
+            </span>
+          )}
+        </td>
+        <td className="py-2 pr-4">
+          {match.awayPlayer
+            ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+            : "—"}
+        </td>
+        <td className="py-2 pr-4">{statusLabel[match.status]}</td>
+      </tr>
+      {!match.isBye && (
+        <tr className="border-b border-black/5 dark:border-white/5">
+          <td colSpan={5} className="pb-2 pl-4 text-xs">
+            <MatchClockControls
+              match={match}
+              canManage={canManage}
+              tournamentId={tournamentId}
+            />
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 
@@ -161,6 +287,7 @@ export default async function RoundsPage({
               awayPlayer: true,
               homeTeam: true,
               awayTeam: true,
+              pool: true,
             },
             orderBy: { table: "asc" },
           },
@@ -177,7 +304,18 @@ export default async function RoundsPage({
   const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);
   const generateSwissBound = generateNextSwissRoundAction.bind(null, tournament.id);
   const generateTeamSwissBound = generateNextTeamSwissRoundAction.bind(null, tournament.id);
+  const generatePoolsBound = generatePoolsRoundRobinAction.bind(null, tournament.id);
+  const generateTeamPoolsBound = generateTeamPoolsRoundRobinAction.bind(null, tournament.id);
+  const generateKnockoutBound = generateKnockoutBracketAction.bind(null, tournament.id);
+  const generateNextKnockoutBound = generateNextKnockoutRoundAction.bind(null, tournament.id);
+  const generateTeamKnockoutBound = generateTeamKnockoutBracketAction.bind(null, tournament.id);
+  const generateNextTeamKnockoutBound = generateNextTeamKnockoutRoundAction.bind(null, tournament.id);
+  const generateFinalPhaseBound = generateFinalPhaseFromPoolsAction.bind(null, tournament.id);
+  const generateTeamFinalPhaseBound = generateTeamFinalPhaseFromPoolsAction.bind(null, tournament.id);
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
+
+  const poolMatchesExist = tournament.rounds.some((r) => r.matches.some((m) => m.poolId));
+  const finalPhaseExists = tournament.rounds.some((r) => r.matches.some((m) => !m.poolId));
 
   return (
     <div className="flex flex-col gap-8">
@@ -247,6 +385,104 @@ export default async function RoundsPage({
               </button>
             </form>
           )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            tournament.rounds.length === 0 && (
+              <form action={generatePoolsBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer les rondes en poules
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateTeamPoolsBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer les rondes en poules (équipes)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            poolMatchesExist &&
+            !finalPhaseExists && (
+              <form action={generateFinalPhaseBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer la phase finale
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            poolMatchesExist &&
+            !finalPhaseExists && (
+              <form action={generateTeamFinalPhaseBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer la phase finale (équipes)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "KNOCKOUT" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tableau (élimination directe)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
+            ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
+              (tournament.format === "GROUPS" && finalPhaseExists)) && (
+              <form action={generateNextKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tour suivant
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "KNOCKOUT" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateTeamKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tableau (élimination directe équipes)
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
+              (tournament.format === "GROUPS" && finalPhaseExists)) && (
+              <form action={generateNextTeamKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tour suivant (équipes)
+                </button>
+              </form>
+            )}
           <form action={addRoundBound}>
             <button
               type="submit"
@@ -259,10 +495,51 @@ export default async function RoundsPage({
       )}
 
       {tournament.rounds.map((round) => {
+        const roundHasPoolMatches = round.matches.some((m) => m.poolId);
+
+        if (!tournament.isTeamEvent && tournament.format === "GROUPS" && roundHasPoolMatches) {
+          // Tournoi en poules : regroupe les matchs de la ronde par poule
+          // (chaque poule joue son propre round-robin interne). Une ronde
+          // de la phase finale (générée à partir des qualifiés) n'a pas de
+          // poule associée et tombe dans le rendu individuel classique.
+          const byPool = new Map<string, { pool: Pool; matches: MatchWithRelations[] }>();
+          for (const match of round.matches) {
+            if (!match.pool) continue;
+            if (!byPool.has(match.pool.id)) {
+              byPool.set(match.pool.id, { pool: match.pool, matches: [] });
+            }
+            byPool.get(match.pool.id)!.matches.push(match);
+          }
+
+          return (
+            <section key={round.id} className="flex flex-col gap-5">
+              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              {[...byPool.values()].map(({ pool, matches }) => (
+                <div key={pool.id} className="flex flex-col gap-2">
+                  <h3 className="font-medium text-sm">{pool.name}</h3>
+                  <MatchTable
+                    matches={matches}
+                    canManage={canManage}
+                    tournamentId={tournament.id}
+                  />
+                </div>
+              ))}
+              {byPool.size === 0 && (
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  Aucun match dans cette ronde.
+                </p>
+              )}
+            </section>
+          );
+        }
+
         if (!tournament.isTeamEvent) {
           return (
             <section key={round.id} className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              <h2 className="text-lg font-semibold">
+                Ronde {round.number}
+                {tournament.format === "GROUPS" && " — Phase finale"}
+              </h2>
               <MatchTable
                 matches={round.matches}
                 canManage={canManage}
@@ -315,6 +592,76 @@ export default async function RoundsPage({
           );
         }
 
+        if (tournament.format === "GROUPS" && roundHasPoolMatches) {
+          // Tournoi par équipes en poules : regroupe d'abord par poule, puis
+          // par confrontation d'équipes à l'intérieur de chaque poule. Une
+          // ronde de la phase finale n'a pas de poule associée et tombe
+          // dans le rendu par confrontation d'équipes classique.
+          const byPool = new Map<
+            string,
+            {
+              pool: Pool;
+              encounters: Map<string, { homeTeam: Team; awayTeam: Team; matches: MatchWithRelations[] }>;
+              byes: MatchWithRelations[];
+            }
+          >();
+
+          for (const match of round.matches) {
+            if (!match.pool) continue;
+            if (!byPool.has(match.pool.id)) {
+              byPool.set(match.pool.id, { pool: match.pool, encounters: new Map(), byes: [] });
+            }
+            const entry = byPool.get(match.pool.id)!;
+            if (match.isBye) {
+              entry.byes.push(match);
+              continue;
+            }
+            if (!match.homeTeam || !match.awayTeam) continue;
+            const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
+            if (!entry.encounters.has(key)) {
+              entry.encounters.set(key, {
+                homeTeam: match.homeTeam,
+                awayTeam: match.awayTeam,
+                matches: [],
+              });
+            }
+            entry.encounters.get(key)!.matches.push(match);
+          }
+
+          return (
+            <section key={round.id} className="flex flex-col gap-6">
+              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              {[...byPool.values()].map(({ pool, encounters, byes }) => (
+                <div key={pool.id} className="flex flex-col gap-4">
+                  <h3 className="font-medium text-sm">{pool.name}</h3>
+                  {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
+                    <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2 pl-4">
+                      <p className="text-sm font-medium">
+                        {homeTeam.name} vs {awayTeam.name}
+                      </p>
+                      <MatchTable
+                        matches={matches}
+                        canManage={canManage}
+                        tournamentId={tournament.id}
+                      />
+                    </div>
+                  ))}
+                  {byes.map((match) => (
+                    <p key={match.id} className="text-sm text-black/50 dark:text-white/50 pl-4">
+                      {match.homeTeam?.name} : équipe exempte pour cette ronde.
+                    </p>
+                  ))}
+                </div>
+              ))}
+              {byPool.size === 0 && (
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  Aucun match dans cette ronde.
+                </p>
+              )}
+            </section>
+          );
+        }
+
         // Tournoi par équipes : regroupe les échiquiers par confrontation
         // (paire d'équipes) et affiche à part les équipes exemptes.
         const encounters = new Map<
@@ -342,7 +689,10 @@ export default async function RoundsPage({
 
         return (
           <section key={round.id} className="flex flex-col gap-5">
-            <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+            <h2 className="text-lg font-semibold">
+              Ronde {round.number}
+              {tournament.format === "GROUPS" && " — Phase finale"}
+            </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
               <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2">

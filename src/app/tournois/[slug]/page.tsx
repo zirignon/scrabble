@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -6,6 +7,8 @@ import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
+import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
+import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 
 const statusLabel: Record<string, string> = {
   DRAFT: "Brouillon",
@@ -39,7 +42,13 @@ export default async function TournamentPublicPage({
         orderBy: { number: "asc" },
         include: {
           matches: {
-            include: { homePlayer: true, awayPlayer: true, homeTeam: true, awayTeam: true },
+            include: {
+              homePlayer: true,
+              awayPlayer: true,
+              homeTeam: true,
+              awayTeam: true,
+              pool: true,
+            },
           },
         },
       },
@@ -80,6 +89,15 @@ export default async function TournamentPublicPage({
       ? await computeDuplicateTeamStandings(tournament.id)
       : [];
 
+  const poolStandings =
+    tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent
+      ? await computeClassicPoolStandings(tournament.id)
+      : [];
+  const teamPoolStandings =
+    tournament.type === "CLASSIC" && tournament.format === "GROUPS" && tournament.isTeamEvent
+      ? await computeClassicTeamPoolStandings(tournament.id)
+      : [];
+
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-10">
       <div>
@@ -100,6 +118,16 @@ export default async function TournamentPublicPage({
             {tournament.description}
           </p>
         )}
+
+        <p className="mt-3">
+          <Link
+            href={`/tournois/${tournament.slug}/affichage`}
+            target="_blank"
+            className="text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
+          >
+            📺 Affichage grand écran
+          </Link>
+        </p>
 
         {session && hasPlayerProfile && !isRegistered && tournament.status === "REGISTRATION_OPEN" && (
           <form action={selfRegisterAction.bind(null, tournament.id)} className="mt-4">
@@ -140,6 +168,7 @@ export default async function TournamentPublicPage({
         </ul>
       </section>
 
+      {!(tournament.type === "CLASSIC" && tournament.format === "GROUPS") && (
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">Classement</h2>
@@ -227,6 +256,111 @@ export default async function TournamentPublicPage({
           </p>
         )}
       </section>
+      )}
+
+      {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent && (
+        <section>
+          <h2 className="text-xl font-semibold mb-3">Classement par poule</h2>
+          <div className="flex flex-col gap-6">
+            {poolStandings.map(({ poolId, poolName, standings }) => (
+              <div key={poolId}>
+                <h3 className="font-medium mb-2">{poolName}</h3>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="text-left border-b border-black/10 dark:border-white/10">
+                      <th className="py-2 pr-4">#</th>
+                      <th className="py-2 pr-4">Joueur</th>
+                      <th className="py-2 pr-4">J</th>
+                      <th className="py-2 pr-4">V</th>
+                      <th className="py-2 pr-4">N</th>
+                      <th className="py-2 pr-4">D</th>
+                      <th className="py-2 pr-4">Pts</th>
+                      <th className="py-2 pr-4" title="Buchholz">Bchz</th>
+                      <th className="py-2 pr-4" title="Sonneborn-Berger">SB</th>
+                      <th className="py-2 pr-4">Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((row, i) => (
+                      <tr key={row.playerId} className="border-b border-black/5 dark:border-white/5">
+                        <td className="py-2 pr-4">{i + 1}</td>
+                        <td className="py-2 pr-4">
+                          {row.firstName} {row.lastName}
+                        </td>
+                        <td className="py-2 pr-4">{row.played}</td>
+                        <td className="py-2 pr-4">{row.wins}</td>
+                        <td className="py-2 pr-4">{row.draws}</td>
+                        <td className="py-2 pr-4">{row.losses}</td>
+                        <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
+                        <td className="py-2 pr-4">{row.buchholz}</td>
+                        <td className="py-2 pr-4">{row.sonnebornBerger}</td>
+                        <td className="py-2 pr-4">{row.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            {poolStandings.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                Aucune poule créée pour le moment.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && tournament.isTeamEvent && (
+        <section>
+          <h2 className="text-xl font-semibold mb-3">Classement par poule (équipes)</h2>
+          <div className="flex flex-col gap-6">
+            {teamPoolStandings.map(({ poolId, poolName, standings }) => (
+              <div key={poolId}>
+                <h3 className="font-medium mb-2">{poolName}</h3>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="text-left border-b border-black/10 dark:border-white/10">
+                      <th className="py-2 pr-4">#</th>
+                      <th className="py-2 pr-4">Équipe</th>
+                      <th className="py-2 pr-4">J</th>
+                      <th className="py-2 pr-4">V</th>
+                      <th className="py-2 pr-4">N</th>
+                      <th className="py-2 pr-4">D</th>
+                      <th className="py-2 pr-4">Pts</th>
+                      <th className="py-2 pr-4" title="Échiquiers gagnés/nuls/perdus">
+                        Éch. G/N/P
+                      </th>
+                      <th className="py-2 pr-4">Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((row, i) => (
+                      <tr key={row.teamId} className="border-b border-black/5 dark:border-white/5">
+                        <td className="py-2 pr-4">{i + 1}</td>
+                        <td className="py-2 pr-4">{row.name}</td>
+                        <td className="py-2 pr-4">{row.played}</td>
+                        <td className="py-2 pr-4">{row.wins}</td>
+                        <td className="py-2 pr-4">{row.draws}</td>
+                        <td className="py-2 pr-4">{row.losses}</td>
+                        <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
+                        <td className="py-2 pr-4">
+                          {row.boardsWon}/{row.boardsDrawn}/{row.boardsLost}
+                        </td>
+                        <td className="py-2 pr-4">{row.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            {teamPoolStandings.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                Aucune poule créée pour le moment.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {tournament.isTeamEvent && (
         <section>
@@ -322,10 +456,66 @@ export default async function TournamentPublicPage({
           <h2 className="text-xl font-semibold mb-3">Rondes &amp; résultats</h2>
           <div className="flex flex-col gap-6">
             {tournament.rounds.map((round) => {
+              const roundHasPoolMatches = round.matches.some((m) => m.pool);
+
+              if (!tournament.isTeamEvent && tournament.format === "GROUPS" && roundHasPoolMatches) {
+                const byPool = new Map<
+                  string,
+                  { poolName: string; matches: typeof round.matches }
+                >();
+                for (const match of round.matches) {
+                  if (!match.pool) continue;
+                  if (!byPool.has(match.pool.id)) {
+                    byPool.set(match.pool.id, { poolName: match.pool.name, matches: [] });
+                  }
+                  byPool.get(match.pool.id)!.matches.push(match);
+                }
+
+                return (
+                  <div key={round.id} className="flex flex-col gap-4">
+                    <h3 className="font-medium">Ronde {round.number}</h3>
+                    {[...byPool.values()].map(({ poolName, matches }) => (
+                      <div key={poolName}>
+                        <p className="text-sm font-medium mb-1">{poolName}</p>
+                        <table className="w-full text-sm border-collapse">
+                          <tbody>
+                            {matches.map((match) => (
+                              <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
+                                <td className="py-1.5 pr-4">
+                                  {match.homePlayer
+                                    ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                                    : "—"}
+                                </td>
+                                <td className="py-1.5 pr-4 font-medium">
+                                  {match.isBye
+                                    ? "Exempt"
+                                    : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
+                                </td>
+                                <td className="py-1.5 pr-4">
+                                  {match.awayPlayer
+                                    ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                                    : "—"}
+                                </td>
+                                <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
+                                  {matchStatusLabel[match.status]}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
               if (!tournament.isTeamEvent) {
                 return (
                   <div key={round.id}>
-                    <h3 className="font-medium mb-2">Ronde {round.number}</h3>
+                    <h3 className="font-medium mb-2">
+                      Ronde {round.number}
+                      {tournament.format === "GROUPS" && " — Phase finale"}
+                    </h3>
                     <table className="w-full text-sm border-collapse">
                       <tbody>
                         {round.matches.map((match) => (
@@ -356,6 +546,92 @@ export default async function TournamentPublicPage({
                 );
               }
 
+              if (tournament.format === "GROUPS" && roundHasPoolMatches) {
+                // Tournoi par équipes en poules : regroupe d'abord par
+                // poule, puis par confrontation d'équipes.
+                const byPool = new Map<
+                  string,
+                  {
+                    poolName: string;
+                    encounters: Map<string, { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }>;
+                    byeTeamNames: string[];
+                  }
+                >();
+
+                for (const match of round.matches) {
+                  if (!match.pool) continue;
+                  if (!byPool.has(match.pool.id)) {
+                    byPool.set(match.pool.id, {
+                      poolName: match.pool.name,
+                      encounters: new Map(),
+                      byeTeamNames: [],
+                    });
+                  }
+                  const entry = byPool.get(match.pool.id)!;
+                  if (match.isBye) {
+                    if (match.homeTeam) entry.byeTeamNames.push(match.homeTeam.name);
+                    continue;
+                  }
+                  if (!match.homeTeam || !match.awayTeam) continue;
+                  const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
+                  if (!entry.encounters.has(key)) {
+                    entry.encounters.set(key, {
+                      homeTeamName: match.homeTeam.name,
+                      awayTeamName: match.awayTeam.name,
+                      matches: [],
+                    });
+                  }
+                  entry.encounters.get(key)!.matches.push(match);
+                }
+
+                return (
+                  <div key={round.id} className="flex flex-col gap-5">
+                    <h3 className="font-medium">Ronde {round.number}</h3>
+                    {[...byPool.values()].map(({ poolName, encounters, byeTeamNames }) => (
+                      <div key={poolName} className="flex flex-col gap-3">
+                        <p className="text-sm font-semibold">{poolName}</p>
+                        {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
+                          <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4">
+                            <p className="text-sm font-medium mb-1">
+                              {homeTeamName} vs {awayTeamName}
+                            </p>
+                            <table className="w-full text-sm border-collapse">
+                              <tbody>
+                                {matches.map((match) => (
+                                  <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
+                                    <td className="py-1.5 pr-4">
+                                      {match.homePlayer
+                                        ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                                        : "—"}
+                                    </td>
+                                    <td className="py-1.5 pr-4 font-medium">
+                                      {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
+                                    </td>
+                                    <td className="py-1.5 pr-4">
+                                      {match.awayPlayer
+                                        ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                                        : "—"}
+                                    </td>
+                                    <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
+                                      {matchStatusLabel[match.status]}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                        {byeTeamNames.map((name) => (
+                          <p key={name} className="text-sm text-black/50 dark:text-white/50 pl-4">
+                            {name} : équipe exempte pour cette ronde.
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
               // Tournoi par équipes : regroupe les échiquiers par confrontation.
               const encounters = new Map<
                 string,
@@ -382,7 +658,10 @@ export default async function TournamentPublicPage({
 
               return (
                 <div key={round.id} className="flex flex-col gap-4">
-                  <h3 className="font-medium">Ronde {round.number}</h3>
+                  <h3 className="font-medium">
+                    Ronde {round.number}
+                    {tournament.format === "GROUPS" && " — Phase finale"}
+                  </h3>
                   {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                     <div key={`${homeTeamName}:${awayTeamName}`}>
                       <p className="text-sm font-medium mb-1">

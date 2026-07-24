@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateRoundRobinRounds } from "../src/lib/classic/pairing";
+import { importDictionaryWords } from "../src/lib/dictionary";
 
 const prisma = new PrismaClient();
 
@@ -161,6 +164,11 @@ async function main() {
       }
     }
   }
+
+  const dictionaryPath = path.join(__dirname, "data", "ods9.txt");
+  const dictionaryText = readFileSync(dictionaryPath, "utf-8");
+  const { total } = await importDictionaryWords(dictionaryText);
+  console.log(`Dictionnaire ODS9 : ${total} mots chargés.`);
 
   console.log("Seed terminé.");
   console.log("Connexion admin : admin@scrabble.local / admin1234");

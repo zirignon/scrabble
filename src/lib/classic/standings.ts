@@ -19,19 +19,22 @@ export interface ClassicStandingRow {
 
 type Outcome = "WIN" | "DRAW" | "LOSS";
 
-export async function computeClassicStandings(
-  tournamentId: string
-): Promise<ClassicStandingRow[]> {
-  const [registrations, matches] = await Promise.all([
-    prisma.registration.findMany({
-      where: { tournamentId },
-      include: { player: true },
-    }),
-    prisma.match.findMany({
-      where: { round: { tournamentId } },
-    }),
-  ]);
+export interface StandingsMatchLike {
+  isBye: boolean;
+  homePlayerId: string | null;
+  awayPlayerId: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+}
 
+// Cœur du calcul de classement classique (points de match, différence de
+// score, départages Buchholz et Sonneborn-Berger), factorisé pour être
+// réutilisé aussi bien sur l'ensemble d'un tournoi que sur une poule.
+export function computeStandingsFromMatches(
+  players: Array<{ playerId: string; firstName: string; lastName: string }>,
+  matches: StandingsMatchLike[]
+): ClassicStandingRow[] {
   const rows = new Map<string, ClassicStandingRow>();
   function ensure(playerId: string) {
     if (!rows.has(playerId)) {
@@ -55,10 +58,10 @@ export async function computeClassicStandings(
     return rows.get(playerId)!;
   }
 
-  for (const reg of registrations) {
-    const row = ensure(reg.playerId);
-    row.firstName = reg.player.firstName;
-    row.lastName = reg.player.lastName;
+  for (const player of players) {
+    const row = ensure(player.playerId);
+    row.firstName = player.firstName;
+    row.lastName = player.lastName;
   }
 
   // Enregistre chaque confrontation joueur/adversaire pour calculer les
@@ -151,4 +154,27 @@ export async function computeClassicStandings(
     if (b.diff !== a.diff) return b.diff - a.diff;
     return b.pointsFor - a.pointsFor;
   });
+}
+
+export async function computeClassicStandings(
+  tournamentId: string
+): Promise<ClassicStandingRow[]> {
+  const [registrations, matches] = await Promise.all([
+    prisma.registration.findMany({
+      where: { tournamentId },
+      include: { player: true },
+    }),
+    prisma.match.findMany({
+      where: { round: { tournamentId } },
+    }),
+  ]);
+
+  return computeStandingsFromMatches(
+    registrations.map((r) => ({
+      playerId: r.playerId,
+      firstName: r.player.firstName,
+      lastName: r.player.lastName,
+    })),
+    matches
+  );
 }

@@ -1,0 +1,36 @@
+import { prisma } from "@/lib/prisma";
+import {
+  computeTeamStandingsFromMatches,
+  type ClassicTeamStandingRow,
+} from "@/lib/classic/teamStandings";
+
+export interface TeamPoolStandings {
+  poolId: string;
+  poolName: string;
+  standings: ClassicTeamStandingRow[];
+}
+
+// Classement par poule d'équipes : chaque poule joue son propre round-robin
+// interne entre ses équipes, donc son classement ne doit tenir compte que
+// des confrontations internes à la poule.
+export async function computeClassicTeamPoolStandings(
+  tournamentId: string
+): Promise<TeamPoolStandings[]> {
+  const pools = await prisma.pool.findMany({
+    where: { tournamentId },
+    orderBy: { createdAt: "asc" },
+    include: {
+      teams: true,
+      matches: true,
+    },
+  });
+
+  return pools.map((pool) => ({
+    poolId: pool.id,
+    poolName: pool.name,
+    standings: computeTeamStandingsFromMatches(
+      pool.teams.map((t) => ({ teamId: t.id, name: t.name })),
+      pool.matches
+    ),
+  }));
+}

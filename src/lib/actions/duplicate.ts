@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { isValidWord } from "@/lib/dictionary";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -14,6 +15,83 @@ async function assertCanManage(tournamentId: string) {
     throw new Error("Non autorisé.");
   }
   return tournament;
+}
+
+export async function setGameTimerDurationAction(
+  tournamentId: string,
+  gameId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const minutes = Number(formData.get("minutes"));
+  if (!Number.isFinite(minutes) || minutes <= 0) return;
+  const seconds = Math.round(minutes * 60);
+
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      timerDurationSeconds: seconds,
+      timerRemainingSeconds: seconds,
+      timerRunning: false,
+      timerStartedAt: null,
+    },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
+export async function startGameTimerAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  if (!game.timerRunning) {
+    await prisma.game.update({
+      where: { id: gameId },
+      data: {
+        timerRunning: true,
+        timerStartedAt: new Date(),
+        timerRemainingSeconds: game.timerRemainingSeconds ?? game.timerDurationSeconds,
+      },
+    });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
+export async function pauseGameTimerAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  if (game.timerRunning && game.timerStartedAt) {
+    const elapsed = Math.floor((Date.now() - game.timerStartedAt.getTime()) / 1000);
+    const remaining = Math.max(
+      0,
+      (game.timerRemainingSeconds ?? game.timerDurationSeconds) - elapsed
+    );
+    await prisma.game.update({
+      where: { id: gameId },
+      data: { timerRunning: false, timerStartedAt: null, timerRemainingSeconds: remaining },
+    });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
+export async function resetGameTimerAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      timerRunning: false,
+      timerStartedAt: null,
+      timerRemainingSeconds: game.timerDurationSeconds,
+    },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
 }
 
 export async function addGameAction(tournamentId: string) {
@@ -117,16 +195,20 @@ export async function addMoveAction(
     orderBy: { turnNumber: "desc" },
   });
 
+  const isPass = parsed.data.isPass === "on";
+  const word = parsed.data.word?.toUpperCase() || null;
+
   await prisma.duplicateMove.create({
     data: {
       gameId,
       playerId,
       turnNumber: (last?.turnNumber ?? 0) + 1,
       rack: parsed.data.rack?.toUpperCase() || null,
-      word: parsed.data.word?.toUpperCase() || null,
+      word,
       points: parsed.data.points ? Number(parsed.data.points) : 0,
       top: parsed.data.top ? Number(parsed.data.top) : null,
-      isPass: parsed.data.isPass === "on",
+      isPass,
+      dictionaryValid: isPass || !word ? null : await isValidWord(word),
     },
   });
 
@@ -153,14 +235,18 @@ export async function updateMoveAction(
   });
   if (!parsed.success) return;
 
+  const isPass = parsed.data.isPass === "on";
+  const word = parsed.data.word?.toUpperCase() || null;
+
   const move = await prisma.duplicateMove.update({
     where: { id: moveId },
     data: {
       rack: parsed.data.rack?.toUpperCase() || null,
-      word: parsed.data.word?.toUpperCase() || null,
+      word,
       points: parsed.data.points ? Number(parsed.data.points) : 0,
       top: parsed.data.top ? Number(parsed.data.top) : null,
-      isPass: parsed.data.isPass === "on",
+      isPass,
+      dictionaryValid: isPass || !word ? null : await isValidWord(word),
     },
   });
 

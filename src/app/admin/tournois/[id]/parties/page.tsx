@@ -2,7 +2,87 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
-import { addGameAction, saveGameScoresAction } from "@/lib/actions/duplicate";
+import {
+  addGameAction,
+  pauseGameTimerAction,
+  resetGameTimerAction,
+  saveGameScoresAction,
+  setGameTimerDurationAction,
+  startGameTimerAction,
+} from "@/lib/actions/duplicate";
+import { LiveCountdown } from "@/components/LiveCountdown";
+import type { Game } from "@prisma/client";
+
+function GameTimerControls({
+  game,
+  canManage,
+  tournamentId,
+}: {
+  game: Game;
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  const runningSince = game.timerRunning && game.timerStartedAt
+    ? game.timerStartedAt.toISOString()
+    : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-black/50 dark:text-white/50">⏱ Temps restant :</span>
+      <LiveCountdown
+        baselineSeconds={game.timerRemainingSeconds ?? game.timerDurationSeconds}
+        runningSince={runningSince}
+        className={game.timerRunning ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : "text-base"}
+      />
+      {canManage && (
+        <>
+          <form action={startGameTimerAction.bind(null, tournamentId, game.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+            >
+              ▶ Démarrer
+            </button>
+          </form>
+          <form action={pauseGameTimerAction.bind(null, tournamentId, game.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+            >
+              ⏸ Pause
+            </button>
+          </form>
+          <form action={resetGameTimerAction.bind(null, tournamentId, game.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+            >
+              ↺ Réinitialiser
+            </button>
+          </form>
+          <form
+            action={setGameTimerDurationAction.bind(null, tournamentId, game.id)}
+            className="flex items-center gap-1"
+          >
+            <input
+              type="number"
+              name="minutes"
+              placeholder="min"
+              defaultValue={Math.round(game.timerDurationSeconds / 60)}
+              className="w-16 rounded border border-black/10 dark:border-white/20 px-1.5 py-1 bg-transparent text-xs"
+            />
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+            >
+              Durée
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default async function GamesPage({
   params,
@@ -91,6 +171,8 @@ export default async function GamesPage({
                 Fiche de classement →
               </Link>
             </h2>
+
+            <GameTimerControls game={game} canManage={canManage} tournamentId={tournament.id} />
 
             <form
               action={saveGameScoresAction.bind(null, tournament.id, game.id)}

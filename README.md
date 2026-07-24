@@ -55,8 +55,18 @@ Après `npm run db:seed` :
   avec gestion des exempts/bye si nombre impair)
 - Génération round par round en système suisse (appariement par score,
   évite les revanches quand possible)
-- Ajout manuel de rondes/matchs (poules, élimination... en gérant les
-  appariements à la main)
+- Poules : chaque poule joue son propre round-robin interne, avec un
+  classement calculé séparément par poule ; le nombre de qualifiés par
+  poule est configurable par l'organisateur, et une phase finale à
+  élimination directe peut être générée automatiquement une fois les
+  poules terminées, à partir des qualifiés de chaque poule (classés par
+  rang puis interclassés entre poules)
+- Élimination directe : génération du tableau initial (avec exempts si
+  l'effectif n'est pas une puissance de 2), puis génération du tour
+  suivant à partir des vainqueurs jusqu'à la finale
+- Ajout manuel de rondes/matchs pour composer un format sur mesure
+- Chronomètre d'échecs par match (temps propre à chaque camp, alterné
+  manuellement par l'arbitre, avec pause/réinitialisation)
 - Saisie des scores, gestion des forfaits/annulations
 - Classement calculé automatiquement : points de match, différence de
   score, départages Buchholz et Sonneborn-Berger
@@ -71,6 +81,14 @@ Après `npm run db:seed` :
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
+- Validation des mots joués par rapport à un dictionnaire (page
+  `/admin/dictionnaire` pour importer/compléter la liste) ; un mot
+  absent de la liste est signalé par une alerte lors de la saisie,
+  sans bloquer l'enregistrement (l'arbitre tranche). Le dictionnaire
+  ODS9 (`prisma/data/ods9.txt`) est chargé automatiquement par le seed
+  (`npm run db:seed`)
+- Compte à rebours unique par partie (temps de réflexion commun à tous
+  les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
 
 ### Tournois par équipes
 
@@ -78,16 +96,35 @@ Après `npm run db:seed` :
   la création
 - Gestion des équipes et de leurs membres (un échiquier fixe par joueur
   en classique)
-- Classique : génération des rondes par équipes en round-robin ou en
-  système suisse (un match par échiquier), résultat de la confrontation
-  à la majorité d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt
-  défaite), départage par différentiel d'échiquiers puis différence de
-  points cumulés
+- Classique : génération des rondes par équipes en round-robin, système
+  suisse, poules (chaque poule joue son propre round-robin interne entre
+  équipes, classement séparé par poule, phase finale à élimination
+  directe générable à partir des équipes qualifiées) ou élimination
+  directe (tableau avec exempts si l'effectif n'est pas une puissance de
+  2, tour suivant généré à partir des vainqueurs des confrontations) —
+  un match par échiquier, résultat de la confrontation à la majorité
+  d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt défaite ; une
+  égalité aux échiquiers doit être départagée manuellement en
+  élimination directe), départage par différentiel d'échiquiers puis
+  différence de points cumulés
 - Duplicate : classement par équipes basé sur le pourcentage (cumul des
   scores nets des membres / cumul des tops de référence × 100) et le
   négatif cumulé (score − top), en plus du score net brut
 - Classement par équipes affiché sur la page publique du tournoi, avec
   exports CSV/PDF dédiés
+
+### Affichage grand écran
+
+- Page publique dédiée par tournoi (`/tournois/[slug]/affichage`), sans
+  menu de navigation, pensée pour être projetée en salle
+- Alterne automatiquement (toutes les 12 secondes) entre le classement
+  (par poule le cas échéant) et la ronde en cours en classique, ou la
+  dernière partie en duplicate
+- Se rafraîchit automatiquement toutes les 8 secondes pour rester à jour
+  en temps réel sans intervention
+- Affiche les chronomètres en direct (compte à rebours de la partie en
+  duplicate, chronomètre d'échecs par match en classique), avec un
+  décompte fluide entre deux rafraîchissements
 
 ### Exports
 
@@ -99,5 +136,3 @@ Après `npm run db:seed` :
 ## Prochaines étapes possibles
 
 - Départages avancés supplémentaires (Buchholz médian, dégressif...)
-- Saisie coup par coup avec validation du dictionnaire, timer
-- Affichage grand écran, temps réel (WebSocket/SSE)
