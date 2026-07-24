@@ -25,6 +25,45 @@ async function assertCanManage(tournamentId: string) {
   return tournament;
 }
 
+type TeamWithMembers = {
+  id: string;
+  members: { playerId: string }[];
+};
+
+// Crée les matchs d'une confrontation d'équipes (un par échiquier), ou un
+// unique match marqué "bye" si l'équipe est exempte pour cette ronde.
+// Factorisé car utilisé par le round-robin, le suisse et l'élimination
+// directe par équipes.
+async function createTeamEncounterMatches(
+  roundId: string,
+  homeTeam: TeamWithMembers,
+  awayTeam: TeamWithMembers | null,
+  boardCount: number,
+  poolId?: string
+) {
+  if (!awayTeam) {
+    await prisma.match.create({
+      data: { roundId, poolId, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
+    });
+    return;
+  }
+
+  for (let board = 0; board < boardCount; board++) {
+    await prisma.match.create({
+      data: {
+        roundId,
+        poolId,
+        table: board + 1,
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        homePlayerId: homeTeam.members[board].playerId,
+        awayPlayerId: awayTeam.members[board].playerId,
+        status: "SCHEDULED",
+      },
+    });
+  }
+}
+
 export async function generateRoundRobinAction(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC") throw new Error("Tournoi non classique.");
@@ -294,6 +333,9 @@ export async function generatePoolsRoundRobinAction(tournamentId: string) {
   if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS") {
     throw new Error("Ce tournoi n'est pas au format poules.");
   }
+  if (tournament.isTeamEvent) {
+    throw new Error("Ce tournoi est en mode équipes : générez les poules par équipes.");
+  }
 
   const existing = await prisma.round.count({ where: { tournamentId } });
   if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
@@ -343,13 +385,62 @@ export async function generatePoolsRoundRobinAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
 }
 
+export async function generateTeamPoolsRoundRobinAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS" || !tournament.isTeamEvent) {
+    throw new Error("Ce tournoi n'est pas un tournoi par équipes en poules.");
+  }
+
+  const existing = await prisma.round.count({ where: { tournamentId } });
+  if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
+
+  const pools = await prisma.pool.findMany({
+    where: { tournamentId },
+    include: { teams: { include: { members: { orderBy: { board: "asc" } } } } },
+  });
+  if (pools.length === 0) throw new Error("Créez au moins une poule avec des équipes.");
+  if (pools.some((p) => p.teams.length < 2)) {
+    throw new Error("Chaque poule doit compter au moins 2 équipes.");
+  }
+
+  const allTeams = pools.flatMap((p) => p.teams);
+  const boardCount = allTeams[0]?.members.length ?? 0;
+  if (boardCount === 0) throw new Error("Chaque équipe doit avoir au moins un joueur.");
+  if (allTeams.some((t) => t.members.length !== boardCount)) {
+    throw new Error("Toutes les équipes doivent avoir le même nombre de joueurs.");
+  }
+
+  async function getOrCreateRound(number: number) {
+    return prisma.round.upsert({
+      where: { tournamentId_number: { tournamentId, number } },
+      update: {},
+      create: { tournamentId, number },
+    });
+  }
+
+  for (const pool of pools) {
+    const teamsById = new Map(pool.teams.map((t) => [t.id, t]));
+    const teamRounds = generateRoundRobinRounds(pool.teams.map((t) => t.id));
+    for (let i = 0; i < teamRounds.length; i++) {
+      const round = await getOrCreateRound(i + 1);
+      for (const pairing of teamRounds[i]) {
+        const homeTeam = teamsById.get(pairing.home)!;
+        const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+        await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, pool.id);
+      }
+    }
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
 export async function generateKnockoutBracketAction(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT") {
     throw new Error("Ce tournoi n'est pas au format élimination directe.");
   }
   if (tournament.isTeamEvent) {
-    throw new Error("L'élimination directe par équipes n'est pas prise en charge.");
+    throw new Error("Ce tournoi est en mode équipes : générez le tableau par équipes.");
   }
 
   const existing = await prisma.round.count({ where: { tournamentId } });
@@ -427,6 +518,128 @@ export async function generateNextKnockoutRoundAction(tournamentId: string) {
         status: pairing.away === null ? "PLAYED" : "SCHEDULED",
       },
     });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateTeamKnockoutBracketAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT" || !tournament.isTeamEvent) {
+    throw new Error("Ce tournoi n'est pas une élimination directe par équipes.");
+  }
+
+  const existing = await prisma.round.count({ where: { tournamentId } });
+  if (existing > 0) throw new Error("Le tableau a déjà été généré pour ce tournoi.");
+
+  const teams = await prisma.team.findMany({
+    where: { tournamentId },
+    include: { members: { orderBy: { board: "asc" } } },
+  });
+  if (teams.length < 2) throw new Error("Il faut au moins 2 équipes.");
+
+  const boardCount = teams[0].members.length;
+  if (boardCount === 0) throw new Error("Chaque équipe doit avoir au moins un joueur.");
+  if (teams.some((t) => t.members.length !== boardCount)) {
+    throw new Error("Toutes les équipes doivent avoir le même nombre de joueurs.");
+  }
+
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const pairings = generateKnockoutFirstRound(teams.map((t) => t.id));
+  const round = await prisma.round.create({ data: { tournamentId, number: 1 } });
+
+  for (const pairing of pairings) {
+    const homeTeam = teamsById.get(pairing.home)!;
+    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateNextTeamKnockoutRoundAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT" || !tournament.isTeamEvent) {
+    throw new Error("Ce tournoi n'est pas une élimination directe par équipes.");
+  }
+
+  const last = await prisma.round.findFirst({
+    where: { tournamentId },
+    orderBy: { number: "desc" },
+    include: { matches: true },
+  });
+  if (!last) throw new Error("Générez d'abord le tableau initial.");
+
+  // Regroupe les échiquiers du dernier tour par confrontation (paire
+  // d'équipes) pour déterminer le vainqueur de chacune à la majorité
+  // d'échiquiers gagnés, dans l'ordre où les confrontations apparaissent.
+  const winners: string[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const match of last.matches) {
+    if (match.isBye) {
+      if (match.homeTeamId && !seenKeys.has(match.homeTeamId)) {
+        seenKeys.add(match.homeTeamId);
+        winners.push(match.homeTeamId);
+      }
+      continue;
+    }
+    if (!match.homeTeamId || !match.awayTeamId) continue;
+    const key = `${match.homeTeamId}:${match.awayTeamId}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+
+    const boards = last.matches.filter(
+      (m) => m.homeTeamId === match.homeTeamId && m.awayTeamId === match.awayTeamId
+    );
+    const allDecided = boards.every((b) => b.status !== "SCHEDULED");
+    if (!allDecided) {
+      throw new Error(
+        "Une confrontation n'est pas encore terminée : terminez la saisie des échiquiers avant de continuer."
+      );
+    }
+
+    let homeBoardsWon = 0;
+    let awayBoardsWon = 0;
+    for (const board of boards) {
+      if (board.status === "PLAYED" && board.homeScore != null && board.awayScore != null) {
+        if (board.homeScore > board.awayScore) homeBoardsWon += 1;
+        else if (board.homeScore < board.awayScore) awayBoardsWon += 1;
+      } else if (board.status === "FORFEIT_HOME") {
+        awayBoardsWon += 1;
+      } else if (board.status === "FORFEIT_AWAY") {
+        homeBoardsWon += 1;
+      }
+    }
+
+    if (homeBoardsWon === awayBoardsWon) {
+      throw new Error(
+        "Égalité aux échiquiers pour une confrontation : elle doit être départagée manuellement avant de continuer."
+      );
+    }
+    winners.push(homeBoardsWon > awayBoardsWon ? match.homeTeamId : match.awayTeamId);
+  }
+
+  if (winners.length === 1) {
+    throw new Error("Le tournoi est terminé : la finale a déjà été jouée.");
+  }
+
+  const teams = await prisma.team.findMany({
+    where: { tournamentId },
+    include: { members: { orderBy: { board: "asc" } } },
+  });
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const boardCount = teams[0].members.length;
+
+  const pairings = pairKnockoutWinners(winners);
+  const round = await prisma.round.create({
+    data: { tournamentId, number: last.number + 1 },
+  });
+
+  for (const pairing of pairings) {
+    const homeTeam = teamsById.get(pairing.home)!;
+    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);

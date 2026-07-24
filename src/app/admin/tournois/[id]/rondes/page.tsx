@@ -8,9 +8,12 @@ import {
   generateKnockoutBracketAction,
   generateNextKnockoutRoundAction,
   generateNextSwissRoundAction,
+  generateNextTeamKnockoutRoundAction,
   generateNextTeamSwissRoundAction,
   generatePoolsRoundRobinAction,
   generateRoundRobinAction,
+  generateTeamKnockoutBracketAction,
+  generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
   recordMatchResultAction,
 } from "@/lib/actions/classic";
@@ -183,8 +186,11 @@ export default async function RoundsPage({
   const generateSwissBound = generateNextSwissRoundAction.bind(null, tournament.id);
   const generateTeamSwissBound = generateNextTeamSwissRoundAction.bind(null, tournament.id);
   const generatePoolsBound = generatePoolsRoundRobinAction.bind(null, tournament.id);
+  const generateTeamPoolsBound = generateTeamPoolsRoundRobinAction.bind(null, tournament.id);
   const generateKnockoutBound = generateKnockoutBracketAction.bind(null, tournament.id);
   const generateNextKnockoutBound = generateNextKnockoutRoundAction.bind(null, tournament.id);
+  const generateTeamKnockoutBound = generateTeamKnockoutBracketAction.bind(null, tournament.id);
+  const generateNextTeamKnockoutBound = generateNextTeamKnockoutRoundAction.bind(null, tournament.id);
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
 
   return (
@@ -267,6 +273,18 @@ export default async function RoundsPage({
                 </button>
               </form>
             )}
+          {tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateTeamPoolsBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer les rondes en poules (équipes)
+                </button>
+              </form>
+            )}
           {!tournament.isTeamEvent &&
             tournament.format === "KNOCKOUT" &&
             tournament.rounds.length === 0 && (
@@ -288,6 +306,30 @@ export default async function RoundsPage({
                   className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
                 >
                   Générer le tour suivant
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "KNOCKOUT" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateTeamKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tableau (élimination directe équipes)
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "KNOCKOUT" &&
+            tournament.rounds.length > 0 && (
+              <form action={generateNextTeamKnockoutBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer le tour suivant (équipes)
                 </button>
               </form>
             )}
@@ -388,6 +430,74 @@ export default async function RoundsPage({
                     + Match
                   </button>
                 </form>
+              )}
+            </section>
+          );
+        }
+
+        if (tournament.format === "GROUPS") {
+          // Tournoi par équipes en poules : regroupe d'abord par poule, puis
+          // par confrontation d'équipes à l'intérieur de chaque poule.
+          const byPool = new Map<
+            string,
+            {
+              pool: Pool;
+              encounters: Map<string, { homeTeam: Team; awayTeam: Team; matches: MatchWithRelations[] }>;
+              byes: MatchWithRelations[];
+            }
+          >();
+
+          for (const match of round.matches) {
+            if (!match.pool) continue;
+            if (!byPool.has(match.pool.id)) {
+              byPool.set(match.pool.id, { pool: match.pool, encounters: new Map(), byes: [] });
+            }
+            const entry = byPool.get(match.pool.id)!;
+            if (match.isBye) {
+              entry.byes.push(match);
+              continue;
+            }
+            if (!match.homeTeam || !match.awayTeam) continue;
+            const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
+            if (!entry.encounters.has(key)) {
+              entry.encounters.set(key, {
+                homeTeam: match.homeTeam,
+                awayTeam: match.awayTeam,
+                matches: [],
+              });
+            }
+            entry.encounters.get(key)!.matches.push(match);
+          }
+
+          return (
+            <section key={round.id} className="flex flex-col gap-6">
+              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              {[...byPool.values()].map(({ pool, encounters, byes }) => (
+                <div key={pool.id} className="flex flex-col gap-4">
+                  <h3 className="font-medium text-sm">{pool.name}</h3>
+                  {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
+                    <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2 pl-4">
+                      <p className="text-sm font-medium">
+                        {homeTeam.name} vs {awayTeam.name}
+                      </p>
+                      <MatchTable
+                        matches={matches}
+                        canManage={canManage}
+                        tournamentId={tournament.id}
+                      />
+                    </div>
+                  ))}
+                  {byes.map((match) => (
+                    <p key={match.id} className="text-sm text-black/50 dark:text-white/50 pl-4">
+                      {match.homeTeam?.name} : équipe exempte pour cette ronde.
+                    </p>
+                  ))}
+                </div>
+              ))}
+              {byPool.size === 0 && (
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  Aucun match dans cette ronde.
+                </p>
               )}
             </section>
           );

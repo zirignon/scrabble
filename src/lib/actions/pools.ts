@@ -66,3 +66,26 @@ export async function removePoolMemberAction(
   await prisma.poolMember.delete({ where: { id: memberId } });
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);
 }
+
+export async function assignTeamToPoolAction(
+  tournamentId: string,
+  poolId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const teamId = formData.get("teamId");
+  if (typeof teamId !== "string" || !teamId) return;
+
+  await prisma.team.update({ where: { id: teamId }, data: { poolId } });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/poules`);
+}
+
+export async function removeTeamFromPoolAction(
+  tournamentId: string,
+  teamId: string
+) {
+  await assertCanManage(tournamentId);
+  await prisma.team.update({ where: { id: teamId }, data: { poolId: null } });
+  revalidatePath(`/admin/tournois/${tournamentId}/poules`);
+}

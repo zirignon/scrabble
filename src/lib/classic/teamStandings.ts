@@ -16,27 +16,29 @@ export interface ClassicTeamStandingRow {
   diff: number;
 }
 
-// Calcule le classement par équipes à partir des échiquiers individuels :
-// une confrontation d'équipes (ronde + paire d'équipes) est regroupée à
-// partir des matchs de ses différents échiquiers. Le résultat du match
-// d'équipes se décide à la majorité d'échiquiers gagnés (3 pts victoire,
-// 1 pt égalité, 0 pt défaite). Départage : différentiel d'échiquiers
-// (gagnés − perdus) puis différence de points cumulés. Une confrontation
-// n'est comptabilisée que lorsque tous ses échiquiers sont joués (aucun
-// encore SCHEDULED).
-export async function computeClassicTeamStandings(
-  tournamentId: string
-): Promise<ClassicTeamStandingRow[]> {
-  const [teams, matches] = await Promise.all([
-    prisma.team.findMany({ where: { tournamentId } }),
-    prisma.match.findMany({
-      where: {
-        round: { tournamentId },
-        OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
-      },
-    }),
-  ]);
+export interface TeamStandingsMatchLike {
+  roundId: string;
+  isBye: boolean;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+}
 
+// Cœur du calcul de classement par équipes à partir des échiquiers
+// individuels : une confrontation d'équipes (ronde + paire d'équipes) est
+// regroupée à partir des matchs de ses différents échiquiers. Le résultat
+// du match d'équipes se décide à la majorité d'échiquiers gagnés (3 pts
+// victoire, 1 pt égalité, 0 pt défaite). Départage : différentiel
+// d'échiquiers (gagnés − perdus) puis différence de points cumulés. Une
+// confrontation n'est comptabilisée que lorsque tous ses échiquiers sont
+// joués (aucun encore SCHEDULED). Factorisé pour être réutilisé aussi bien
+// sur l'ensemble d'un tournoi que sur une poule d'équipes.
+export function computeTeamStandingsFromMatches(
+  teams: Array<{ teamId: string; name: string }>,
+  matches: TeamStandingsMatchLike[]
+): ClassicTeamStandingRow[] {
   const rows = new Map<string, ClassicTeamStandingRow>();
   function ensure(teamId: string, name: string) {
     if (!rows.has(teamId)) {
@@ -58,11 +60,11 @@ export async function computeClassicTeamStandings(
     }
     return rows.get(teamId)!;
   }
-  for (const team of teams) ensure(team.id, team.name);
+  for (const team of teams) ensure(team.teamId, team.name);
 
   const encounters = new Map<
     string,
-    { homeTeamId: string; awayTeamId: string; matches: typeof matches }
+    { homeTeamId: string; awayTeamId: string; matches: TeamStandingsMatchLike[] }
   >();
 
   for (const m of matches) {
@@ -154,4 +156,23 @@ export async function computeClassicTeamStandings(
     if (b.diff !== a.diff) return b.diff - a.diff;
     return b.pointsFor - a.pointsFor;
   });
+}
+
+export async function computeClassicTeamStandings(
+  tournamentId: string
+): Promise<ClassicTeamStandingRow[]> {
+  const [teams, matches] = await Promise.all([
+    prisma.team.findMany({ where: { tournamentId } }),
+    prisma.match.findMany({
+      where: {
+        round: { tournamentId },
+        OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
+      },
+    }),
+  ]);
+
+  return computeTeamStandingsFromMatches(
+    teams.map((t) => ({ teamId: t.id, name: t.name })),
+    matches
+  );
 }
