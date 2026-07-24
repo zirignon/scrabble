@@ -19,7 +19,7 @@ export interface ClassicTeamStandingRow {
 // Calcule le classement par équipes à partir des échiquiers individuels :
 // une confrontation d'équipes (ronde + paire d'équipes) est regroupée à
 // partir des matchs de ses différents échiquiers. Le résultat du match
-// d'équipes se décide à la majorité d'échiquiers gagnés (2 pts victoire,
+// d'équipes se décide à la majorité d'échiquiers gagnés (3 pts victoire,
 // 1 pt égalité, 0 pt défaite), la différence de points cumulés servant de
 // départage. Une confrontation n'est comptabilisée que lorsque tous ses
 // échiquiers sont joués (aucun encore SCHEDULED).
@@ -70,7 +70,7 @@ export async function computeClassicTeamStandings(
         const row = ensure(m.homeTeamId, rows.get(m.homeTeamId)?.name ?? "");
         row.played += 1;
         row.wins += 1;
-        row.matchPoints += 2;
+        row.matchPoints += 3;
       }
       continue;
     }
@@ -127,11 +127,11 @@ export async function computeClassicTeamStandings(
     away.played += 1;
     if (homeBoardsWon > awayBoardsWon) {
       home.wins += 1;
-      home.matchPoints += 2;
+      home.matchPoints += 3;
       away.losses += 1;
     } else if (homeBoardsWon < awayBoardsWon) {
       away.wins += 1;
-      away.matchPoints += 2;
+      away.matchPoints += 3;
       home.losses += 1;
     } else {
       home.draws += 1;
