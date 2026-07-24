@@ -89,3 +89,20 @@ export async function removeTeamFromPoolAction(
   await prisma.team.update({ where: { id: teamId }, data: { poolId: null } });
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);
 }
+
+export async function updateQualifiersPerPoolAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const raw = formData.get("qualifiersPerPool");
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) return;
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { qualifiersPerPool: value },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/poules`);
+}

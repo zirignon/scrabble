@@ -56,7 +56,11 @@ Après `npm run db:seed` :
 - Génération round par round en système suisse (appariement par score,
   évite les revanches quand possible)
 - Poules : chaque poule joue son propre round-robin interne, avec un
-  classement calculé séparément par poule
+  classement calculé séparément par poule ; le nombre de qualifiés par
+  poule est configurable par l'organisateur, et une phase finale à
+  élimination directe peut être générée automatiquement une fois les
+  poules terminées, à partir des qualifiés de chaque poule (classés par
+  rang puis interclassés entre poules)
 - Élimination directe : génération du tableau initial (avec exempts si
   l'effectif n'est pas une puissance de 2), puis génération du tour
   suivant à partir des vainqueurs jusqu'à la finale
@@ -84,14 +88,15 @@ Après `npm run db:seed` :
   en classique)
 - Classique : génération des rondes par équipes en round-robin, système
   suisse, poules (chaque poule joue son propre round-robin interne entre
-  équipes, classement séparé par poule) ou élimination directe (tableau
-  avec exempts si l'effectif n'est pas une puissance de 2, tour suivant
-  généré à partir des vainqueurs des confrontations) — un match par
-  échiquier, résultat de la confrontation à la majorité d'échiquiers
-  gagnés (3 pts victoire, 1 pt nul, 0 pt défaite ; une égalité aux
-  échiquiers doit être départagée manuellement en élimination directe),
-  départage par différentiel d'échiquiers puis différence de points
-  cumulés
+  équipes, classement séparé par poule, phase finale à élimination
+  directe générable à partir des équipes qualifiées) ou élimination
+  directe (tableau avec exempts si l'effectif n'est pas une puissance de
+  2, tour suivant généré à partir des vainqueurs des confrontations) —
+  un match par échiquier, résultat de la confrontation à la majorité
+  d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt défaite ; une
+  égalité aux échiquiers doit être départagée manuellement en
+  élimination directe), départage par différentiel d'échiquiers puis
+  différence de points cumulés
 - Duplicate : classement par équipes basé sur le pourcentage (cumul des
   scores nets des membres / cumul des tops de référence × 100) et le
   négatif cumulé (score − top), en plus du score net brut

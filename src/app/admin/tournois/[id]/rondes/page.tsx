@@ -5,6 +5,7 @@ import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
   addManualRoundAction,
   addMatchAction,
+  generateFinalPhaseFromPoolsAction,
   generateKnockoutBracketAction,
   generateNextKnockoutRoundAction,
   generateNextSwissRoundAction,
@@ -12,6 +13,7 @@ import {
   generateNextTeamSwissRoundAction,
   generatePoolsRoundRobinAction,
   generateRoundRobinAction,
+  generateTeamFinalPhaseFromPoolsAction,
   generateTeamKnockoutBracketAction,
   generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
@@ -191,7 +193,12 @@ export default async function RoundsPage({
   const generateNextKnockoutBound = generateNextKnockoutRoundAction.bind(null, tournament.id);
   const generateTeamKnockoutBound = generateTeamKnockoutBracketAction.bind(null, tournament.id);
   const generateNextTeamKnockoutBound = generateNextTeamKnockoutRoundAction.bind(null, tournament.id);
+  const generateFinalPhaseBound = generateFinalPhaseFromPoolsAction.bind(null, tournament.id);
+  const generateTeamFinalPhaseBound = generateTeamFinalPhaseFromPoolsAction.bind(null, tournament.id);
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
+
+  const poolMatchesExist = tournament.rounds.some((r) => r.matches.some((m) => m.poolId));
+  const finalPhaseExists = tournament.rounds.some((r) => r.matches.some((m) => !m.poolId));
 
   return (
     <div className="flex flex-col gap-8">
@@ -286,6 +293,32 @@ export default async function RoundsPage({
               </form>
             )}
           {!tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            poolMatchesExist &&
+            !finalPhaseExists && (
+              <form action={generateFinalPhaseBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer la phase finale
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "GROUPS" &&
+            poolMatchesExist &&
+            !finalPhaseExists && (
+              <form action={generateTeamFinalPhaseBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer la phase finale (équipes)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
             tournament.format === "KNOCKOUT" &&
             tournament.rounds.length === 0 && (
               <form action={generateKnockoutBound}>
@@ -298,8 +331,8 @@ export default async function RoundsPage({
               </form>
             )}
           {!tournament.isTeamEvent &&
-            tournament.format === "KNOCKOUT" &&
-            tournament.rounds.length > 0 && (
+            ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
+              (tournament.format === "GROUPS" && finalPhaseExists)) && (
               <form action={generateNextKnockoutBound}>
                 <button
                   type="submit"
@@ -322,8 +355,8 @@ export default async function RoundsPage({
               </form>
             )}
           {tournament.isTeamEvent &&
-            tournament.format === "KNOCKOUT" &&
-            tournament.rounds.length > 0 && (
+            ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
+              (tournament.format === "GROUPS" && finalPhaseExists)) && (
               <form action={generateNextTeamKnockoutBound}>
                 <button
                   type="submit"
@@ -345,9 +378,13 @@ export default async function RoundsPage({
       )}
 
       {tournament.rounds.map((round) => {
-        if (!tournament.isTeamEvent && tournament.format === "GROUPS") {
+        const roundHasPoolMatches = round.matches.some((m) => m.poolId);
+
+        if (!tournament.isTeamEvent && tournament.format === "GROUPS" && roundHasPoolMatches) {
           // Tournoi en poules : regroupe les matchs de la ronde par poule
-          // (chaque poule joue son propre round-robin interne).
+          // (chaque poule joue son propre round-robin interne). Une ronde
+          // de la phase finale (générée à partir des qualifiés) n'a pas de
+          // poule associée et tombe dans le rendu individuel classique.
           const byPool = new Map<string, { pool: Pool; matches: MatchWithRelations[] }>();
           for (const match of round.matches) {
             if (!match.pool) continue;
@@ -382,7 +419,10 @@ export default async function RoundsPage({
         if (!tournament.isTeamEvent) {
           return (
             <section key={round.id} className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              <h2 className="text-lg font-semibold">
+                Ronde {round.number}
+                {tournament.format === "GROUPS" && " — Phase finale"}
+              </h2>
               <MatchTable
                 matches={round.matches}
                 canManage={canManage}
@@ -435,9 +475,11 @@ export default async function RoundsPage({
           );
         }
 
-        if (tournament.format === "GROUPS") {
+        if (tournament.format === "GROUPS" && roundHasPoolMatches) {
           // Tournoi par équipes en poules : regroupe d'abord par poule, puis
-          // par confrontation d'équipes à l'intérieur de chaque poule.
+          // par confrontation d'équipes à l'intérieur de chaque poule. Une
+          // ronde de la phase finale n'a pas de poule associée et tombe
+          // dans le rendu par confrontation d'équipes classique.
           const byPool = new Map<
             string,
             {
@@ -530,7 +572,10 @@ export default async function RoundsPage({
 
         return (
           <section key={round.id} className="flex flex-col gap-5">
-            <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+            <h2 className="text-lg font-semibold">
+              Ronde {round.number}
+              {tournament.format === "GROUPS" && " — Phase finale"}
+            </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
               <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2">

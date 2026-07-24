@@ -445,7 +445,9 @@ export default async function TournamentPublicPage({
           <h2 className="text-xl font-semibold mb-3">Rondes &amp; résultats</h2>
           <div className="flex flex-col gap-6">
             {tournament.rounds.map((round) => {
-              if (!tournament.isTeamEvent && tournament.format === "GROUPS") {
+              const roundHasPoolMatches = round.matches.some((m) => m.pool);
+
+              if (!tournament.isTeamEvent && tournament.format === "GROUPS" && roundHasPoolMatches) {
                 const byPool = new Map<
                   string,
                   { poolName: string; matches: typeof round.matches }
@@ -499,7 +501,10 @@ export default async function TournamentPublicPage({
               if (!tournament.isTeamEvent) {
                 return (
                   <div key={round.id}>
-                    <h3 className="font-medium mb-2">Ronde {round.number}</h3>
+                    <h3 className="font-medium mb-2">
+                      Ronde {round.number}
+                      {tournament.format === "GROUPS" && " — Phase finale"}
+                    </h3>
                     <table className="w-full text-sm border-collapse">
                       <tbody>
                         {round.matches.map((match) => (
@@ -530,7 +535,7 @@ export default async function TournamentPublicPage({
                 );
               }
 
-              if (tournament.format === "GROUPS") {
+              if (tournament.format === "GROUPS" && roundHasPoolMatches) {
                 // Tournoi par équipes en poules : regroupe d'abord par
                 // poule, puis par confrontation d'équipes.
                 const byPool = new Map<
@@ -642,7 +647,10 @@ export default async function TournamentPublicPage({
 
               return (
                 <div key={round.id} className="flex flex-col gap-4">
-                  <h3 className="font-medium">Ronde {round.number}</h3>
+                  <h3 className="font-medium">
+                    Ronde {round.number}
+                    {tournament.format === "GROUPS" && " — Phase finale"}
+                  </h3>
                   {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                     <div key={`${homeTeamName}:${awayTeamName}`}>
                       <p className="text-sm font-medium mb-1">

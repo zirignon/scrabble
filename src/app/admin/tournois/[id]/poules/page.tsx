@@ -9,7 +9,58 @@ import {
   deletePoolAction,
   removePoolMemberAction,
   removeTeamFromPoolAction,
+  updateQualifiersPerPoolAction,
 } from "@/lib/actions/pools";
+
+function QualifiersSettingsForm({
+  tournamentId,
+  qualifiersPerPool,
+  canManage,
+}: {
+  tournamentId: string;
+  qualifiersPerPool: number;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Phase finale</p>
+      {canManage ? (
+        <form
+          action={updateQualifiersPerPoolAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="qualifiersPerPool" className="text-xs font-medium">
+              Qualifiés par poule
+            </label>
+            <input
+              id="qualifiersPerPool"
+              name="qualifiersPerPool"
+              type="number"
+              min={1}
+              defaultValue={qualifiersPerPool}
+              className="w-24 rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {qualifiersPerPool} qualifié(s) par poule.
+        </p>
+      )}
+      <p className="text-xs text-black/50 dark:text-white/50">
+        Une fois la phase de poules terminée, générez la phase finale
+        (élimination directe) depuis la page des rondes.
+      </p>
+    </div>
+  );
+}
 
 export default async function PoolsPage({
   params,
@@ -59,6 +110,12 @@ export default async function PoolsPage({
             affecter ici.
           </p>
         </div>
+
+        <QualifiersSettingsForm
+          tournamentId={tournament.id}
+          qualifiersPerPool={tournament.qualifiersPerPool}
+          canManage={canManage}
+        />
 
         {canManage && (
           <form action={createPoolBound} className="flex items-end gap-3">
@@ -206,6 +263,12 @@ export default async function PoolsPage({
           rondes (round-robin interne à chaque poule).
         </p>
       </div>
+
+      <QualifiersSettingsForm
+        tournamentId={tournament.id}
+        qualifiersPerPool={tournament.qualifiersPerPool}
+        canManage={canManage}
+      />
 
       {canManage && (
         <form action={createPoolBound} className="flex items-end gap-3">

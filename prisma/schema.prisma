@@ -101,6 +101,7 @@ model Tournament {
   type         TournamentType
   format       ClassicFormat?
   isTeamEvent  Boolean           @default(false)
+  qualifiersPerPool Int          @default(2)
   description  String?
   venue        String?
   startDate    DateTime
