@@ -1,4 +1,4 @@
-import { getBonusGrid, BOARD_SIZE } from "@/lib/duplicate/board";
+import { getBonusGrid, BOARD_SIZE, FRENCH_LETTER_VALUES, type BoardCell } from "@/lib/duplicate/board";
 
 const bonusColor: Record<string, string> = {
   TW: "bg-red-700",
@@ -23,7 +23,7 @@ export function ScrabbleGrid({
   cellSize = 28,
   dark = false,
 }: {
-  grid: (string | null)[][];
+  grid: (BoardCell | null)[][];
   cellSize?: number;
   dark?: boolean;
 }) {
@@ -52,12 +52,12 @@ export function ScrabbleGrid({
           >
             {ROW_LETTERS[r]}
           </div>
-          {row.map((letter, c) => {
+          {row.map((cell, c) => {
             const b = bonus[r][c];
             const border = dark ? "border-white/10" : "border-black/10";
             let bg: string;
             let textColor: string;
-            if (letter) {
+            if (cell) {
               bg = "bg-amber-100";
               textColor = "text-black";
             } else if (b) {
@@ -76,13 +76,22 @@ export function ScrabbleGrid({
             ]
               .filter(Boolean)
               .join(" ");
+            const value = cell && !cell.isBlank ? FRENCH_LETTER_VALUES[cell.letter] : undefined;
             return (
               <div
                 key={`${r}-${c}`}
-                className={`flex items-center justify-center border ${border} ${outerBorder} ${bg} ${textColor} font-bold`}
+                className={`relative flex items-center justify-center border ${border} ${outerBorder} ${bg} ${textColor} font-bold`}
                 style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
               >
-                {letter ?? (b && cellSize >= 20 ? bonusLabel[b] : "")}
+                {cell ? cell.letter : b && cellSize >= 20 ? bonusLabel[b] : ""}
+                {value !== undefined && (
+                  <span
+                    className="absolute bottom-0 right-0.5 font-semibold leading-none"
+                    style={{ fontSize: Math.max(7, cellSize * 0.26) }}
+                  >
+                    {value}
+                  </span>
+                )}
               </div>
             );
           })}

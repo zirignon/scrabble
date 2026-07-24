@@ -43,11 +43,20 @@ export function parseReference(
   return null;
 }
 
+// Une case posée de la grille : la lettre affichée (toujours en majuscule)
+// et si elle provient d'un joker/lettre blanche (saisie en minuscule dans
+// le mot de référence) — une lettre blanche n'affiche pas de coefficient
+// sur la grille, pour la distinguer visuellement des lettres normales.
+export interface BoardCell {
+  letter: string;
+  isBlank: boolean;
+}
+
 // Reconstruit la grille (15x15, lignes/colonnes numérotées 1 à 15 côté
 // saisie) en rejouant les coups de référence dans l'ordre des tours :
 // chaque lettre du mot est posée case par case selon le sens du coup.
-export function reconstructBoard(moves: ReferenceMoveLike[]): (string | null)[][] {
-  const grid: (string | null)[][] = Array.from({ length: BOARD_SIZE }, () =>
+export function reconstructBoard(moves: ReferenceMoveLike[]): (BoardCell | null)[][] {
+  const grid: (BoardCell | null)[][] = Array.from({ length: BOARD_SIZE }, () =>
     Array(BOARD_SIZE).fill(null)
   );
 
@@ -58,7 +67,8 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (string | null)[][
       const row = move.direction === "DOWN" ? move.row - 1 + i : move.row - 1;
       const col = move.direction === "ACROSS" ? move.col - 1 + i : move.col - 1;
       if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) continue;
-      grid[row][col] = move.word[i].toUpperCase();
+      const raw = move.word[i];
+      grid[row][col] = { letter: raw.toUpperCase(), isBlank: raw !== raw.toUpperCase() };
     }
   }
 

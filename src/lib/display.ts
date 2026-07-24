@@ -5,7 +5,7 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { reconstructBoard, formatReference } from "@/lib/duplicate/board";
+import { reconstructBoard, formatReference, type BoardCell } from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -83,7 +83,7 @@ export type DisplayCurrent =
       label: string;
       rows: DisplayDuplicateRow[];
       timer: DisplayGameTimer | null;
-      grid: (string | null)[][] | null;
+      grid: (BoardCell | null)[][] | null;
       referenceMoves: DisplayReferenceMove[];
     };
 

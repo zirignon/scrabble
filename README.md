@@ -98,7 +98,10 @@ Après `npm run db:seed` :
   (valeur des lettres, bonus de lettre/mot appliqués uniquement aux
   cases nouvellement posées, mots secondaires formés par les
   croisements, prime de Scrabble selon la formule du tournoi) — pas de
-  saisie manuelle des points
+  saisie manuelle des points. Chaque lettre affiche son coefficient en
+  petit dans le coin de la case, comme sur un jeton physique ; les
+  lettres blanches (jokers) n'affichent aucun coefficient, pour les
+  repérer facilement sur la grille
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
