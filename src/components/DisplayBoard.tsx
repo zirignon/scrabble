@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { DisplayData } from "@/lib/display";
+import { LiveCountdown } from "@/components/LiveCountdown";
 
 const POLL_MS = 8000;
 const ROTATE_MS = 12000;
@@ -116,7 +117,18 @@ function CurrentView({ data }: { data: DisplayData }) {
 
   if (current.kind === "duplicate") {
     return (
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto flex flex-col gap-6">
+        {current.timer && (
+          <div className="flex items-center justify-center">
+            <LiveCountdown
+              baselineSeconds={current.timer.remainingSeconds}
+              runningSince={current.timer.running ? current.timer.startedAt : null}
+              className={`text-8xl font-bold tabular-nums ${
+                current.timer.running ? "text-emerald-400" : "text-white/70"
+              }`}
+            />
+          </div>
+        )}
         <table className="w-full text-2xl border-collapse">
           <thead>
             <tr className="text-left text-white/50 text-xl border-b border-white/20">
@@ -163,8 +175,10 @@ function CurrentView({ data }: { data: DisplayData }) {
               <tr className="text-left text-white/50 text-xl border-b border-white/20">
                 <th className="py-2 pr-4">Table</th>
                 <th className="py-2 pr-4">Domicile</th>
+                <th className="py-2 pr-4 text-right">⏱</th>
                 <th className="py-2 pr-4 text-right">Score</th>
                 <th className="py-2 pr-4">Extérieur</th>
+                <th className="py-2 pr-4">⏱</th>
               </tr>
             </thead>
             <tbody>
@@ -173,14 +187,36 @@ function CurrentView({ data }: { data: DisplayData }) {
                   <td className="py-2 pr-4">{m.table ?? "—"}</td>
                   <td className="py-2 pr-4">{m.home}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">
+                    {m.clock ? (
+                      <LiveCountdown
+                        baselineSeconds={m.clock.homeRemainingSeconds}
+                        runningSince={m.clock.runningSide === "HOME" ? m.clock.startedAt : null}
+                        className={m.clock.runningSide === "HOME" ? "text-emerald-400 font-semibold" : ""}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-2 pr-4 text-right tabular-nums">
                     {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
                   </td>
                   <td className="py-2 pr-4">{m.away ?? ""}</td>
+                  <td className="py-2 pr-4 tabular-nums">
+                    {m.clock ? (
+                      <LiveCountdown
+                        baselineSeconds={m.clock.awayRemainingSeconds}
+                        runningSince={m.clock.runningSide === "AWAY" ? m.clock.startedAt : null}
+                        className={m.clock.runningSide === "AWAY" ? "text-emerald-400 font-semibold" : ""}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                 </tr>
               ))}
               {group.matches.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-4 text-white/40 text-xl">
+                  <td colSpan={6} className="py-4 text-white/40 text-xl">
                     Aucun match.
                   </td>
                 </tr>

@@ -226,6 +226,17 @@ model Match {
   awayScore    Int?
   status       MatchStatus @default(SCHEDULED)
   isBye        Boolean     @default(false)
+
+  // Chronomètre d'échecs du match (classique) : chaque camp dispose d'un
+  // temps de réflexion propre, alterné manuellement par l'arbitre.
+  // *ClockRemainingSeconds est le temps restant "figé" au dernier
+  // démarrage/pause ; clockStartedAt marque le dernier départ du camp
+  // en train de jouer (clockRunningSide), pour calculer le temps écoulé.
+  clockInitialSeconds       Int?
+  homeClockRemainingSeconds Int?
+  awayClockRemainingSeconds Int?
+  clockRunningSide          String?
+  clockStartedAt            DateTime?
 }
 
 // ---- Scrabble duplicate ----
@@ -237,6 +248,16 @@ model Game {
   number       Int
   playedAt     DateTime?
   top          Int?
+
+  // Compte à rebours unique de la partie (duplicate) : tous les joueurs
+  // cherchent leur mot sur le même tirage pendant ce temps, démarré/mis en
+  // pause par l'arbitre. timerRemainingSeconds est le temps restant "figé"
+  // à la dernière pause/réinitialisation ; timerStartedAt marque le
+  // dernier démarrage, pour calculer le temps écoulé pendant que ça tourne.
+  timerDurationSeconds  Int       @default(180)
+  timerRemainingSeconds Int?
+  timerRunning          Boolean   @default(false)
+  timerStartedAt        DateTime?
 
   results DuplicateResult[]
   moves   DuplicateMove[]

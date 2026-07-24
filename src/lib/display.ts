@@ -29,6 +29,14 @@ export interface DisplayStandingGroup {
   rows: DisplayStandingRow[];
 }
 
+export interface DisplayMatchClock {
+  initialSeconds: number;
+  homeRemainingSeconds: number;
+  awayRemainingSeconds: number;
+  runningSide: "HOME" | "AWAY" | null;
+  startedAt: string | null;
+}
+
 export interface DisplayRoundMatch {
   table: number | null;
   home: string;
@@ -37,6 +45,7 @@ export interface DisplayRoundMatch {
   awayScore: number | null;
   status: string;
   isBye: boolean;
+  clock: DisplayMatchClock | null;
 }
 
 export interface DisplayRoundGroup {
@@ -52,9 +61,16 @@ export interface DisplayDuplicateRow {
   net: number;
 }
 
+export interface DisplayGameTimer {
+  durationSeconds: number;
+  remainingSeconds: number;
+  running: boolean;
+  startedAt: string | null;
+}
+
 export type DisplayCurrent =
   | { kind: "matches"; label: string; groups: DisplayRoundGroup[] }
-  | { kind: "duplicate"; label: string; rows: DisplayDuplicateRow[] };
+  | { kind: "duplicate"; label: string; rows: DisplayDuplicateRow[]; timer: DisplayGameTimer | null };
 
 export interface DisplayData {
   tournamentName: string;
@@ -225,6 +241,16 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
         awayScore: m.awayScore,
         status: matchStatusLabel[m.status] ?? m.status,
         isBye: m.isBye,
+        clock:
+          m.clockInitialSeconds == null
+            ? null
+            : {
+                initialSeconds: m.clockInitialSeconds,
+                homeRemainingSeconds: m.homeClockRemainingSeconds ?? m.clockInitialSeconds,
+                awayRemainingSeconds: m.awayClockRemainingSeconds ?? m.clockInitialSeconds,
+                runningSide: m.clockRunningSide as "HOME" | "AWAY" | null,
+                startedAt: m.clockStartedAt ? m.clockStartedAt.toISOString() : null,
+              },
       });
       groupsMap.set(groupName, arr);
     }
@@ -240,7 +266,7 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     orderBy: { number: "desc" },
     include: { results: { include: { player: true } } },
   });
-  if (!lastGame) return { kind: "duplicate", label: "Aucune partie", rows: [] };
+  if (!lastGame) return { kind: "duplicate", label: "Aucune partie", rows: [], timer: null };
 
   const rows = lastGame.results
     .map((r) => ({
@@ -252,7 +278,17 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     .sort((a, b) => b.net - a.net)
     .map((r, i) => ({ rank: i + 1, ...r }));
 
-  return { kind: "duplicate", label: `Partie ${lastGame.number}`, rows };
+  return {
+    kind: "duplicate",
+    label: `Partie ${lastGame.number}`,
+    rows,
+    timer: {
+      durationSeconds: lastGame.timerDurationSeconds,
+      remainingSeconds: lastGame.timerRemainingSeconds ?? lastGame.timerDurationSeconds,
+      running: lastGame.timerRunning,
+      startedAt: lastGame.timerStartedAt ? lastGame.timerStartedAt.toISOString() : null,
+    },
+  };
 }
 
 export async function getDisplayData(tournamentId: string): Promise<DisplayData> {

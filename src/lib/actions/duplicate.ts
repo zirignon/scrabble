@@ -17,6 +17,83 @@ async function assertCanManage(tournamentId: string) {
   return tournament;
 }
 
+export async function setGameTimerDurationAction(
+  tournamentId: string,
+  gameId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const minutes = Number(formData.get("minutes"));
+  if (!Number.isFinite(minutes) || minutes <= 0) return;
+  const seconds = Math.round(minutes * 60);
+
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      timerDurationSeconds: seconds,
+      timerRemainingSeconds: seconds,
+      timerRunning: false,
+      timerStartedAt: null,
+    },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
+export async function startGameTimerAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  if (!game.timerRunning) {
+    await prisma.game.update({
+      where: { id: gameId },
+      data: {
+        timerRunning: true,
+        timerStartedAt: new Date(),
+        timerRemainingSeconds: game.timerRemainingSeconds ?? game.timerDurationSeconds,
+      },
+    });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
+export async function pauseGameTimerAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  if (game.timerRunning && game.timerStartedAt) {
+    const elapsed = Math.floor((Date.now() - game.timerStartedAt.getTime()) / 1000);
+    const remaining = Math.max(
+      0,
+      (game.timerRemainingSeconds ?? game.timerDurationSeconds) - elapsed
+    );
+    await prisma.game.update({
+      where: { id: gameId },
+      data: { timerRunning: false, timerStartedAt: null, timerRemainingSeconds: remaining },
+    });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
+export async function resetGameTimerAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      timerRunning: false,
+      timerStartedAt: null,
+      timerRemainingSeconds: game.timerDurationSeconds,
+    },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/tournois`);
+}
+
 export async function addGameAction(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "DUPLICATE") throw new Error("Tournoi non duplicate.");

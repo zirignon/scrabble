@@ -65,6 +65,8 @@ Après `npm run db:seed` :
   l'effectif n'est pas une puissance de 2), puis génération du tour
   suivant à partir des vainqueurs jusqu'à la finale
 - Ajout manuel de rondes/matchs pour composer un format sur mesure
+- Chronomètre d'échecs par match (temps propre à chaque camp, alterné
+  manuellement par l'arbitre, avec pause/réinitialisation)
 - Saisie des scores, gestion des forfaits/annulations
 - Classement calculé automatiquement : points de match, différence de
   score, départages Buchholz et Sonneborn-Berger
@@ -85,6 +87,8 @@ Après `npm run db:seed` :
   sans bloquer l'enregistrement (l'arbitre tranche). Le dictionnaire
   ODS9 (`prisma/data/ods9.txt`) est chargé automatiquement par le seed
   (`npm run db:seed`)
+- Compte à rebours unique par partie (temps de réflexion commun à tous
+  les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
 
 ### Tournois par équipes
 
@@ -118,6 +122,9 @@ Après `npm run db:seed` :
   dernière partie en duplicate
 - Se rafraîchit automatiquement toutes les 8 secondes pour rester à jour
   en temps réel sans intervention
+- Affiche les chronomètres en direct (compte à rebours de la partie en
+  duplicate, chronomètre d'échecs par match en classique), avec un
+  décompte fluide entre deux rafraîchissements
 
 ### Exports
 
@@ -129,4 +136,3 @@ Après `npm run db:seed` :
 ## Prochaines étapes possibles
 
 - Départages avancés supplémentaires (Buchholz médian, dégressif...)
-- Timer de partie

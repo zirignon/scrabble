@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -17,8 +18,13 @@ import {
   generateTeamKnockoutBracketAction,
   generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
+  pauseMatchClockAction,
   recordMatchResultAction,
+  resetMatchClockAction,
+  setMatchClockDurationAction,
+  startMatchClockAction,
 } from "@/lib/actions/classic";
+import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Match, Player, Pool, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
@@ -37,6 +43,104 @@ type MatchWithRelations = Match & {
   pool: Pool | null;
 };
 
+function MatchClockControls({
+  match,
+  canManage,
+  tournamentId,
+}: {
+  match: MatchWithRelations;
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  if (match.clockInitialSeconds == null) {
+    if (!canManage) return null;
+    return (
+      <form
+        action={setMatchClockDurationAction.bind(null, tournamentId, match.id)}
+        className="flex items-center gap-1"
+      >
+        <input
+          type="number"
+          name="minutes"
+          placeholder="min/camp"
+          className="w-20 rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5 bg-transparent"
+        />
+        <button
+          type="submit"
+          className="rounded border border-black/10 dark:border-white/20 px-2 py-0.5"
+        >
+          ⏱ Activer un chrono
+        </button>
+      </form>
+    );
+  }
+
+  const runningSince = match.clockStartedAt ? match.clockStartedAt.toISOString() : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-black/50 dark:text-white/50">⏱</span>
+      <LiveCountdown
+        baselineSeconds={match.homeClockRemainingSeconds ?? match.clockInitialSeconds}
+        runningSince={match.clockRunningSide === "HOME" ? runningSince : null}
+        className={
+          match.clockRunningSide === "HOME"
+            ? "font-semibold text-emerald-700 dark:text-emerald-400"
+            : ""
+        }
+      />
+      <span className="text-black/40 dark:text-white/40">/</span>
+      <LiveCountdown
+        baselineSeconds={match.awayClockRemainingSeconds ?? match.clockInitialSeconds}
+        runningSince={match.clockRunningSide === "AWAY" ? runningSince : null}
+        className={
+          match.clockRunningSide === "AWAY"
+            ? "font-semibold text-emerald-700 dark:text-emerald-400"
+            : ""
+        }
+      />
+      {canManage && (
+        <>
+          <form action={startMatchClockAction.bind(null, tournamentId, match.id)}>
+            <input type="hidden" name="side" value="HOME" />
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ▶ Dom.
+            </button>
+          </form>
+          <form action={startMatchClockAction.bind(null, tournamentId, match.id)}>
+            <input type="hidden" name="side" value="AWAY" />
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ▶ Ext.
+            </button>
+          </form>
+          <form action={pauseMatchClockAction.bind(null, tournamentId, match.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ⏸
+            </button>
+          </form>
+          <form action={resetMatchClockAction.bind(null, tournamentId, match.id)}>
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+            >
+              ↺
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MatchRow({
   match,
   canManage,
@@ -47,65 +151,78 @@ function MatchRow({
   tournamentId: string;
 }) {
   return (
-    <tr className="border-b border-black/5 dark:border-white/5">
-      <td className="py-2 pr-4">{match.table ?? "—"}</td>
-      <td className="py-2 pr-4">
-        {match.homePlayer
-          ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-          : "—"}
-      </td>
-      <td className="py-2 pr-4">
-        {match.isBye ? (
-          <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
-        ) : canManage ? (
-          <form
-            action={recordMatchResultAction.bind(null, tournamentId, match.id)}
-            className="flex items-center gap-1"
-          >
-            <input
-              type="number"
-              name="homeScore"
-              defaultValue={match.homeScore ?? ""}
-              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-            />
-            <span>-</span>
-            <input
-              type="number"
-              name="awayScore"
-              defaultValue={match.awayScore ?? ""}
-              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-            />
-            <select
-              name="status"
-              defaultValue={match.status}
-              className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+    <Fragment>
+      <tr className="border-b border-black/5 dark:border-white/5">
+        <td className="py-2 pr-4">{match.table ?? "—"}</td>
+        <td className="py-2 pr-4">
+          {match.homePlayer
+            ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+            : "—"}
+        </td>
+        <td className="py-2 pr-4">
+          {match.isBye ? (
+            <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
+          ) : canManage ? (
+            <form
+              action={recordMatchResultAction.bind(null, tournamentId, match.id)}
+              className="flex items-center gap-1"
             >
-              {Object.entries(statusLabel).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-            >
-              OK
-            </button>
-          </form>
-        ) : (
-          <span>
-            {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
-          </span>
-        )}
-      </td>
-      <td className="py-2 pr-4">
-        {match.awayPlayer
-          ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-          : "—"}
-      </td>
-      <td className="py-2 pr-4">{statusLabel[match.status]}</td>
-    </tr>
+              <input
+                type="number"
+                name="homeScore"
+                defaultValue={match.homeScore ?? ""}
+                className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+              />
+              <span>-</span>
+              <input
+                type="number"
+                name="awayScore"
+                defaultValue={match.awayScore ?? ""}
+                className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+              />
+              <select
+                name="status"
+                defaultValue={match.status}
+                className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+              >
+                {Object.entries(statusLabel).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
+              >
+                OK
+              </button>
+            </form>
+          ) : (
+            <span>
+              {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
+            </span>
+          )}
+        </td>
+        <td className="py-2 pr-4">
+          {match.awayPlayer
+            ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+            : "—"}
+        </td>
+        <td className="py-2 pr-4">{statusLabel[match.status]}</td>
+      </tr>
+      {!match.isBye && (
+        <tr className="border-b border-black/5 dark:border-white/5">
+          <td colSpan={5} className="pb-2 pl-4 text-xs">
+            <MatchClockControls
+              match={match}
+              canManage={canManage}
+              tournamentId={tournamentId}
+            />
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 
