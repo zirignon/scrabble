@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
-import { isValidWord } from "@/lib/dictionary";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
 
 async function assertCanManage(tournamentId: string) {
@@ -215,7 +214,6 @@ export async function addMoveAction(
       points: parsed.data.points ? Number(parsed.data.points) : 0,
       top: parsed.data.top ? Number(parsed.data.top) : null,
       isPass,
-      dictionaryValid: isPass || !word ? null : await isValidWord(word),
     },
   });
 
@@ -254,7 +252,6 @@ export async function updateMoveAction(
       points: parsed.data.points ? Number(parsed.data.points) : 0,
       top: parsed.data.top ? Number(parsed.data.top) : null,
       isPass,
-      dictionaryValid: isPass || !word ? null : await isValidWord(word),
     },
   });
 

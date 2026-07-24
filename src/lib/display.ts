@@ -5,8 +5,7 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { reconstructBoard, findInvalidWords, formatCoordinate } from "@/lib/duplicate/board";
-import { isValidWord } from "@/lib/dictionary";
+import { reconstructBoard } from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -78,7 +77,6 @@ export type DisplayCurrent =
       rows: DisplayDuplicateRow[];
       timer: DisplayGameTimer | null;
       grid: (string | null)[][] | null;
-      invalidWords: { word: string; coordinate: string; cells: [number, number][] }[];
     };
 
 export interface DisplayData {
@@ -282,7 +280,6 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
       rows: [],
       timer: null,
       grid: null,
-      invalidWords: [],
     };
   }
 
@@ -297,20 +294,12 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     .map((r, i) => ({ rank: i + 1, ...r }));
 
   const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
-  const invalidWords = grid
-    ? (await findInvalidWords(grid, isValidWord)).map((w) => ({
-        word: w.word,
-        coordinate: formatCoordinate(w.row, w.col),
-        cells: w.cells,
-      }))
-    : [];
 
   return {
     kind: "duplicate",
     label: `Partie ${lastGame.number}`,
     rows,
     grid,
-    invalidWords,
     timer: {
       durationSeconds: lastGame.timerDurationSeconds,
       remainingSeconds: lastGame.timerRemainingSeconds ?? lastGame.timerDurationSeconds,

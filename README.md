@@ -82,19 +82,16 @@ Après `npm run db:seed` :
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
   alphanumériques, ex. H8) sur la page de saisie et sur l'affichage
-  grand écran ; tous les mots présents sur la grille (y compris ceux
-  formés par les croisements) sont vérifiés par rapport au
-  dictionnaire, avec mise en évidence des mots non reconnus
+  grand écran
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
-- Validation des mots joués par rapport à un dictionnaire (page
-  `/admin/dictionnaire` pour importer/compléter la liste) ; un mot
-  absent de la liste est signalé par une alerte lors de la saisie,
-  sans bloquer l'enregistrement (l'arbitre tranche). Le dictionnaire
-  ODS9 (`prisma/data/ods9.txt`) est chargé automatiquement par le seed
-  (`npm run db:seed`)
+- N'importe quel mot peut être saisi librement, sans validation
+  automatique — comme au jeu réel, c'est à l'adversaire de contester un
+  mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
+  ODS9 chargé automatiquement par le seed `npm run db:seed`) reste
+  disponible comme référence, sans intervenir dans la saisie
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
 

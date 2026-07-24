@@ -314,9 +314,6 @@ model DuplicateMove {
   points          Int      @default(0)
   top             Int?
   isPass          Boolean  @default(false)
-  // null = mot non vérifié (dictionnaire vide ou coup sans mot/passe) ;
-  // true/false = résultat de la vérification par rapport à DictionaryWord.
-  dictionaryValid Boolean?
 
   @@unique([gameId, playerId, turnNumber])
 }
