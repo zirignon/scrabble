@@ -55,7 +55,7 @@ export async function createTournamentAction(
       name,
       slug,
       type,
-      format: type === "CLASSIC" ? (isTeamEvent ? "ROUND_ROBIN" : format ?? "ROUND_ROBIN") : null,
+      format: type === "CLASSIC" ? format ?? "ROUND_ROBIN" : null,
       isTeamEvent: isTeamEvent === "on",
       venue,
       description,

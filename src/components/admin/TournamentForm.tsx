@@ -54,7 +54,7 @@ export function TournamentForm() {
         </div>
       </div>
 
-      {type === "CLASSIC" && !isTeamEvent && (
+      {type === "CLASSIC" && (
         <div className="flex flex-col gap-1">
           <label htmlFor="format" className="text-sm font-medium">
             Format
@@ -70,6 +70,13 @@ export function TournamentForm() {
             <option value="GROUPS">Poules</option>
             <option value="KNOCKOUT">Élimination directe</option>
           </select>
+          {isTeamEvent && (
+            <p className="text-xs text-black/60 dark:text-white/60">
+              Seuls le round-robin et le système suisse génèrent
+              automatiquement les rondes par équipes ; poules et élimination
+              directe nécessitent un ajout manuel des rencontres.
+            </p>
+          )}
         </div>
       )}
 
@@ -86,7 +93,7 @@ export function TournamentForm() {
         {isTeamEvent && (
           <p className="text-xs text-black/60 dark:text-white/60">
             {type === "CLASSIC"
-              ? "Les rondes seront générées en round-robin entre équipes (un échiquier par joueur)."
+              ? "Un échiquier par joueur : les équipes s'affrontent selon le format choisi ci-dessus."
               : "Les scores individuels des membres de chaque équipe seront cumulés pour le classement par équipes."}
           </p>
         )}

@@ -6,6 +6,7 @@ import {
   addManualRoundAction,
   addMatchAction,
   generateNextSwissRoundAction,
+  generateNextTeamSwissRoundAction,
   generateRoundRobinAction,
   generateTeamRoundRobinAction,
   recordMatchResultAction,
@@ -175,6 +176,7 @@ export default async function RoundsPage({
   const generateBound = generateRoundRobinAction.bind(null, tournament.id);
   const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);
   const generateSwissBound = generateNextSwissRoundAction.bind(null, tournament.id);
+  const generateTeamSwissBound = generateNextTeamSwissRoundAction.bind(null, tournament.id);
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
 
   return (
@@ -232,6 +234,16 @@ export default async function RoundsPage({
                 className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
               >
                 Générer la ronde suisse suivante
+              </button>
+            </form>
+          )}
+          {tournament.isTeamEvent && tournament.format === "SWISS" && (
+            <form action={generateTeamSwissBound}>
+              <button
+                type="submit"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              >
+                Générer la ronde suisse suivante (équipes)
               </button>
             </form>
           )}

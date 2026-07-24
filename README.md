@@ -74,9 +74,11 @@ Après `npm run db:seed` :
   la création
 - Gestion des équipes et de leurs membres (un échiquier fixe par joueur
   en classique)
-- Classique : génération des rondes par équipes en round-robin (un match
-  par échiquier), résultat de la confrontation à la majorité d'échiquiers
-  gagnés, départage par différence de points cumulés
+- Classique : génération des rondes par équipes en round-robin ou en
+  système suisse (un match par échiquier), résultat de la confrontation
+  à la majorité d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt
+  défaite), départage par différentiel d'échiquiers puis différence de
+  points cumulés
 - Duplicate : classement par équipes obtenu en cumulant les scores nets
   individuels des membres sur l'ensemble des parties
 - Classement par équipes affiché sur la page publique du tournoi, avec
