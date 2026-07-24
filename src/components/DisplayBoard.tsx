@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import type { DisplayData } from "@/lib/display";
 import { LiveCountdown } from "@/components/LiveCountdown";
+import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 
-const POLL_MS = 8000;
 const ROTATE_MS = 12000;
 
 export function DisplayBoard({
@@ -18,23 +18,15 @@ export function DisplayBoard({
   const [view, setView] = useState<"standings" | "current">("standings");
 
   useEffect(() => {
-    let cancelled = false;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/tournois/${tournamentId}/affichage`, {
-          cache: "no-store",
-        });
-        if (res.ok && !cancelled) {
-          setData(await res.json());
-        }
-      } catch {
-        // Erreur réseau transitoire : on retentera au prochain cycle.
-      }
-    }, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
+    // Flux SSE : le serveur pousse une mise à jour dès qu'une action
+    // pertinente est enregistrée (score, chrono, ronde...), au lieu
+    // d'attendre un sondage périodique. L'EventSource se reconnecte tout
+    // seul en cas de coupure réseau.
+    const source = new EventSource(`/api/tournois/${tournamentId}/affichage/stream`);
+    source.onmessage = (event) => {
+      setData(JSON.parse(event.data));
     };
+    return () => source.close();
   }, [tournamentId]);
 
   useEffect(() => {
@@ -129,35 +121,54 @@ function CurrentView({ data }: { data: DisplayData }) {
             />
           </div>
         )}
-        <table className="w-full text-2xl border-collapse">
-          <thead>
-            <tr className="text-left text-white/50 text-xl border-b border-white/20">
-              <th className="py-2 pr-4">#</th>
-              <th className="py-2 pr-4">Joueur</th>
-              <th className="py-2 pr-4 text-right">Score</th>
-              <th className="py-2 pr-4 text-right">Pénalité</th>
-              <th className="py-2 pr-4 text-right">Net</th>
-            </tr>
-          </thead>
-          <tbody>
-            {current.rows.map((r) => (
-              <tr key={r.rank} className="border-b border-white/10">
-                <td className="py-2 pr-4 font-bold">{r.rank}</td>
-                <td className="py-2 pr-4">{r.name}</td>
-                <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
-                <td className="py-2 pr-4 text-right tabular-nums">{r.penalty}</td>
-                <td className="py-2 pr-4 text-right tabular-nums font-semibold">{r.net}</td>
+        <div className="flex flex-wrap items-start justify-center gap-10">
+          {current.grid && (
+            <div className="flex flex-col gap-2">
+              <ScrabbleGrid
+                grid={current.grid}
+                cellSize={30}
+                dark
+                invalidCells={
+                  new Set(current.invalidWords.flatMap((w) => w.cells.map(([r, c]) => `${r}-${c}`)))
+                }
+              />
+              {current.invalidWords.length > 0 && (
+                <p className="text-sm text-red-400 max-w-[490px]">
+                  ⚠ Non reconnu(s) : {current.invalidWords.map((w) => `${w.word} (${w.coordinate})`).join(", ")}
+                </p>
+              )}
+            </div>
+          )}
+          <table className="text-2xl border-collapse flex-1 min-w-[420px]">
+            <thead>
+              <tr className="text-left text-white/50 text-xl border-b border-white/20">
+                <th className="py-2 pr-4">#</th>
+                <th className="py-2 pr-4">Joueur</th>
+                <th className="py-2 pr-4 text-right">Score</th>
+                <th className="py-2 pr-4 text-right">Pénalité</th>
+                <th className="py-2 pr-4 text-right">Net</th>
               </tr>
-            ))}
-            {current.rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-4 text-white/40 text-xl">
-                  Pas encore de partie jouée.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {current.rows.map((r) => (
+                <tr key={r.rank} className="border-b border-white/10">
+                  <td className="py-2 pr-4 font-bold">{r.rank}</td>
+                  <td className="py-2 pr-4">{r.name}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums">{r.penalty}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums font-semibold">{r.net}</td>
+                </tr>
+              ))}
+              {current.rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-white/40 text-xl">
+                    Pas encore de partie jouée.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }

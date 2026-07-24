@@ -68,8 +68,9 @@ Après `npm run db:seed` :
 - Chronomètre d'échecs par match (temps propre à chaque camp, alterné
   manuellement par l'arbitre, avec pause/réinitialisation)
 - Saisie des scores, gestion des forfaits/annulations
-- Classement calculé automatiquement : points de match, différence de
-  score, départages Buchholz et Sonneborn-Berger
+- Classement calculé automatiquement : points de match, puis
+  départages Buchholz, Buchholz médian, Sonneborn-Berger et score
+  cumulé progressif, puis différence de score
 
 ### Scrabble duplicate
 - Création de parties
@@ -77,6 +78,13 @@ Après `npm run db:seed` :
 - Saisie détaillée coup par coup (tirage, mot joué, points, top,
   passe) : le score de la partie est alors recalculé automatiquement
   à partir des coups
+- Grille de référence de l'arbitre (coup officiel joué à chaque tour,
+  contre lequel les propositions des joueurs sont comparées) :
+  reconstruite et affichée (plateau 15×15 avec cases bonus et repères
+  alphanumériques, ex. H8) sur la page de saisie et sur l'affichage
+  grand écran ; tous les mots présents sur la grille (y compris ceux
+  formés par les croisements) sont vérifiés par rapport au
+  dictionnaire, avec mise en évidence des mots non reconnus
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
@@ -120,11 +128,13 @@ Après `npm run db:seed` :
 - Alterne automatiquement (toutes les 12 secondes) entre le classement
   (par poule le cas échéant) et la ronde en cours en classique, ou la
   dernière partie en duplicate
-- Se rafraîchit automatiquement toutes les 8 secondes pour rester à jour
-  en temps réel sans intervention
+- Mise à jour en temps réel par flux SSE (Server-Sent Events) : dès
+  qu'un score, une ronde ou un chrono est modifié côté admin, l'écran
+  se met à jour instantanément, sans sondage périodique
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements
+- Projette la grille de référence de la partie en cours (duplicate)
 
 ### Exports
 

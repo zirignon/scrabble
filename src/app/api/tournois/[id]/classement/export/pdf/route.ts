@@ -23,7 +23,7 @@ export async function GET(
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Bchz", "SB", "Diff"],
+      ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Bchz", "Bchz méd.", "SB", "Cumul", "Diff"],
       standings.map((row, i) => [
         i + 1,
         `${row.firstName} ${row.lastName}`,
@@ -33,10 +33,13 @@ export async function GET(
         row.losses,
         row.matchPoints,
         row.buchholz,
+        row.buchholzMedian,
         row.sonnebornBerger,
+        row.cumulativeScore,
         row.diff,
       ]),
-      [1, 3, 1, 1, 1, 1, 1, 1, 1, 1]
+      [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      { landscape: true }
     );
   } else {
     const standings = await computeDuplicateStandings(tournament.id);

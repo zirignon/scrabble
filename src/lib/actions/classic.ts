@@ -15,6 +15,7 @@ import {
   getKnockoutWinner,
   pairKnockoutWinners,
 } from "@/lib/classic/knockout";
+import { notifyTournamentUpdate } from "@/lib/displayEvents";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -105,6 +106,7 @@ export async function generateRoundRobinAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateTeamRoundRobinAction(tournamentId: string) {
@@ -169,6 +171,7 @@ export async function generateTeamRoundRobinAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateNextSwissRoundAction(tournamentId: string) {
@@ -234,6 +237,7 @@ export async function generateNextSwissRoundAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateNextTeamSwissRoundAction(tournamentId: string) {
@@ -328,6 +332,7 @@ export async function generateNextTeamSwissRoundAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generatePoolsRoundRobinAction(tournamentId: string) {
@@ -385,6 +390,7 @@ export async function generatePoolsRoundRobinAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateTeamPoolsRoundRobinAction(tournamentId: string) {
@@ -434,6 +440,7 @@ export async function generateTeamPoolsRoundRobinAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 // Sélectionne, pour chaque poule, ses N premiers qualifiés (N =
@@ -509,6 +516,7 @@ export async function generateFinalPhaseFromPoolsAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateTeamFinalPhaseFromPoolsAction(tournamentId: string) {
@@ -563,6 +571,7 @@ export async function generateTeamFinalPhaseFromPoolsAction(tournamentId: string
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateKnockoutBracketAction(tournamentId: string) {
@@ -602,6 +611,7 @@ export async function generateKnockoutBracketAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateNextKnockoutRoundAction(tournamentId: string) {
@@ -658,6 +668,7 @@ export async function generateNextKnockoutRoundAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateTeamKnockoutBracketAction(tournamentId: string) {
@@ -692,6 +703,7 @@ export async function generateTeamKnockoutBracketAction(tournamentId: string) {
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function generateNextTeamKnockoutRoundAction(tournamentId: string) {
@@ -786,6 +798,7 @@ export async function generateNextTeamKnockoutRoundAction(tournamentId: string) 
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function addManualRoundAction(tournamentId: string) {
@@ -798,6 +811,7 @@ export async function addManualRoundAction(tournamentId: string) {
     data: { tournamentId, number: (last?.number ?? 0) + 1 },
   });
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 const addMatchSchema = z.object({
@@ -831,6 +845,7 @@ export async function addMatchAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 const resultSchema = z.object({
@@ -868,6 +883,7 @@ export async function recordMatchResultAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -893,6 +909,7 @@ export async function setMatchClockDurationAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -937,6 +954,7 @@ export async function startMatchClockAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -949,6 +967,7 @@ export async function pauseMatchClockAction(tournamentId: string, matchId: strin
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -966,5 +985,6 @@ export async function resetMatchClockAction(tournamentId: string, matchId: strin
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }

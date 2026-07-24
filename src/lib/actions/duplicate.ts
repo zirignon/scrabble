@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { isValidWord } from "@/lib/dictionary";
+import { notifyTournamentUpdate } from "@/lib/displayEvents";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -38,6 +39,7 @@ export async function setGameTimerDurationAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -56,6 +58,7 @@ export async function startGameTimerAction(tournamentId: string, gameId: string)
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -75,6 +78,7 @@ export async function pauseGameTimerAction(tournamentId: string, gameId: string)
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -91,6 +95,7 @@ export async function resetGameTimerAction(tournamentId: string, gameId: string)
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -107,6 +112,7 @@ export async function addGameAction(tournamentId: string) {
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function saveGameScoresAction(
@@ -145,6 +151,7 @@ export async function saveGameScoresAction(
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -216,6 +223,7 @@ export async function addMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -254,6 +262,7 @@ export async function updateMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -268,5 +277,91 @@ export async function deleteMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
+}
+
+const referenceMoveSchema = z.object({
+  row: z.string().min(1),
+  col: z.string().min(1),
+  direction: z.enum(["ACROSS", "DOWN"]),
+  word: z.string().optional(),
+  points: z.string().optional(),
+  isPass: z.string().optional(),
+});
+
+function parseReferenceMove(formData: FormData) {
+  const parsed = referenceMoveSchema.safeParse({
+    row: formData.get("row"),
+    col: formData.get("col"),
+    direction: formData.get("direction"),
+    word: formData.get("word") || undefined,
+    points: formData.get("points") || undefined,
+    isPass: formData.get("isPass") || undefined,
+  });
+  if (!parsed.success) return null;
+
+  const row = Number(parsed.data.row);
+  const col = Number(parsed.data.col);
+  if (!Number.isInteger(row) || row < 1 || row > 15) return null;
+  if (!Number.isInteger(col) || col < 1 || col > 15) return null;
+
+  return {
+    row,
+    col,
+    direction: parsed.data.direction,
+    word: parsed.data.word?.toUpperCase() || null,
+    points: parsed.data.points ? Number(parsed.data.points) : 0,
+    isPass: parsed.data.isPass === "on",
+  };
+}
+
+export async function addReferenceMoveAction(
+  tournamentId: string,
+  gameId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const data = parseReferenceMove(formData);
+  if (!data) return;
+
+  const last = await prisma.referenceMove.findFirst({
+    where: { gameId },
+    orderBy: { turnNumber: "desc" },
+  });
+
+  await prisma.referenceMove.create({
+    data: { gameId, turnNumber: (last?.turnNumber ?? 0) + 1, ...data },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
+}
+
+export async function updateReferenceMoveAction(
+  tournamentId: string,
+  gameId: string,
+  moveId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const data = parseReferenceMove(formData);
+  if (!data) return;
+
+  await prisma.referenceMove.update({ where: { id: moveId }, data });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
+}
+
+export async function deleteReferenceMoveAction(
+  tournamentId: string,
+  gameId: string,
+  moveId: string
+) {
+  await assertCanManage(tournamentId);
+  await prisma.referenceMove.delete({ where: { id: moveId } });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
 }

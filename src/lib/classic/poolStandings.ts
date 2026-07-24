@@ -20,7 +20,7 @@ export async function computeClassicPoolStandings(
     orderBy: { createdAt: "asc" },
     include: {
       members: { include: { player: true } },
-      matches: true,
+      matches: { include: { round: true } },
     },
   });
 
@@ -33,7 +33,7 @@ export async function computeClassicPoolStandings(
         firstName: m.player.firstName,
         lastName: m.player.lastName,
       })),
-      pool.matches
+      pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))
     ),
   }));
 }

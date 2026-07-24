@@ -199,7 +199,9 @@ export default async function TournamentPublicPage({
                 <th className="py-2 pr-4">D</th>
                 <th className="py-2 pr-4">Pts</th>
                 <th className="py-2 pr-4" title="Buchholz">Bchz</th>
+                <th className="py-2 pr-4" title="Buchholz médian">Bchz méd.</th>
                 <th className="py-2 pr-4" title="Sonneborn-Berger">SB</th>
+                <th className="py-2 pr-4" title="Score cumulé progressif">Cumul</th>
                 <th className="py-2 pr-4">Diff</th>
               </tr>
             </thead>
@@ -216,7 +218,9 @@ export default async function TournamentPublicPage({
                   <td className="py-2 pr-4">{row.losses}</td>
                   <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
                   <td className="py-2 pr-4">{row.buchholz}</td>
+                  <td className="py-2 pr-4">{row.buchholzMedian}</td>
                   <td className="py-2 pr-4">{row.sonnebornBerger}</td>
+                  <td className="py-2 pr-4">{row.cumulativeScore}</td>
                   <td className="py-2 pr-4">{row.diff}</td>
                 </tr>
               ))}
@@ -276,7 +280,9 @@ export default async function TournamentPublicPage({
                       <th className="py-2 pr-4">D</th>
                       <th className="py-2 pr-4">Pts</th>
                       <th className="py-2 pr-4" title="Buchholz">Bchz</th>
+                      <th className="py-2 pr-4" title="Buchholz médian">Bchz méd.</th>
                       <th className="py-2 pr-4" title="Sonneborn-Berger">SB</th>
+                      <th className="py-2 pr-4" title="Score cumulé progressif">Cumul</th>
                       <th className="py-2 pr-4">Diff</th>
                     </tr>
                   </thead>
@@ -293,7 +299,9 @@ export default async function TournamentPublicPage({
                         <td className="py-2 pr-4">{row.losses}</td>
                         <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
                         <td className="py-2 pr-4">{row.buchholz}</td>
+                        <td className="py-2 pr-4">{row.buchholzMedian}</td>
                         <td className="py-2 pr-4">{row.sonnebornBerger}</td>
+                        <td className="py-2 pr-4">{row.cumulativeScore}</td>
                         <td className="py-2 pr-4">{row.diff}</td>
                       </tr>
                     ))}

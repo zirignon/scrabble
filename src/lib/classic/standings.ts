@@ -14,7 +14,9 @@ export interface ClassicStandingRow {
   diff: number;
   buchholz: number;
   buchholzTruncated: number;
+  buchholzMedian: number;
   sonnebornBerger: number;
+  cumulativeScore: number;
 }
 
 type Outcome = "WIN" | "DRAW" | "LOSS";
@@ -26,6 +28,7 @@ export interface StandingsMatchLike {
   homeScore: number | null;
   awayScore: number | null;
   status: string;
+  roundNumber: number;
 }
 
 // Cœur du calcul de classement classique (points de match, différence de
@@ -52,7 +55,9 @@ export function computeStandingsFromMatches(
         diff: 0,
         buchholz: 0,
         buchholzTruncated: 0,
+        buchholzMedian: 0,
         sonnebornBerger: 0,
+        cumulativeScore: 0,
       });
     }
     return rows.get(playerId)!;
@@ -92,35 +97,65 @@ export function computeStandingsFromMatches(
     matchups.push({ playerId, opponentId, outcome });
   }
 
+  // Traité ronde par ronde (et non en un seul passage) car le score cumulé
+  // progressif a besoin du total de points de match "à ce stade du
+  // tournoi", capturé juste après chaque ronde jouée.
+  const matchesByRound = new Map<number, StandingsMatchLike[]>();
   for (const match of matches) {
-    if (match.isBye) {
-      if (match.homePlayerId) {
-        const row = ensure(match.homePlayerId);
-        row.played += 1;
-        row.wins += 1;
-        row.matchPoints += 3;
-      }
-      continue;
-    }
-    if (!match.homePlayerId || !match.awayPlayerId) continue;
+    const list = matchesByRound.get(match.roundNumber) ?? [];
+    list.push(match);
+    matchesByRound.set(match.roundNumber, list);
+  }
+  const roundNumbers = [...matchesByRound.keys()].sort((a, b) => a - b);
 
-    if (match.status === "PLAYED" && match.homeScore != null && match.awayScore != null) {
-      if (match.homeScore > match.awayScore) {
-        applyResult(match.homePlayerId, match.awayPlayerId, "WIN", match.homeScore, match.awayScore);
-        applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore, match.homeScore);
-      } else if (match.homeScore < match.awayScore) {
-        applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore, match.awayScore);
-        applyResult(match.awayPlayerId, match.homePlayerId, "WIN", match.awayScore, match.homeScore);
-      } else {
-        applyResult(match.homePlayerId, match.awayPlayerId, "DRAW", match.homeScore, match.awayScore);
-        applyResult(match.awayPlayerId, match.homePlayerId, "DRAW", match.awayScore, match.homeScore);
+  for (const roundNumber of roundNumbers) {
+    const participantsThisRound = new Set<string>();
+
+    for (const match of matchesByRound.get(roundNumber)!) {
+      if (match.isBye) {
+        if (match.homePlayerId) {
+          const row = ensure(match.homePlayerId);
+          row.played += 1;
+          row.wins += 1;
+          row.matchPoints += 3;
+          participantsThisRound.add(match.homePlayerId);
+        }
+        continue;
       }
-    } else if (match.status === "FORFEIT_HOME") {
-      applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore ?? 0, match.awayScore ?? 0);
-      applyResult(match.awayPlayerId, match.homePlayerId, "WIN", match.awayScore ?? 0, match.homeScore ?? 0);
-    } else if (match.status === "FORFEIT_AWAY") {
-      applyResult(match.homePlayerId, match.awayPlayerId, "WIN", match.homeScore ?? 0, match.awayScore ?? 0);
-      applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0);
+      if (!match.homePlayerId || !match.awayPlayerId) continue;
+
+      // Le cumul progressif ne doit compter que les matchs réellement
+      // décidés (résultat saisi) : un match encore "à jouer" ne fait pas
+      // avancer la ronde pour les deux joueurs concernés.
+      if (match.status === "PLAYED" && match.homeScore != null && match.awayScore != null) {
+        participantsThisRound.add(match.homePlayerId);
+        participantsThisRound.add(match.awayPlayerId);
+        if (match.homeScore > match.awayScore) {
+          applyResult(match.homePlayerId, match.awayPlayerId, "WIN", match.homeScore, match.awayScore);
+          applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore, match.homeScore);
+        } else if (match.homeScore < match.awayScore) {
+          applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore, match.awayScore);
+          applyResult(match.awayPlayerId, match.homePlayerId, "WIN", match.awayScore, match.homeScore);
+        } else {
+          applyResult(match.homePlayerId, match.awayPlayerId, "DRAW", match.homeScore, match.awayScore);
+          applyResult(match.awayPlayerId, match.homePlayerId, "DRAW", match.awayScore, match.homeScore);
+        }
+      } else if (match.status === "FORFEIT_HOME") {
+        participantsThisRound.add(match.homePlayerId);
+        participantsThisRound.add(match.awayPlayerId);
+        applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore ?? 0, match.awayScore ?? 0);
+        applyResult(match.awayPlayerId, match.homePlayerId, "WIN", match.awayScore ?? 0, match.homeScore ?? 0);
+      } else if (match.status === "FORFEIT_AWAY") {
+        participantsThisRound.add(match.homePlayerId);
+        participantsThisRound.add(match.awayPlayerId);
+        applyResult(match.homePlayerId, match.awayPlayerId, "WIN", match.homeScore ?? 0, match.awayScore ?? 0);
+        applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0);
+      }
+    }
+
+    for (const playerId of participantsThisRound) {
+      const row = ensure(playerId);
+      row.cumulativeScore += row.matchPoints;
     }
   }
 
@@ -145,12 +180,22 @@ export function computeStandingsFromMatches(
     row.buchholz = sum;
     row.buchholzTruncated =
       opponentPointsList.length > 1 ? sum - Math.min(...opponentPointsList) : sum;
+    // Buchholz médian : on retire le meilleur ET le moins bon adversaire
+    // (seulement s'il y a au moins 3 adversaires, sinon on garde le total).
+    if (opponentPointsList.length >= 3) {
+      const sorted = [...opponentPointsList].sort((a, b) => a - b);
+      row.buchholzMedian = sorted.slice(1, -1).reduce((a, b) => a + b, 0);
+    } else {
+      row.buchholzMedian = sum;
+    }
   }
 
   return [...rows.values()].sort((a, b) => {
     if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
     if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
+    if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
     if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
+    if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
     if (b.diff !== a.diff) return b.diff - a.diff;
     return b.pointsFor - a.pointsFor;
   });
@@ -166,6 +211,7 @@ export async function computeClassicStandings(
     }),
     prisma.match.findMany({
       where: { round: { tournamentId } },
+      include: { round: true },
     }),
   ]);
 
@@ -175,6 +221,6 @@ export async function computeClassicStandings(
       firstName: r.player.firstName,
       lastName: r.player.lastName,
     })),
-    matches
+    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );
 }
