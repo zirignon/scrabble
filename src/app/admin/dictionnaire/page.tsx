@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/guards";
 import { countDictionaryWords } from "@/lib/dictionary";
-import { importDictionaryAction, clearDictionaryAction } from "@/lib/actions/dictionary";
+import { clearDictionaryAction } from "@/lib/actions/dictionary";
+import { DictionaryImportForm } from "@/components/admin/DictionaryImportForm";
 
 export default async function DictionaryPage() {
   await requireRole(["ADMIN"]);
@@ -26,38 +27,7 @@ export default async function DictionaryPage() {
         </p>
       </div>
 
-      <form action={importDictionaryAction} className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="file" className="text-sm font-medium">
-            Fichier texte (un mot par ligne)
-          </label>
-          <input
-            id="file"
-            name="file"
-            type="file"
-            accept=".txt,text/plain"
-            className="text-sm"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="text" className="text-sm font-medium">
-            ou coller une liste de mots
-          </label>
-          <textarea
-            id="text"
-            name="text"
-            rows={6}
-            placeholder={"MAISON\nJARDIN\nSCRABBLE..."}
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm font-mono"
-          />
-        </div>
-        <button
-          type="submit"
-          className="self-start rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-        >
-          Importer
-        </button>
-      </form>
+      <DictionaryImportForm />
 
       {total > 0 && (
         <form action={clearDictionaryAction}>

@@ -28,6 +28,11 @@ export default async function AdminLayout({
             Dictionnaire
           </Link>
         )}
+        {session.role === "ADMIN" && (
+          <Link href="/admin/utilisateurs" className="hover:underline">
+            Utilisateurs
+          </Link>
+        )}
       </nav>
       {children}
     </div>
