@@ -79,8 +79,9 @@ Après `npm run db:seed` :
   à la majorité d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt
   défaite), départage par différentiel d'échiquiers puis différence de
   points cumulés
-- Duplicate : classement par équipes obtenu en cumulant les scores nets
-  individuels des membres sur l'ensemble des parties
+- Duplicate : classement par équipes basé sur le pourcentage (cumul des
+  scores nets des membres / cumul des tops de référence × 100) et le
+  négatif cumulé (score − top), en plus du score net brut
 - Classement par équipes affiché sur la page publique du tournoi, avec
   exports CSV/PDF dédiés
 

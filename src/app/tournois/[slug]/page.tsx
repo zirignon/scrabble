@@ -292,6 +292,8 @@ export default async function TournamentPublicPage({
                   <th className="py-2 pr-4">Score total</th>
                   <th className="py-2 pr-4">Pénalités</th>
                   <th className="py-2 pr-4">Net</th>
+                  <th className="py-2 pr-4">Négatif</th>
+                  <th className="py-2 pr-4">%</th>
                 </tr>
               </thead>
               <tbody>
@@ -302,7 +304,11 @@ export default async function TournamentPublicPage({
                     <td className="py-2 pr-4">{row.gamesPlayed}</td>
                     <td className="py-2 pr-4">{row.totalScore}</td>
                     <td className="py-2 pr-4">{row.totalPenalty}</td>
-                    <td className="py-2 pr-4 font-medium">{row.net}</td>
+                    <td className="py-2 pr-4">{row.net}</td>
+                    <td className="py-2 pr-4">{row.negatif ?? "—"}</td>
+                    <td className="py-2 pr-4 font-medium">
+                      {row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

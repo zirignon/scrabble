@@ -37,7 +37,7 @@ export async function GET(
   } else {
     const standings = await computeDuplicateTeamStandings(tournament.id);
     csv = toCsv(
-      ["Rang", "Équipe", "Parties", "Score total", "Pénalités", "Net"],
+      ["Rang", "Équipe", "Parties", "Score total", "Pénalités", "Net", "Négatif", "%"],
       standings.map((row, i) => [
         i + 1,
         row.name,
@@ -45,6 +45,8 @@ export async function GET(
         row.totalScore,
         row.totalPenalty,
         row.net,
+        row.negatif ?? "",
+        row.pourcentage != null ? row.pourcentage.toFixed(2) : "",
       ])
     );
   }

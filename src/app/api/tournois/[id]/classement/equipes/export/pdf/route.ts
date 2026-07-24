@@ -44,7 +44,7 @@ export async function GET(
     pdf = await renderTablePdf(
       `Classement par équipes — ${tournament.name}`,
       subtitle,
-      ["Rang", "Équipe", "Parties", "Score total", "Pénalités", "Net"],
+      ["Rang", "Équipe", "Parties", "Score total", "Pénalités", "Net", "Négatif", "%"],
       standings.map((row, i) => [
         i + 1,
         row.name,
@@ -52,8 +52,10 @@ export async function GET(
         row.totalScore,
         row.totalPenalty,
         row.net,
+        row.negatif ?? "—",
+        row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—",
       ]),
-      [1, 3, 1, 1, 1, 1]
+      [1, 3, 1, 1, 1, 1, 1, 1]
     );
   }
 
