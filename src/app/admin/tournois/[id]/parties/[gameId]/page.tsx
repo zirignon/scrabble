@@ -115,6 +115,14 @@ export default async function GameMovesPage({
                             placeholder="Mot joué"
                             className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
                           />
+                          {move.dictionaryValid === false && (
+                            <span
+                              title="Ce mot n'est pas dans le dictionnaire importé"
+                              className="text-xs text-amber-600 dark:text-amber-400"
+                            >
+                              ⚠ non reconnu
+                            </span>
+                          )}
                           <input
                             type="number"
                             name="points"
@@ -162,6 +170,14 @@ export default async function GameMovesPage({
                         <td className="py-1.5 pr-4">{move.rack ?? "—"}</td>
                         <td className="py-1.5 pr-4">
                           {move.isPass ? "Passe" : move.word ?? "—"}
+                          {move.dictionaryValid === false && (
+                            <span
+                              title="Ce mot n'est pas dans le dictionnaire importé"
+                              className="ml-2 text-xs text-amber-600 dark:text-amber-400"
+                            >
+                              ⚠ non reconnu
+                            </span>
+                          )}
                         </td>
                         <td className="py-1.5 pr-4">{move.points}</td>
                         <td className="py-1.5 pr-4">{move.top ?? "—"}</td>

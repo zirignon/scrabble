@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { isValidWord } from "@/lib/dictionary";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -117,16 +118,20 @@ export async function addMoveAction(
     orderBy: { turnNumber: "desc" },
   });
 
+  const isPass = parsed.data.isPass === "on";
+  const word = parsed.data.word?.toUpperCase() || null;
+
   await prisma.duplicateMove.create({
     data: {
       gameId,
       playerId,
       turnNumber: (last?.turnNumber ?? 0) + 1,
       rack: parsed.data.rack?.toUpperCase() || null,
-      word: parsed.data.word?.toUpperCase() || null,
+      word,
       points: parsed.data.points ? Number(parsed.data.points) : 0,
       top: parsed.data.top ? Number(parsed.data.top) : null,
-      isPass: parsed.data.isPass === "on",
+      isPass,
+      dictionaryValid: isPass || !word ? null : await isValidWord(word),
     },
   });
 
@@ -153,14 +158,18 @@ export async function updateMoveAction(
   });
   if (!parsed.success) return;
 
+  const isPass = parsed.data.isPass === "on";
+  const word = parsed.data.word?.toUpperCase() || null;
+
   const move = await prisma.duplicateMove.update({
     where: { id: moveId },
     data: {
       rack: parsed.data.rack?.toUpperCase() || null,
-      word: parsed.data.word?.toUpperCase() || null,
+      word,
       points: parsed.data.points ? Number(parsed.data.points) : 0,
       top: parsed.data.top ? Number(parsed.data.top) : null,
-      isPass: parsed.data.isPass === "on",
+      isPass,
+      dictionaryValid: isPass || !word ? null : await isValidWord(word),
     },
   });
 

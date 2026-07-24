@@ -6,7 +6,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireRole(STAFF_ROLES);
+  const session = await requireRole(STAFF_ROLES);
 
   return (
     <div className="mx-auto max-w-5xl w-full px-4 py-8 flex flex-col gap-6">
@@ -23,6 +23,11 @@ export default async function AdminLayout({
         <Link href="/admin/clubs" className="hover:underline">
           Clubs
         </Link>
+        {session.role === "ADMIN" && (
+          <Link href="/admin/dictionnaire" className="hover:underline">
+            Dictionnaire
+          </Link>
+        )}
       </nav>
       {children}
     </div>

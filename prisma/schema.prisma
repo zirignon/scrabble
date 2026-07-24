@@ -261,17 +261,29 @@ model DuplicateResult {
 // (DuplicateResult.score) est recalculé comme la somme de ses coups dès
 // qu'au moins un coup est saisi.
 model DuplicateMove {
-  id         String  @id @default(cuid())
-  gameId     String
-  game       Game    @relation(fields: [gameId], references: [id])
-  playerId   String
-  player     Player  @relation(fields: [playerId], references: [id])
-  turnNumber Int
-  rack       String?
-  word       String?
-  points     Int     @default(0)
-  top        Int?
-  isPass     Boolean @default(false)
+  id              String   @id @default(cuid())
+  gameId          String
+  game            Game     @relation(fields: [gameId], references: [id])
+  playerId        String
+  player          Player   @relation(fields: [playerId], references: [id])
+  turnNumber      Int
+  rack            String?
+  word            String?
+  points          Int      @default(0)
+  top             Int?
+  isPass          Boolean  @default(false)
+  // null = mot non vérifié (dictionnaire vide ou coup sans mot/passe) ;
+  // true/false = résultat de la vérification par rapport à DictionaryWord.
+  dictionaryValid Boolean?
 
   @@unique([gameId, playerId, turnNumber])
+}
+
+// Liste de mots valides (fournie par l'organisateur, ex. import de l'ODS
+// dont il possède les droits) utilisée pour signaler les mots joués non
+// reconnus lors de la saisie coup par coup. Stockée en majuscules sans
+// accents (forme jouable au Scrabble).
+model DictionaryWord {
+  id   String @id @default(cuid())
+  word String @unique
 }
