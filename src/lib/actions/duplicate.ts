@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { isValidWord } from "@/lib/dictionary";
+import { notifyTournamentUpdate } from "@/lib/displayEvents";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -38,6 +39,7 @@ export async function setGameTimerDurationAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -56,6 +58,7 @@ export async function startGameTimerAction(tournamentId: string, gameId: string)
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -75,6 +78,7 @@ export async function pauseGameTimerAction(tournamentId: string, gameId: string)
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -91,6 +95,7 @@ export async function resetGameTimerAction(tournamentId: string, gameId: string)
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -107,6 +112,7 @@ export async function addGameAction(tournamentId: string) {
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function saveGameScoresAction(
@@ -145,6 +151,7 @@ export async function saveGameScoresAction(
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -216,6 +223,7 @@ export async function addMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -254,6 +262,7 @@ export async function updateMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }
 
@@ -268,5 +277,6 @@ export async function deleteMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
   revalidatePath(`/tournois`);
 }

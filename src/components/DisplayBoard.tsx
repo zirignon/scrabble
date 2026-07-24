@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import type { DisplayData } from "@/lib/display";
 import { LiveCountdown } from "@/components/LiveCountdown";
 
-const POLL_MS = 8000;
 const ROTATE_MS = 12000;
 
 export function DisplayBoard({
@@ -18,23 +17,15 @@ export function DisplayBoard({
   const [view, setView] = useState<"standings" | "current">("standings");
 
   useEffect(() => {
-    let cancelled = false;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/tournois/${tournamentId}/affichage`, {
-          cache: "no-store",
-        });
-        if (res.ok && !cancelled) {
-          setData(await res.json());
-        }
-      } catch {
-        // Erreur réseau transitoire : on retentera au prochain cycle.
-      }
-    }, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
+    // Flux SSE : le serveur pousse une mise à jour dès qu'une action
+    // pertinente est enregistrée (score, chrono, ronde...), au lieu
+    // d'attendre un sondage périodique. L'EventSource se reconnecte tout
+    // seul en cas de coupure réseau.
+    const source = new EventSource(`/api/tournois/${tournamentId}/affichage/stream`);
+    source.onmessage = (event) => {
+      setData(JSON.parse(event.data));
     };
+    return () => source.close();
   }, [tournamentId]);
 
   useEffect(() => {
