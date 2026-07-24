@@ -151,7 +151,7 @@ model Tournament {
 model Registration {
   id           String             @id @default(cuid())
   tournamentId String
-  tournament   Tournament         @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   playerId     String
   player       Player             @relation(fields: [playerId], references: [id])
   status       RegistrationStatus @default(CONFIRMED)
@@ -170,7 +170,7 @@ model Registration {
 model Team {
   id           String   @id @default(cuid())
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   name         String
   createdAt    DateTime @default(now())
   poolId       String?
@@ -202,7 +202,7 @@ model TeamMember {
 model Pool {
   id           String @id @default(cuid())
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   name         String
   createdAt    DateTime @default(now())
 
@@ -228,7 +228,7 @@ model PoolMember {
 model Round {
   id           String     @id @default(cuid())
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   number       Int
   playedAt     DateTime?
 
@@ -240,18 +240,18 @@ model Round {
 model Match {
   id           String      @id @default(cuid())
   roundId      String
-  round        Round       @relation(fields: [roundId], references: [id])
+  round        Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
   table        Int?
   homePlayerId String?
   homePlayer   Player?     @relation("HomePlayer", fields: [homePlayerId], references: [id])
   awayPlayerId String?
   awayPlayer   Player?     @relation("AwayPlayer", fields: [awayPlayerId], references: [id])
   homeTeamId   String?
-  homeTeam     Team?       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeam     Team?       @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: SetNull)
   awayTeamId   String?
-  awayTeam     Team?       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeam     Team?       @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: SetNull)
   poolId       String?
-  pool         Pool?       @relation(fields: [poolId], references: [id])
+  pool         Pool?       @relation(fields: [poolId], references: [id], onDelete: SetNull)
   homeScore    Int?
   awayScore    Int?
   status       MatchStatus @default(SCHEDULED)
@@ -274,7 +274,7 @@ model Match {
 model Game {
   id           String     @id @default(cuid())
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   number       Int
   playedAt     DateTime?
   top          Int?
@@ -304,7 +304,7 @@ model Game {
 model ReferenceMove {
   id         String  @id @default(cuid())
   gameId     String
-  game       Game    @relation(fields: [gameId], references: [id])
+  game       Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
   turnNumber Int
   row        Int
   col        Int
@@ -319,7 +319,7 @@ model ReferenceMove {
 model DuplicateResult {
   id       String @id @default(cuid())
   gameId   String
-  game     Game   @relation(fields: [gameId], references: [id])
+  game     Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
   score    Int
@@ -335,7 +335,7 @@ model DuplicateResult {
 model DuplicateMove {
   id              String   @id @default(cuid())
   gameId          String
-  game            Game     @relation(fields: [gameId], references: [id])
+  game            Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   playerId        String
   player          Player   @relation(fields: [playerId], references: [id])
   turnNumber      Int
