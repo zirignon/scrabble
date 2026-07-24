@@ -123,7 +123,21 @@ function CurrentView({ data }: { data: DisplayData }) {
         )}
         <div className="flex flex-wrap items-start justify-center gap-10">
           {current.grid && (
-            <ScrabbleGrid grid={current.grid} cellSize={30} dark />
+            <div className="flex flex-col gap-2">
+              <ScrabbleGrid
+                grid={current.grid}
+                cellSize={30}
+                dark
+                invalidCells={
+                  new Set(current.invalidWords.flatMap((w) => w.cells.map(([r, c]) => `${r}-${c}`)))
+                }
+              />
+              {current.invalidWords.length > 0 && (
+                <p className="text-sm text-red-400 max-w-[490px]">
+                  ⚠ Non reconnu(s) : {current.invalidWords.map((w) => `${w.word} (${w.coordinate})`).join(", ")}
+                </p>
+              )}
+            </div>
           )}
           <table className="text-2xl border-collapse flex-1 min-w-[420px]">
             <thead>

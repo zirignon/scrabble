@@ -10,8 +10,9 @@ import {
   updateMoveAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
-import { reconstructBoard } from "@/lib/duplicate/board";
+import { reconstructBoard, findInvalidWords, formatCoordinate } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
+import { isValidWord } from "@/lib/dictionary";
 
 export default async function GameMovesPage({
   params,
@@ -43,6 +44,10 @@ export default async function GameMovesPage({
   const players = tournament.registrations.map((r) => r.player);
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
   const board = reconstructBoard(game.referenceMoves);
+  const invalidWords = await findInvalidWords(board, isValidWord);
+  const invalidCells = new Set(
+    invalidWords.flatMap((w) => w.cells.map(([r, c]) => `${r}-${c}`))
+  );
   const addReferenceMoveBound = addReferenceMoveAction.bind(null, tournament.id, game.id);
 
   return (
@@ -73,8 +78,17 @@ export default async function GameMovesPage({
         </p>
 
         <div className="overflow-auto">
-          <ScrabbleGrid grid={board} cellSize={26} />
+          <ScrabbleGrid grid={board} cellSize={26} invalidCells={invalidCells} />
         </div>
+
+        {invalidWords.length > 0 && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            ⚠ Mot(s) non reconnu(s) dans le dictionnaire :{" "}
+            {invalidWords
+              .map((w) => `${w.word} (${formatCoordinate(w.row, w.col)})`)
+              .join(", ")}
+          </p>
+        )}
 
         <table className="w-full text-sm border-collapse max-w-3xl">
           <thead>

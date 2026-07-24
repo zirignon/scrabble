@@ -22,10 +22,12 @@ export function ScrabbleGrid({
   grid,
   cellSize = 28,
   dark = false,
+  invalidCells,
 }: {
   grid: (string | null)[][];
   cellSize?: number;
   dark?: boolean;
+  invalidCells?: Set<string>;
 }) {
   const bonus = getBonusGrid();
   const labelColor = dark ? "text-white/60" : "text-black/60";
@@ -54,11 +56,12 @@ export function ScrabbleGrid({
           </div>
           {row.map((letter, c) => {
             const b = bonus[r][c];
+            const invalid = invalidCells?.has(`${r}-${c}`) ?? false;
             const border = dark ? "border-white/10" : "border-black/10";
             let bg: string;
             let textColor: string;
             if (letter) {
-              bg = "bg-amber-100";
+              bg = invalid ? "bg-red-300" : "bg-amber-100";
               textColor = "text-black";
             } else if (b) {
               bg = bonusColor[b];
@@ -79,7 +82,9 @@ export function ScrabbleGrid({
             return (
               <div
                 key={`${r}-${c}`}
-                className={`flex items-center justify-center border ${border} ${outerBorder} ${bg} ${textColor} font-bold`}
+                className={`flex items-center justify-center border ${
+                  invalid ? "border-2 border-red-600" : border
+                } ${outerBorder} ${bg} ${textColor} font-bold`}
                 style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
               >
                 {letter ?? (b && cellSize >= 20 ? bonusLabel[b] : "")}

@@ -80,8 +80,11 @@ Après `npm run db:seed` :
   à partir des coups
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
-  reconstruite et affichée (plateau 15×15 avec cases bonus) sur la
-  page de saisie et sur l'affichage grand écran
+  reconstruite et affichée (plateau 15×15 avec cases bonus et repères
+  alphanumériques, ex. H8) sur la page de saisie et sur l'affichage
+  grand écran ; tous les mots présents sur la grille (y compris ceux
+  formés par les croisements) sont vérifiés par rapport au
+  dictionnaire, avec mise en évidence des mots non reconnus
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au

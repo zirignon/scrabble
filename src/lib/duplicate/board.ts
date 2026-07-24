@@ -33,6 +33,83 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (string | null)[][
   return grid;
 }
 
+export interface FoundWord {
+  word: string;
+  row: number; // 0-indexé, case de départ
+  col: number; // 0-indexé, case de départ
+  direction: Direction;
+  cells: [number, number][];
+}
+
+// Repère tous les mots présents sur la grille (horizontaux et verticaux,
+// y compris ceux formés incidemment par les croisements), pour pouvoir
+// les valider un par un — pas seulement le mot saisi dans chaque coup.
+export function findWordsOnGrid(grid: (string | null)[][]): FoundWord[] {
+  const size = grid.length;
+  const words: FoundWord[] = [];
+
+  for (let r = 0; r < size; r++) {
+    let c = 0;
+    while (c < size) {
+      if (!grid[r][c]) {
+        c++;
+        continue;
+      }
+      const startCol = c;
+      const cells: [number, number][] = [];
+      let word = "";
+      while (c < size && grid[r][c]) {
+        word += grid[r][c];
+        cells.push([r, c]);
+        c++;
+      }
+      if (word.length >= 2) words.push({ word, row: r, col: startCol, direction: "ACROSS", cells });
+    }
+  }
+
+  for (let c = 0; c < size; c++) {
+    let r = 0;
+    while (r < size) {
+      if (!grid[r][c]) {
+        r++;
+        continue;
+      }
+      const startRow = r;
+      const cells: [number, number][] = [];
+      let word = "";
+      while (r < size && grid[r][c]) {
+        word += grid[r][c];
+        cells.push([r, c]);
+        r++;
+      }
+      if (word.length >= 2) words.push({ word, row: startRow, col: c, direction: "DOWN", cells });
+    }
+  }
+
+  return words;
+}
+
+// Notation ligne (lettre) + colonne (numéro), ex. "H4".
+export function formatCoordinate(row: number, col: number): string {
+  return `${String.fromCharCode(65 + row)}${col + 1}`;
+}
+
+// Valide chaque mot trouvé sur la grille via le vérificateur fourni
+// (isValidWord) ; ne renvoie que ceux explicitement absents du
+// dictionnaire (un dictionnaire non configuré ne signale rien).
+export async function findInvalidWords(
+  grid: (string | null)[][],
+  checkWord: (word: string) => Promise<boolean | null>
+): Promise<FoundWord[]> {
+  const words = findWordsOnGrid(grid);
+  const invalid: FoundWord[] = [];
+  for (const found of words) {
+    const valid = await checkWord(found.word);
+    if (valid === false) invalid.push(found);
+  }
+  return invalid;
+}
+
 // Disposition standard des cases bonus du Scrabble, pour un rendu
 // visuellement conforme (n'affecte pas le calcul des scores, saisis
 // indépendamment coup par coup).

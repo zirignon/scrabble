@@ -5,7 +5,8 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { reconstructBoard } from "@/lib/duplicate/board";
+import { reconstructBoard, findInvalidWords, formatCoordinate } from "@/lib/duplicate/board";
+import { isValidWord } from "@/lib/dictionary";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -77,6 +78,7 @@ export type DisplayCurrent =
       rows: DisplayDuplicateRow[];
       timer: DisplayGameTimer | null;
       grid: (string | null)[][] | null;
+      invalidWords: { word: string; coordinate: string; cells: [number, number][] }[];
     };
 
 export interface DisplayData {
@@ -274,7 +276,14 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     include: { results: { include: { player: true } }, referenceMoves: true },
   });
   if (!lastGame) {
-    return { kind: "duplicate", label: "Aucune partie", rows: [], timer: null, grid: null };
+    return {
+      kind: "duplicate",
+      label: "Aucune partie",
+      rows: [],
+      timer: null,
+      grid: null,
+      invalidWords: [],
+    };
   }
 
   const rows = lastGame.results
@@ -287,11 +296,21 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     .sort((a, b) => b.net - a.net)
     .map((r, i) => ({ rank: i + 1, ...r }));
 
+  const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
+  const invalidWords = grid
+    ? (await findInvalidWords(grid, isValidWord)).map((w) => ({
+        word: w.word,
+        coordinate: formatCoordinate(w.row, w.col),
+        cells: w.cells,
+      }))
+    : [];
+
   return {
     kind: "duplicate",
     label: `Partie ${lastGame.number}`,
     rows,
-    grid: lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null,
+    grid,
+    invalidWords,
     timer: {
       durationSeconds: lastGame.timerDurationSeconds,
       remainingSeconds: lastGame.timerRemainingSeconds ?? lastGame.timerDurationSeconds,
