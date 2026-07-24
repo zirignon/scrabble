@@ -4,6 +4,8 @@ import { getSession } from "@/lib/auth";
 import { selfRegisterAction } from "@/lib/actions/tournaments";
 import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
+import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
+import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 
 const statusLabel: Record<string, string> = {
   DRAFT: "Brouillon",
@@ -35,7 +37,11 @@ export default async function TournamentPublicPage({
       registrations: { include: { player: { include: { club: true } } } },
       rounds: {
         orderBy: { number: "asc" },
-        include: { matches: { include: { homePlayer: true, awayPlayer: true } } },
+        include: {
+          matches: {
+            include: { homePlayer: true, awayPlayer: true, homeTeam: true, awayTeam: true },
+          },
+        },
       },
       games: {
         orderBy: { number: "asc" },
@@ -64,6 +70,15 @@ export default async function TournamentPublicPage({
     tournament.type === "DUPLICATE" ? await computeDuplicateStandings(tournament.id) : [];
   const standingsCount =
     tournament.type === "CLASSIC" ? classicStandings.length : duplicateStandings.length;
+
+  const classicTeamStandings =
+    tournament.isTeamEvent && tournament.type === "CLASSIC"
+      ? await computeClassicTeamStandings(tournament.id)
+      : [];
+  const duplicateTeamStandings =
+    tournament.isTeamEvent && tournament.type === "DUPLICATE"
+      ? await computeDuplicateTeamStandings(tournament.id)
+      : [];
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-10">
@@ -213,41 +228,194 @@ export default async function TournamentPublicPage({
         )}
       </section>
 
+      {tournament.isTeamEvent && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-semibold">Classement par équipes</h2>
+            <div className="flex gap-3">
+              <a
+                href={`/api/tournois/${tournament.id}/classement/equipes/export`}
+                className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+              >
+                Exporter en CSV
+              </a>
+              <a
+                href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`}
+                className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+              >
+                Exporter en PDF
+              </a>
+            </div>
+          </div>
+          {tournament.type === "CLASSIC" ? (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left border-b border-black/10 dark:border-white/10">
+                  <th className="py-2 pr-4">#</th>
+                  <th className="py-2 pr-4">Équipe</th>
+                  <th className="py-2 pr-4">J</th>
+                  <th className="py-2 pr-4">V</th>
+                  <th className="py-2 pr-4">N</th>
+                  <th className="py-2 pr-4">D</th>
+                  <th className="py-2 pr-4">Pts</th>
+                  <th className="py-2 pr-4" title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className="py-2 pr-4">Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classicTeamStandings.map((row, i) => (
+                  <tr key={row.teamId} className="border-b border-black/5 dark:border-white/5">
+                    <td className="py-2 pr-4">{i + 1}</td>
+                    <td className="py-2 pr-4">{row.name}</td>
+                    <td className="py-2 pr-4">{row.played}</td>
+                    <td className="py-2 pr-4">{row.wins}</td>
+                    <td className="py-2 pr-4">{row.draws}</td>
+                    <td className="py-2 pr-4">{row.losses}</td>
+                    <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
+                    <td className="py-2 pr-4">
+                      {row.boardsWon}/{row.boardsDrawn}/{row.boardsLost}
+                    </td>
+                    <td className="py-2 pr-4">{row.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left border-b border-black/10 dark:border-white/10">
+                  <th className="py-2 pr-4">#</th>
+                  <th className="py-2 pr-4">Équipe</th>
+                  <th className="py-2 pr-4">Parties</th>
+                  <th className="py-2 pr-4">Score total</th>
+                  <th className="py-2 pr-4">Pénalités</th>
+                  <th className="py-2 pr-4">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {duplicateTeamStandings.map((row, i) => (
+                  <tr key={row.teamId} className="border-b border-black/5 dark:border-white/5">
+                    <td className="py-2 pr-4">{i + 1}</td>
+                    <td className="py-2 pr-4">{row.name}</td>
+                    <td className="py-2 pr-4">{row.gamesPlayed}</td>
+                    <td className="py-2 pr-4">{row.totalScore}</td>
+                    <td className="py-2 pr-4">{row.totalPenalty}</td>
+                    <td className="py-2 pr-4 font-medium">{row.net}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
       {tournament.type === "CLASSIC" ? (
         <section>
           <h2 className="text-xl font-semibold mb-3">Rondes &amp; résultats</h2>
           <div className="flex flex-col gap-6">
-            {tournament.rounds.map((round) => (
-              <div key={round.id}>
-                <h3 className="font-medium mb-2">Ronde {round.number}</h3>
-                <table className="w-full text-sm border-collapse">
-                  <tbody>
-                    {round.matches.map((match) => (
-                      <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
-                        <td className="py-1.5 pr-4">
-                          {match.homePlayer
-                            ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-                            : "—"}
-                        </td>
-                        <td className="py-1.5 pr-4 font-medium">
-                          {match.isBye
-                            ? "Exempt"
-                            : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                        </td>
-                        <td className="py-1.5 pr-4">
-                          {match.awayPlayer
-                            ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-                            : "—"}
-                        </td>
-                        <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
-                          {matchStatusLabel[match.status]}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+            {tournament.rounds.map((round) => {
+              if (!tournament.isTeamEvent) {
+                return (
+                  <div key={round.id}>
+                    <h3 className="font-medium mb-2">Ronde {round.number}</h3>
+                    <table className="w-full text-sm border-collapse">
+                      <tbody>
+                        {round.matches.map((match) => (
+                          <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
+                            <td className="py-1.5 pr-4">
+                              {match.homePlayer
+                                ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                                : "—"}
+                            </td>
+                            <td className="py-1.5 pr-4 font-medium">
+                              {match.isBye
+                                ? "Exempt"
+                                : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
+                            </td>
+                            <td className="py-1.5 pr-4">
+                              {match.awayPlayer
+                                ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                                : "—"}
+                            </td>
+                            <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
+                              {matchStatusLabel[match.status]}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              }
+
+              // Tournoi par équipes : regroupe les échiquiers par confrontation.
+              const encounters = new Map<
+                string,
+                { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }
+              >();
+              const byeTeamNames: string[] = [];
+
+              for (const match of round.matches) {
+                if (match.isBye) {
+                  if (match.homeTeam) byeTeamNames.push(match.homeTeam.name);
+                  continue;
+                }
+                if (!match.homeTeam || !match.awayTeam) continue;
+                const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
+                if (!encounters.has(key)) {
+                  encounters.set(key, {
+                    homeTeamName: match.homeTeam.name,
+                    awayTeamName: match.awayTeam.name,
+                    matches: [],
+                  });
+                }
+                encounters.get(key)!.matches.push(match);
+              }
+
+              return (
+                <div key={round.id} className="flex flex-col gap-4">
+                  <h3 className="font-medium">Ronde {round.number}</h3>
+                  {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
+                    <div key={`${homeTeamName}:${awayTeamName}`}>
+                      <p className="text-sm font-medium mb-1">
+                        {homeTeamName} vs {awayTeamName}
+                      </p>
+                      <table className="w-full text-sm border-collapse">
+                        <tbody>
+                          {matches.map((match) => (
+                            <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
+                              <td className="py-1.5 pr-4">
+                                {match.homePlayer
+                                  ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                                  : "—"}
+                              </td>
+                              <td className="py-1.5 pr-4 font-medium">
+                                {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
+                              </td>
+                              <td className="py-1.5 pr-4">
+                                {match.awayPlayer
+                                  ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                                  : "—"}
+                              </td>
+                              <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
+                                {matchStatusLabel[match.status]}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                  {byeTeamNames.map((name) => (
+                    <p key={name} className="text-sm text-black/50 dark:text-white/50">
+                      {name} : équipe exempte pour cette ronde.
+                    </p>
+                  ))}
+                </div>
+              );
+            })}
             {tournament.rounds.length === 0 && (
               <p className="text-sm text-black/50 dark:text-white/50">
                 Les rondes n&apos;ont pas encore été publiées.

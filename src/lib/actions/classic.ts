@@ -22,6 +22,9 @@ async function assertCanManage(tournamentId: string) {
 export async function generateRoundRobinAction(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC") throw new Error("Tournoi non classique.");
+  if (tournament.isTeamEvent) {
+    throw new Error("Ce tournoi est en mode équipes : générez les rondes par équipes.");
+  }
 
   const existing = await prisma.round.count({ where: { tournamentId } });
   if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
@@ -51,6 +54,70 @@ export async function generateRoundRobinAction(tournamentId: string) {
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
         },
       });
+    }
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateTeamRoundRobinAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent) {
+    throw new Error("Ce tournoi n'est pas un tournoi par équipes classique.");
+  }
+
+  const existing = await prisma.round.count({ where: { tournamentId } });
+  if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
+
+  const teams = await prisma.team.findMany({
+    where: { tournamentId },
+    include: { members: { orderBy: { board: "asc" } } },
+  });
+  if (teams.length < 2) throw new Error("Il faut au moins 2 équipes.");
+
+  const boardCount = teams[0].members.length;
+  if (boardCount === 0) throw new Error("Chaque équipe doit avoir au moins un joueur.");
+  if (teams.some((t) => t.members.length !== boardCount)) {
+    throw new Error("Toutes les équipes doivent avoir le même nombre de joueurs.");
+  }
+
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const teamRounds = generateRoundRobinRounds(teams.map((t) => t.id));
+
+  for (let i = 0; i < teamRounds.length; i++) {
+    const round = await prisma.round.create({
+      data: { tournamentId, number: i + 1 },
+    });
+
+    for (const pairing of teamRounds[i]) {
+      const homeTeam = teamsById.get(pairing.home)!;
+
+      if (pairing.away === null) {
+        await prisma.match.create({
+          data: {
+            roundId: round.id,
+            homeTeamId: homeTeam.id,
+            isBye: true,
+            status: "PLAYED",
+          },
+        });
+        continue;
+      }
+
+      const awayTeam = teamsById.get(pairing.away)!;
+      for (let board = 0; board < boardCount; board++) {
+        await prisma.match.create({
+          data: {
+            roundId: round.id,
+            table: board + 1,
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id,
+            homePlayerId: homeTeam.members[board].playerId,
+            awayPlayerId: awayTeam.members[board].playerId,
+            status: "SCHEDULED",
+          },
+        });
+      }
     }
   }
 

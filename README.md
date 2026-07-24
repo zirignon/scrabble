@@ -68,9 +68,24 @@ Après `npm run db:seed` :
   à partir des coups
 - Classement cumulé (score total, pénalités, net)
 
+### Tournois par équipes
+
+- Un tournoi (classique ou duplicate) peut être marqué « par équipes » à
+  la création
+- Gestion des équipes et de leurs membres (un échiquier fixe par joueur
+  en classique)
+- Classique : génération des rondes par équipes en round-robin (un match
+  par échiquier), résultat de la confrontation à la majorité d'échiquiers
+  gagnés, départage par différence de points cumulés
+- Duplicate : classement par équipes obtenu en cumulant les scores nets
+  individuels des membres sur l'ensemble des parties
+- Classement par équipes affiché sur la page publique du tournoi, avec
+  exports CSV/PDF dédiés
+
 ### Exports
 
-- Classement : CSV et PDF (page publique du tournoi)
+- Classement (individuel et, le cas échéant, par équipes) : CSV et PDF
+  (page publique du tournoi)
 - Rondes/matchs (classique) et parties/scores (duplicate) : CSV
   (pages d'administration)
 

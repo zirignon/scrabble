@@ -32,7 +32,7 @@ export default async function ManageTournamentPage({
         include: { player: { include: { club: true } } },
         orderBy: { createdAt: "asc" },
       },
-      _count: { select: { rounds: true, games: true } },
+      _count: { select: { rounds: true, games: true, teams: true } },
     },
   });
   if (!tournament) notFound();
@@ -168,6 +168,17 @@ export default async function ManageTournamentPage({
       </section>
 
       <section className="flex flex-col gap-3">
+        {tournament.isTeamEvent && (
+          <Link
+            href={`/admin/tournois/${tournament.id}/equipes`}
+            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+          >
+            <p className="font-medium">Gérer les équipes</p>
+            <p className="text-xs text-black/60 dark:text-white/60">
+              {tournament._count.teams} équipe(s) créée(s)
+            </p>
+          </Link>
+        )}
         {tournament.type === "CLASSIC" ? (
           <Link
             href={`/admin/tournois/${tournament.id}/rondes`}

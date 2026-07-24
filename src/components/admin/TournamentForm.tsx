@@ -12,6 +12,7 @@ export function TournamentForm() {
     initialState
   );
   const [type, setType] = useState<"CLASSIC" | "DUPLICATE">("CLASSIC");
+  const [isTeamEvent, setIsTeamEvent] = useState(false);
 
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-xl">
@@ -53,7 +54,7 @@ export function TournamentForm() {
         </div>
       </div>
 
-      {type === "CLASSIC" && (
+      {type === "CLASSIC" && !isTeamEvent && (
         <div className="flex flex-col gap-1">
           <label htmlFor="format" className="text-sm font-medium">
             Format
@@ -71,6 +72,25 @@ export function TournamentForm() {
           </select>
         </div>
       )}
+
+      <div className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="isTeamEvent"
+            checked={isTeamEvent}
+            onChange={(e) => setIsTeamEvent(e.target.checked)}
+          />
+          Tournoi par équipes
+        </label>
+        {isTeamEvent && (
+          <p className="text-xs text-black/60 dark:text-white/60">
+            {type === "CLASSIC"
+              ? "Les rondes seront générées en round-robin entre équipes (un échiquier par joueur)."
+              : "Les scores individuels des membres de chaque équipe seront cumulés pour le classement par équipes."}
+          </p>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
