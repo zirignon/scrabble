@@ -122,7 +122,11 @@ function CurrentView({ data }: { data: DisplayData }) {
           </div>
         )}
         <div className="flex flex-wrap items-start justify-center gap-10">
-          {current.grid && <ScrabbleGrid grid={current.grid} cellSize={30} dark />}
+          {current.grid && (
+            <div className="bg-white p-3 rounded">
+              <ScrabbleGrid grid={current.grid} cellSize={30} />
+            </div>
+          )}
           <table className="text-2xl border-collapse flex-1 min-w-[420px]">
             <thead>
               <tr className="text-left text-white/50 text-xl border-b border-white/20">
