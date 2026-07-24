@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -117,6 +118,16 @@ export default async function TournamentPublicPage({
             {tournament.description}
           </p>
         )}
+
+        <p className="mt-3">
+          <Link
+            href={`/tournois/${tournament.slug}/affichage`}
+            target="_blank"
+            className="text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
+          >
+            📺 Affichage grand écran
+          </Link>
+        </p>
 
         {session && hasPlayerProfile && !isRegistered && tournament.status === "REGISTRATION_OPEN" && (
           <form action={selfRegisterAction.bind(null, tournament.id)} className="mt-4">

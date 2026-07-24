@@ -103,6 +103,16 @@ Après `npm run db:seed` :
 - Classement par équipes affiché sur la page publique du tournoi, avec
   exports CSV/PDF dédiés
 
+### Affichage grand écran
+
+- Page publique dédiée par tournoi (`/tournois/[slug]/affichage`), sans
+  menu de navigation, pensée pour être projetée en salle
+- Alterne automatiquement (toutes les 12 secondes) entre le classement
+  (par poule le cas échéant) et la ronde en cours en classique, ou la
+  dernière partie en duplicate
+- Se rafraîchit automatiquement toutes les 8 secondes pour rester à jour
+  en temps réel sans intervention
+
 ### Exports
 
 - Classement (individuel et, le cas échéant, par équipes) : CSV et PDF
@@ -114,4 +124,3 @@ Après `npm run db:seed` :
 
 - Départages avancés supplémentaires (Buchholz médian, dégressif...)
 - Saisie coup par coup avec validation du dictionnaire, timer
-- Affichage grand écran, temps réel (WebSocket/SSE)
