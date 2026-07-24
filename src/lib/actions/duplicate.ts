@@ -281,7 +281,6 @@ export async function deleteMoveAction(
 
 const referenceMoveSchema = z.object({
   reference: z.string().min(2),
-  direction: z.enum(["ACROSS", "DOWN"]),
   word: z.string().optional(),
   isPass: z.string().optional(),
 });
@@ -289,7 +288,6 @@ const referenceMoveSchema = z.object({
 function parseReferenceMove(formData: FormData) {
   const parsed = referenceMoveSchema.safeParse({
     reference: formData.get("reference"),
-    direction: formData.get("direction"),
     word: formData.get("word") || undefined,
     isPass: formData.get("isPass") || undefined,
   });
@@ -301,7 +299,7 @@ function parseReferenceMove(formData: FormData) {
   return {
     row: position.row,
     col: position.col,
-    direction: parsed.data.direction,
+    direction: position.direction,
     word: parsed.data.word?.toUpperCase() || null,
     isPass: parsed.data.isPass === "on",
   };

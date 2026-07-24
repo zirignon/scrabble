@@ -10,18 +10,37 @@ export interface ReferenceMoveLike {
 }
 
 // Référence alphanumérique d'une case (ligne = lettre A-O, colonne =
-// numéro 1-15), ex. "H4" pour ligne H (8), colonne 4.
-export function formatReference(row: number, col: number): string {
-  return `${String.fromCharCode(64 + row)}${col}`;
+// numéro 1-15) : le sens du coup est encodé par l'ordre lettre/chiffre,
+// comme en notation duplicate standard — ex. "H4" (lettre puis chiffre)
+// pour un mot horizontal ligne H colonne 4, "4H" (chiffre puis lettre)
+// pour un mot vertical même case.
+export function formatReference(row: number, col: number, direction: string): string {
+  const letter = String.fromCharCode(64 + row);
+  return direction === "ACROSS" ? `${letter}${col}` : `${col}${letter}`;
 }
 
-export function parseReference(value: string): { row: number; col: number } | null {
-  const match = value.trim().toUpperCase().match(/^([A-O])(\d{1,2})$/);
-  if (!match) return null;
-  const row = match[1].charCodeAt(0) - 64;
-  const col = Number(match[2]);
-  if (row < 1 || row > 15 || col < 1 || col > 15) return null;
-  return { row, col };
+export function parseReference(
+  value: string
+): { row: number; col: number; direction: "ACROSS" | "DOWN" } | null {
+  const trimmed = value.trim().toUpperCase();
+
+  const across = trimmed.match(/^([A-O])(\d{1,2})$/);
+  if (across) {
+    const row = across[1].charCodeAt(0) - 64;
+    const col = Number(across[2]);
+    if (row < 1 || row > 15 || col < 1 || col > 15) return null;
+    return { row, col, direction: "ACROSS" };
+  }
+
+  const down = trimmed.match(/^(\d{1,2})([A-O])$/);
+  if (down) {
+    const col = Number(down[1]);
+    const row = down[2].charCodeAt(0) - 64;
+    if (row < 1 || row > 15 || col < 1 || col > 15) return null;
+    return { row, col, direction: "DOWN" };
+  }
+
+  return null;
 }
 
 // Reconstruit la grille (15x15, lignes/colonnes numérotées 1 à 15 côté

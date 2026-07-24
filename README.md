@@ -81,12 +81,15 @@ Après `npm run db:seed` :
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
-  alphanumériques, ex. H8) sur la page de saisie et sur l'affichage
-  grand écran. Le score de chaque coup de référence est calculé
-  automatiquement (valeur des lettres, bonus de lettre/mot appliqués
-  uniquement aux cases nouvellement posées, mots secondaires formés
-  par les croisements, +50 points si les 7 lettres sont posées) — pas
-  de saisie manuelle des points
+  alphanumériques) sur la page de saisie et sur l'affichage grand
+  écran. Un seul champ de référence par coup, dont le sens (horizontal
+  ou vertical) est déduit de la notation elle-même — lettre puis
+  chiffre pour horizontal (ex. H4), chiffre puis lettre pour vertical
+  (ex. 4H), comme en notation duplicate standard. Le score de chaque
+  coup de référence est calculé automatiquement (valeur des lettres,
+  bonus de lettre/mot appliqués uniquement aux cases nouvellement
+  posées, mots secondaires formés par les croisements, +50 points si
+  les 7 lettres sont posées) — pas de saisie manuelle des points
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au

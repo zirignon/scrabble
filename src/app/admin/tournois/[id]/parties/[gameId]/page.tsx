@@ -81,7 +81,6 @@ export default async function GameMovesPage({
             <tr className="text-left border-b border-black/10 dark:border-white/10">
               <th className="py-2 pr-4">Coup</th>
               <th className="py-2 pr-4">Référence</th>
-              <th className="py-2 pr-4">Sens</th>
               <th className="py-2 pr-4">Mot</th>
               <th className="py-2 pr-4">Points</th>
               <th className="py-2 pr-4">Passe</th>
@@ -92,7 +91,7 @@ export default async function GameMovesPage({
             {game.referenceMoves.map((move) => (
               <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
                 {canManage ? (
-                  <td colSpan={7} className="py-1.5">
+                  <td colSpan={6} className="py-1.5">
                     <form
                       action={updateReferenceMoveAction.bind(
                         null,
@@ -108,18 +107,10 @@ export default async function GameMovesPage({
                       <input
                         type="text"
                         name="reference"
-                        defaultValue={formatReference(move.row, move.col)}
-                        placeholder="Ex. H4"
-                        className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
+                        defaultValue={formatReference(move.row, move.col, move.direction)}
+                        placeholder="Ex. H4 / 4H"
+                        className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
                       />
-                      <select
-                        name="direction"
-                        defaultValue={move.direction}
-                        className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
-                      >
-                        <option value="ACROSS">Horizontal</option>
-                        <option value="DOWN">Vertical</option>
-                      </select>
                       <input
                         type="text"
                         name="word"
@@ -157,9 +148,8 @@ export default async function GameMovesPage({
                 ) : (
                   <>
                     <td className="py-1.5 pr-4">{move.turnNumber}</td>
-                    <td className="py-1.5 pr-4">{formatReference(move.row, move.col)}</td>
                     <td className="py-1.5 pr-4">
-                      {move.direction === "ACROSS" ? "Horizontal" : "Vertical"}
+                      {formatReference(move.row, move.col, move.direction)}
                     </td>
                     <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word ?? "—"}</td>
                     <td className="py-1.5 pr-4">{move.points}</td>
@@ -170,7 +160,7 @@ export default async function GameMovesPage({
             ))}
             {game.referenceMoves.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-2 text-black/50 dark:text-white/50">
+                <td colSpan={6} className="py-2 text-black/50 dark:text-white/50">
                   Aucun coup de référence saisi.
                 </td>
               </tr>
@@ -186,17 +176,9 @@ export default async function GameMovesPage({
             <input
               type="text"
               name="reference"
-              placeholder="Ex. H4"
-              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+              placeholder="Ex. H4 / 4H"
+              className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
             />
-            <select
-              name="direction"
-              defaultValue="ACROSS"
-              className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-sm"
-            >
-              <option value="ACROSS">Horizontal</option>
-              <option value="DOWN">Vertical</option>
-            </select>
             <input
               type="text"
               name="word"
@@ -216,8 +198,10 @@ export default async function GameMovesPage({
           </form>
         )}
         <p className="text-xs text-black/50 dark:text-white/50">
-          Le score est calculé automatiquement (valeur des lettres, cases
-          bonus, mots croisés, +50 points si les 7 lettres sont posées).
+          Référence : lettre puis chiffre pour un mot horizontal (ex. H4),
+          chiffre puis lettre pour un mot vertical (ex. 4H). Le score est
+          calculé automatiquement (valeur des lettres, cases bonus, mots
+          croisés, +50 points si les 7 lettres sont posées).
         </p>
       </section>
 
