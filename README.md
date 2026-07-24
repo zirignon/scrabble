@@ -70,7 +70,9 @@ Après `npm run db:seed` :
 - Saisie des scores, gestion des forfaits/annulations
 - Classement calculé automatiquement : points de match, puis
   départages Buchholz, Buchholz médian, Sonneborn-Berger et score
-  cumulé progressif, puis différence de score
+  cumulé progressif, puis différence de score et total de points ; en
+  cas d'égalité parfaite sur tous ces critères, la confrontation
+  directe entre les deux joueurs tranche
 
 ### Scrabble duplicate
 - Formule du tournoi (FISF/FFSc), modifiable à tout moment depuis la
@@ -170,4 +172,4 @@ Après `npm run db:seed` :
 
 ## Prochaines étapes possibles
 
-- Départages avancés supplémentaires (Buchholz médian, dégressif...)
+- Aucune identifiée pour le moment.
