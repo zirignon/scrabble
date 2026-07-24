@@ -40,6 +40,14 @@ export default async function GamesPage({
         <h1 className="text-2xl font-semibold mt-1">
           Parties — {tournament.name}
         </h1>
+        {canManage && tournament.games.length > 0 && (
+          <a
+            href={`/api/tournois/${tournament.id}/parties/export`}
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Exporter les parties en CSV
+          </a>
+        )}
       </div>
 
       {canManage && (
@@ -70,6 +78,18 @@ export default async function GamesPage({
                   {new Date(game.playedAt).toLocaleDateString("fr-FR")}
                 </span>
               )}
+              <Link
+                href={`/admin/tournois/${tournament.id}/parties/${game.id}`}
+                className="ml-3 text-sm font-normal text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                Détail coup par coup →
+              </Link>
+              <Link
+                href={`/admin/tournois/${tournament.id}/parties/${game.id}/classement`}
+                className="ml-3 text-sm font-normal text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                Fiche de classement →
+              </Link>
             </h2>
 
             <form

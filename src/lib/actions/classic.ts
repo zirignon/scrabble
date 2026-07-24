@@ -7,6 +7,7 @@ import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { generateRoundRobinRounds } from "@/lib/classic/pairing";
 import { generateSwissRound } from "@/lib/classic/swiss";
 import { computeClassicStandings } from "@/lib/classic/standings";
+import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -22,6 +23,9 @@ async function assertCanManage(tournamentId: string) {
 export async function generateRoundRobinAction(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC") throw new Error("Tournoi non classique.");
+  if (tournament.isTeamEvent) {
+    throw new Error("Ce tournoi est en mode équipes : générez les rondes par équipes.");
+  }
 
   const existing = await prisma.round.count({ where: { tournamentId } });
   if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
@@ -51,6 +55,70 @@ export async function generateRoundRobinAction(tournamentId: string) {
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
         },
       });
+    }
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateTeamRoundRobinAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent) {
+    throw new Error("Ce tournoi n'est pas un tournoi par équipes classique.");
+  }
+
+  const existing = await prisma.round.count({ where: { tournamentId } });
+  if (existing > 0) throw new Error("Des rondes existent déjà pour ce tournoi.");
+
+  const teams = await prisma.team.findMany({
+    where: { tournamentId },
+    include: { members: { orderBy: { board: "asc" } } },
+  });
+  if (teams.length < 2) throw new Error("Il faut au moins 2 équipes.");
+
+  const boardCount = teams[0].members.length;
+  if (boardCount === 0) throw new Error("Chaque équipe doit avoir au moins un joueur.");
+  if (teams.some((t) => t.members.length !== boardCount)) {
+    throw new Error("Toutes les équipes doivent avoir le même nombre de joueurs.");
+  }
+
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const teamRounds = generateRoundRobinRounds(teams.map((t) => t.id));
+
+  for (let i = 0; i < teamRounds.length; i++) {
+    const round = await prisma.round.create({
+      data: { tournamentId, number: i + 1 },
+    });
+
+    for (const pairing of teamRounds[i]) {
+      const homeTeam = teamsById.get(pairing.home)!;
+
+      if (pairing.away === null) {
+        await prisma.match.create({
+          data: {
+            roundId: round.id,
+            homeTeamId: homeTeam.id,
+            isBye: true,
+            status: "PLAYED",
+          },
+        });
+        continue;
+      }
+
+      const awayTeam = teamsById.get(pairing.away)!;
+      for (let board = 0; board < boardCount; board++) {
+        await prisma.match.create({
+          data: {
+            roundId: round.id,
+            table: board + 1,
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id,
+            homePlayerId: homeTeam.members[board].playerId,
+            awayPlayerId: awayTeam.members[board].playerId,
+            status: "SCHEDULED",
+          },
+        });
+      }
     }
   }
 
@@ -117,6 +185,100 @@ export async function generateNextSwissRoundAction(tournamentId: string) {
         status: pairing.away === null ? "PLAYED" : "SCHEDULED",
       },
     });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+export async function generateNextTeamSwissRoundAction(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent || tournament.format !== "SWISS") {
+    throw new Error("Ce tournoi n'est pas un tournoi par équipes en système suisse.");
+  }
+
+  const previousMatches = await prisma.match.findMany({
+    where: { round: { tournamentId } },
+  });
+
+  const unfinished = previousMatches.some(
+    (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
+  );
+  if (unfinished) {
+    throw new Error("Terminez la saisie des résultats de la ronde en cours avant d'en générer une nouvelle.");
+  }
+
+  const teams = await prisma.team.findMany({
+    where: { tournamentId },
+    include: { members: { orderBy: { board: "asc" } } },
+  });
+  if (teams.length < 2) throw new Error("Il faut au moins 2 équipes.");
+
+  const boardCount = teams[0].members.length;
+  if (boardCount === 0) throw new Error("Chaque équipe doit avoir au moins un joueur.");
+  if (teams.some((t) => t.members.length !== boardCount)) {
+    throw new Error("Toutes les équipes doivent avoir le même nombre de joueurs.");
+  }
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+
+  const teamStandings = await computeClassicTeamStandings(tournamentId);
+
+  const previousOpponents = new Map<string, Set<string>>();
+  const teamsWithBye = new Set<string>();
+  for (const m of previousMatches) {
+    if (m.isBye) {
+      if (m.homeTeamId) teamsWithBye.add(m.homeTeamId);
+      continue;
+    }
+    if (!m.homeTeamId || !m.awayTeamId) continue;
+    if (!previousOpponents.has(m.homeTeamId)) previousOpponents.set(m.homeTeamId, new Set());
+    if (!previousOpponents.has(m.awayTeamId)) previousOpponents.set(m.awayTeamId, new Set());
+    previousOpponents.get(m.homeTeamId)!.add(m.awayTeamId);
+    previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
+  }
+
+  const pairings = generateSwissRound(
+    teamStandings.map((s) => ({ playerId: s.teamId, matchPoints: s.matchPoints })),
+    previousOpponents,
+    teamsWithBye
+  );
+
+  const last = await prisma.round.findFirst({
+    where: { tournamentId },
+    orderBy: { number: "desc" },
+  });
+  const round = await prisma.round.create({
+    data: { tournamentId, number: (last?.number ?? 0) + 1 },
+  });
+
+  for (const pairing of pairings) {
+    const homeTeam = teamsById.get(pairing.home)!;
+
+    if (pairing.away === null) {
+      await prisma.match.create({
+        data: {
+          roundId: round.id,
+          homeTeamId: homeTeam.id,
+          isBye: true,
+          status: "PLAYED",
+        },
+      });
+      continue;
+    }
+
+    const awayTeam = teamsById.get(pairing.away)!;
+    for (let board = 0; board < boardCount; board++) {
+      await prisma.match.create({
+        data: {
+          roundId: round.id,
+          table: board + 1,
+          homeTeamId: homeTeam.id,
+          awayTeamId: awayTeam.id,
+          homePlayerId: homeTeam.members[board].playerId,
+          awayPlayerId: awayTeam.members[board].playerId,
+          status: "SCHEDULED",
+        },
+      });
+    }
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);

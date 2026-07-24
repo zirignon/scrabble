@@ -20,6 +20,7 @@ export default async function AdminClubsPage() {
           <tr className="text-left border-b border-black/10 dark:border-white/10">
             <th className="py-2 pr-4">Nom</th>
             <th className="py-2 pr-4">Ville</th>
+            <th className="py-2 pr-4">Fédération</th>
             <th className="py-2 pr-4">Joueurs</th>
             <th className="py-2 pr-4" />
           </tr>
@@ -29,6 +30,7 @@ export default async function AdminClubsPage() {
             <tr key={club.id} className="border-b border-black/5 dark:border-white/5">
               <td className="py-2 pr-4">{club.name}</td>
               <td className="py-2 pr-4">{club.city ?? "—"}</td>
+              <td className="py-2 pr-4">{club.federation ?? "—"}</td>
               <td className="py-2 pr-4">{club._count.players}</td>
               <td className="py-2 pr-4 text-right">
                 <form action={deleteClubAction.bind(null, club.id)}>
@@ -41,7 +43,7 @@ export default async function AdminClubsPage() {
           ))}
           {clubs.length === 0 && (
             <tr>
-              <td colSpan={4} className="py-4 text-black/50 dark:text-white/50">
+              <td colSpan={5} className="py-4 text-black/50 dark:text-white/50">
                 Aucun club pour le moment.
               </td>
             </tr>

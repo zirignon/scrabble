@@ -9,6 +9,7 @@ import type { ActionState } from "@/lib/actions/auth";
 const clubSchema = z.object({
   name: z.string().min(2, "Le nom du club est trop court."),
   city: z.string().optional(),
+  federation: z.string().optional(),
 });
 
 export async function createClubAction(
@@ -20,6 +21,7 @@ export async function createClubAction(
   const parsed = clubSchema.safeParse({
     name: formData.get("name"),
     city: formData.get("city") || undefined,
+    federation: formData.get("federation") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };

@@ -6,9 +6,12 @@ import {
   addManualRoundAction,
   addMatchAction,
   generateNextSwissRoundAction,
+  generateNextTeamSwissRoundAction,
   generateRoundRobinAction,
+  generateTeamRoundRobinAction,
   recordMatchResultAction,
 } from "@/lib/actions/classic";
+import type { Match, Player, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -17,6 +20,126 @@ const statusLabel: Record<string, string> = {
   FORFEIT_AWAY: "Forfait (extérieur)",
   CANCELLED: "Annulé",
 };
+
+type MatchWithRelations = Match & {
+  homePlayer: Player | null;
+  awayPlayer: Player | null;
+  homeTeam: Team | null;
+  awayTeam: Team | null;
+};
+
+function MatchRow({
+  match,
+  canManage,
+  tournamentId,
+}: {
+  match: MatchWithRelations;
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  return (
+    <tr className="border-b border-black/5 dark:border-white/5">
+      <td className="py-2 pr-4">{match.table ?? "—"}</td>
+      <td className="py-2 pr-4">
+        {match.homePlayer
+          ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+          : "—"}
+      </td>
+      <td className="py-2 pr-4">
+        {match.isBye ? (
+          <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
+        ) : canManage ? (
+          <form
+            action={recordMatchResultAction.bind(null, tournamentId, match.id)}
+            className="flex items-center gap-1"
+          >
+            <input
+              type="number"
+              name="homeScore"
+              defaultValue={match.homeScore ?? ""}
+              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+            />
+            <span>-</span>
+            <input
+              type="number"
+              name="awayScore"
+              defaultValue={match.awayScore ?? ""}
+              className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+            />
+            <select
+              name="status"
+              defaultValue={match.status}
+              className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+            >
+              {Object.entries(statusLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
+            >
+              OK
+            </button>
+          </form>
+        ) : (
+          <span>
+            {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
+          </span>
+        )}
+      </td>
+      <td className="py-2 pr-4">
+        {match.awayPlayer
+          ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+          : "—"}
+      </td>
+      <td className="py-2 pr-4">{statusLabel[match.status]}</td>
+    </tr>
+  );
+}
+
+function MatchTable({
+  matches,
+  canManage,
+  tournamentId,
+}: {
+  matches: MatchWithRelations[];
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  return (
+    <table className="w-full text-sm border-collapse">
+      <thead>
+        <tr className="text-left border-b border-black/10 dark:border-white/10">
+          <th className="py-2 pr-4">Table</th>
+          <th className="py-2 pr-4">Domicile</th>
+          <th className="py-2 pr-4">Score</th>
+          <th className="py-2 pr-4">Extérieur</th>
+          <th className="py-2 pr-4">Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {matches.map((match) => (
+          <MatchRow
+            key={match.id}
+            match={match}
+            canManage={canManage}
+            tournamentId={tournamentId}
+          />
+        ))}
+        {matches.length === 0 && (
+          <tr>
+            <td colSpan={5} className="py-3 text-black/50 dark:text-white/50">
+              Aucun match dans cette ronde.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
 
 export default async function RoundsPage({
   params,
@@ -33,7 +156,12 @@ export default async function RoundsPage({
         orderBy: { number: "asc" },
         include: {
           matches: {
-            include: { homePlayer: true, awayPlayer: true },
+            include: {
+              homePlayer: true,
+              awayPlayer: true,
+              homeTeam: true,
+              awayTeam: true,
+            },
             orderBy: { table: "asc" },
           },
         },
@@ -46,7 +174,9 @@ export default async function RoundsPage({
   const canManage = canManageTournament(session, tournament.organizerId);
   const players = tournament.registrations.map((r) => r.player);
   const generateBound = generateRoundRobinAction.bind(null, tournament.id);
+  const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);
   const generateSwissBound = generateNextSwissRoundAction.bind(null, tournament.id);
+  const generateTeamSwissBound = generateNextTeamSwissRoundAction.bind(null, tournament.id);
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
 
   return (
@@ -61,27 +191,59 @@ export default async function RoundsPage({
         <h1 className="text-2xl font-semibold mt-1">
           Rondes — {tournament.name}
         </h1>
+        {canManage && tournament.rounds.length > 0 && (
+          <a
+            href={`/api/tournois/${tournament.id}/rondes/export`}
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Exporter les rondes en CSV
+          </a>
+        )}
       </div>
 
       {canManage && (
         <div className="flex gap-3">
-          {tournament.format === "ROUND_ROBIN" && tournament.rounds.length === 0 && (
-            <form action={generateBound}>
-              <button
-                type="submit"
-                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-              >
-                Générer les rondes (round-robin)
-              </button>
-            </form>
-          )}
-          {tournament.format === "SWISS" && (
+          {tournament.isTeamEvent &&
+            tournament.format === "ROUND_ROBIN" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateTeamBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer les rondes par équipes (round-robin)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
+            tournament.format === "ROUND_ROBIN" &&
+            tournament.rounds.length === 0 && (
+              <form action={generateBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer les rondes (round-robin)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent && tournament.format === "SWISS" && (
             <form action={generateSwissBound}>
               <button
                 type="submit"
                 className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
               >
                 Générer la ronde suisse suivante
+              </button>
+            </form>
+          )}
+          {tournament.isTeamEvent && tournament.format === "SWISS" && (
+            <form action={generateTeamSwissBound}>
+              <button
+                type="submit"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              >
+                Générer la ronde suisse suivante (équipes)
               </button>
             </form>
           )}
@@ -96,141 +258,119 @@ export default async function RoundsPage({
         </div>
       )}
 
-      {tournament.rounds.map((round) => (
-        <section key={round.id} className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
-
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left border-b border-black/10 dark:border-white/10">
-                <th className="py-2 pr-4">Table</th>
-                <th className="py-2 pr-4">Domicile</th>
-                <th className="py-2 pr-4">Score</th>
-                <th className="py-2 pr-4">Extérieur</th>
-                <th className="py-2 pr-4">Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {round.matches.map((match) => (
-                <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
-                  <td className="py-2 pr-4">{match.table ?? "—"}</td>
-                  <td className="py-2 pr-4">
-                    {match.homePlayer
-                      ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-                      : "—"}
-                  </td>
-                  <td className="py-2 pr-4">
-                    {match.isBye ? (
-                      <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
-                    ) : canManage ? (
-                      <form
-                        action={recordMatchResultAction.bind(
-                          null,
-                          tournament.id,
-                          match.id
-                        )}
-                        className="flex items-center gap-1"
-                      >
-                        <input
-                          type="number"
-                          name="homeScore"
-                          defaultValue={match.homeScore ?? ""}
-                          className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                        />
-                        <span>-</span>
-                        <input
-                          type="number"
-                          name="awayScore"
-                          defaultValue={match.awayScore ?? ""}
-                          className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                        />
-                        <select
-                          name="status"
-                          defaultValue={match.status}
-                          className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
-                        >
-                          {Object.entries(statusLabel).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="submit"
-                          className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-                        >
-                          OK
-                        </button>
-                      </form>
-                    ) : (
-                      <span>
-                        {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4">
-                    {match.awayPlayer
-                      ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-                      : "—"}
-                  </td>
-                  <td className="py-2 pr-4">{statusLabel[match.status]}</td>
-                </tr>
-              ))}
-              {round.matches.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-3 text-black/50 dark:text-white/50">
-                    Aucun match dans cette ronde.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {canManage && (
-            <form
-              action={addMatchAction.bind(null, tournament.id, round.id)}
-              className="flex flex-wrap items-end gap-2"
-            >
-              <select
-                name="homePlayerId"
-                required
-                className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-              >
-                <option value="">Domicile...</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName}
-                  </option>
-                ))}
-              </select>
-              <select
-                name="awayPlayerId"
-                required
-                className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-              >
-                <option value="">Extérieur...</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                name="table"
-                placeholder="Table"
-                className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+      {tournament.rounds.map((round) => {
+        if (!tournament.isTeamEvent) {
+          return (
+            <section key={round.id} className="flex flex-col gap-3">
+              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              <MatchTable
+                matches={round.matches}
+                canManage={canManage}
+                tournamentId={tournament.id}
               />
-              <button
-                type="submit"
-                className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
-              >
-                + Match
-              </button>
-            </form>
-          )}
-        </section>
-      ))}
+              {canManage && (
+                <form
+                  action={addMatchAction.bind(null, tournament.id, round.id)}
+                  className="flex flex-wrap items-end gap-2"
+                >
+                  <select
+                    name="homePlayerId"
+                    required
+                    className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+                  >
+                    <option value="">Domicile...</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.firstName} {p.lastName}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    name="awayPlayerId"
+                    required
+                    className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+                  >
+                    <option value="">Extérieur...</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.firstName} {p.lastName}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    name="table"
+                    placeholder="Table"
+                    className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+                  >
+                    + Match
+                  </button>
+                </form>
+              )}
+            </section>
+          );
+        }
+
+        // Tournoi par équipes : regroupe les échiquiers par confrontation
+        // (paire d'équipes) et affiche à part les équipes exemptes.
+        const encounters = new Map<
+          string,
+          { homeTeam: Team; awayTeam: Team; matches: MatchWithRelations[] }
+        >();
+        const byes: MatchWithRelations[] = [];
+
+        for (const match of round.matches) {
+          if (match.isBye) {
+            byes.push(match);
+            continue;
+          }
+          if (!match.homeTeam || !match.awayTeam) continue;
+          const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
+          if (!encounters.has(key)) {
+            encounters.set(key, {
+              homeTeam: match.homeTeam,
+              awayTeam: match.awayTeam,
+              matches: [],
+            });
+          }
+          encounters.get(key)!.matches.push(match);
+        }
+
+        return (
+          <section key={round.id} className="flex flex-col gap-5">
+            <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+
+            {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
+              <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2">
+                <h3 className="font-medium text-sm">
+                  {homeTeam.name} vs {awayTeam.name}
+                </h3>
+                <MatchTable
+                  matches={matches}
+                  canManage={canManage}
+                  tournamentId={tournament.id}
+                />
+              </div>
+            ))}
+
+            {byes.map((match) => (
+              <p key={match.id} className="text-sm text-black/50 dark:text-white/50">
+                {match.homeTeam?.name} : équipe exempte pour cette ronde.
+              </p>
+            ))}
+
+            {encounters.size === 0 && byes.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                Aucun match dans cette ronde.
+              </p>
+            )}
+          </section>
+        );
+      })}
 
       {tournament.rounds.length === 0 && (
         <p className="text-sm text-black/50 dark:text-white/50">

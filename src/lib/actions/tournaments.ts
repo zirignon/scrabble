@@ -12,6 +12,7 @@ const tournamentSchema = z.object({
   name: z.string().min(3, "Le nom est trop court."),
   type: z.enum(["CLASSIC", "DUPLICATE"]),
   format: z.enum(["ROUND_ROBIN", "SWISS", "GROUPS", "KNOCKOUT"]).optional(),
+  isTeamEvent: z.string().optional(),
   venue: z.string().optional(),
   description: z.string().optional(),
   startDate: z.string().min(1, "Date de début requise."),
@@ -28,6 +29,7 @@ export async function createTournamentAction(
     name: formData.get("name"),
     type: formData.get("type"),
     format: formData.get("format") || undefined,
+    isTeamEvent: formData.get("isTeamEvent") || undefined,
     venue: formData.get("venue") || undefined,
     description: formData.get("description") || undefined,
     startDate: formData.get("startDate"),
@@ -37,7 +39,8 @@ export async function createTournamentAction(
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const { name, type, format, venue, description, startDate, endDate } = parsed.data;
+  const { name, type, format, isTeamEvent, venue, description, startDate, endDate } =
+    parsed.data;
 
   const baseSlug = slugify(name) || "tournoi";
   let slug = baseSlug;
@@ -53,6 +56,7 @@ export async function createTournamentAction(
       slug,
       type,
       format: type === "CLASSIC" ? format ?? "ROUND_ROBIN" : null,
+      isTeamEvent: isTeamEvent === "on",
       venue,
       description,
       startDate: new Date(startDate),

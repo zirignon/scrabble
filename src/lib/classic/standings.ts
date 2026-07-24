@@ -79,7 +79,7 @@ export async function computeClassicStandings(
     row.diff += pointsFor - pointsAgainst;
     if (outcome === "WIN") {
       row.wins += 1;
-      row.matchPoints += 2;
+      row.matchPoints += 3;
     } else if (outcome === "DRAW") {
       row.draws += 1;
       row.matchPoints += 1;
@@ -95,7 +95,7 @@ export async function computeClassicStandings(
         const row = ensure(match.homePlayerId);
         row.played += 1;
         row.wins += 1;
-        row.matchPoints += 2;
+        row.matchPoints += 3;
       }
       continue;
     }

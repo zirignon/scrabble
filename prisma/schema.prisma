@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -65,10 +65,11 @@ model User {
 }
 
 model Club {
-  id      String   @id @default(cuid())
-  name    String   @unique
-  city    String?
-  players Player[]
+  id          String   @id @default(cuid())
+  name        String   @unique
+  city        String?
+  federation  String?
+  players     Player[]
 }
 
 model Player {
@@ -88,6 +89,8 @@ model Player {
   homeMatches      Match[]           @relation("HomePlayer")
   awayMatches      Match[]           @relation("AwayPlayer")
   duplicateResults DuplicateResult[]
+  duplicateMoves   DuplicateMove[]
+  teamMemberships  TeamMember[]
 }
 
 model Tournament {
@@ -96,6 +99,7 @@ model Tournament {
   slug         String            @unique
   type         TournamentType
   format       ClassicFormat?
+  isTeamEvent  Boolean           @default(false)
   description  String?
   venue        String?
   startDate    DateTime
@@ -108,6 +112,7 @@ model Tournament {
   registrations Registration[]
   rounds        Round[]
   games         Game[]
+  teams         Team[]
 }
 
 model Registration {
@@ -120,6 +125,39 @@ model Registration {
   createdAt    DateTime           @default(now())
 
   @@unique([tournamentId, playerId])
+}
+
+// ---- Tournois par équipes (classique et duplicate) ----
+
+// Une équipe existe dans le cadre d'un tournoi donné. En classique, chaque
+// membre occupe un échiquier (board) fixe utilisé pour apparier les équipes
+// lors de la génération des rondes. En duplicate, l'équipe n'est qu'un
+// regroupement de joueurs : leurs scores sont cumulés pour le classement
+// par équipes, sans notion d'échiquier.
+model Team {
+  id           String   @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  name         String
+  createdAt    DateTime @default(now())
+
+  members     TeamMember[]
+  homeMatches Match[]      @relation("HomeTeam")
+  awayMatches Match[]      @relation("AwayTeam")
+
+  @@unique([tournamentId, name])
+}
+
+model TeamMember {
+  id       String @id @default(cuid())
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+  board    Int
+
+  @@unique([teamId, playerId])
+  @@unique([teamId, board])
 }
 
 // ---- Scrabble classique ----
@@ -145,6 +183,10 @@ model Match {
   homePlayer   Player?     @relation("HomePlayer", fields: [homePlayerId], references: [id])
   awayPlayerId String?
   awayPlayer   Player?     @relation("AwayPlayer", fields: [awayPlayerId], references: [id])
+  homeTeamId   String?
+  homeTeam     Team?       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String?
+  awayTeam     Team?       @relation("AwayTeam", fields: [awayTeamId], references: [id])
   homeScore    Int?
   awayScore    Int?
   status       MatchStatus @default(SCHEDULED)
@@ -162,6 +204,7 @@ model Game {
   top          Int?
 
   results DuplicateResult[]
+  moves   DuplicateMove[]
 
   @@unique([tournamentId, number])
 }
@@ -176,4 +219,24 @@ model DuplicateResult {
   penalty  Int    @default(0)
 
   @@unique([gameId, playerId])
+}
+
+// Saisie coup par coup (détail arbitrage) : chaque coup joué par un joueur
+// dans une partie duplicate. Le score total d'un joueur pour la partie
+// (DuplicateResult.score) est recalculé comme la somme de ses coups dès
+// qu'au moins un coup est saisi.
+model DuplicateMove {
+  id         String  @id @default(cuid())
+  gameId     String
+  game       Game    @relation(fields: [gameId], references: [id])
+  playerId   String
+  player     Player  @relation(fields: [playerId], references: [id])
+  turnNumber Int
+  rack       String?
+  word       String?
+  points     Int     @default(0)
+  top        Int?
+  isPass     Boolean @default(false)
+
+  @@unique([gameId, playerId, turnNumber])
 }
