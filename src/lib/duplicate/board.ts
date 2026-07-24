@@ -1,7 +1,5 @@
 export const BOARD_SIZE = 15;
 
-export type Direction = "ACROSS" | "DOWN";
-
 export interface ReferenceMoveLike {
   turnNumber: number;
   row: number;
@@ -11,11 +9,54 @@ export interface ReferenceMoveLike {
   isPass: boolean;
 }
 
+// Référence alphanumérique d'une case (ligne = lettre A-O, colonne =
+// numéro 1-15) : le sens du coup est encodé par l'ordre lettre/chiffre,
+// comme en notation duplicate standard — ex. "H4" (lettre puis chiffre)
+// pour un mot horizontal ligne H colonne 4, "4H" (chiffre puis lettre)
+// pour un mot vertical même case.
+export function formatReference(row: number, col: number, direction: string): string {
+  const letter = String.fromCharCode(64 + row);
+  return direction === "ACROSS" ? `${letter}${col}` : `${col}${letter}`;
+}
+
+export function parseReference(
+  value: string
+): { row: number; col: number; direction: "ACROSS" | "DOWN" } | null {
+  const trimmed = value.trim().toUpperCase();
+
+  const across = trimmed.match(/^([A-O])(\d{1,2})$/);
+  if (across) {
+    const row = across[1].charCodeAt(0) - 64;
+    const col = Number(across[2]);
+    if (row < 1 || row > 15 || col < 1 || col > 15) return null;
+    return { row, col, direction: "ACROSS" };
+  }
+
+  const down = trimmed.match(/^(\d{1,2})([A-O])$/);
+  if (down) {
+    const col = Number(down[1]);
+    const row = down[2].charCodeAt(0) - 64;
+    if (row < 1 || row > 15 || col < 1 || col > 15) return null;
+    return { row, col, direction: "DOWN" };
+  }
+
+  return null;
+}
+
+// Une case posée de la grille : la lettre affichée (toujours en majuscule)
+// et si elle provient d'un joker/lettre blanche (saisie en minuscule dans
+// le mot de référence) — une lettre blanche n'affiche pas de coefficient
+// sur la grille, pour la distinguer visuellement des lettres normales.
+export interface BoardCell {
+  letter: string;
+  isBlank: boolean;
+}
+
 // Reconstruit la grille (15x15, lignes/colonnes numérotées 1 à 15 côté
 // saisie) en rejouant les coups de référence dans l'ordre des tours :
 // chaque lettre du mot est posée case par case selon le sens du coup.
-export function reconstructBoard(moves: ReferenceMoveLike[]): (string | null)[][] {
-  const grid: (string | null)[][] = Array.from({ length: BOARD_SIZE }, () =>
+export function reconstructBoard(moves: ReferenceMoveLike[]): (BoardCell | null)[][] {
+  const grid: (BoardCell | null)[][] = Array.from({ length: BOARD_SIZE }, () =>
     Array(BOARD_SIZE).fill(null)
   );
 
@@ -26,93 +67,16 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (string | null)[][
       const row = move.direction === "DOWN" ? move.row - 1 + i : move.row - 1;
       const col = move.direction === "ACROSS" ? move.col - 1 + i : move.col - 1;
       if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) continue;
-      grid[row][col] = move.word[i].toUpperCase();
+      const raw = move.word[i];
+      grid[row][col] = { letter: raw.toUpperCase(), isBlank: raw !== raw.toUpperCase() };
     }
   }
 
   return grid;
 }
 
-export interface FoundWord {
-  word: string;
-  row: number; // 0-indexé, case de départ
-  col: number; // 0-indexé, case de départ
-  direction: Direction;
-  cells: [number, number][];
-}
-
-// Repère tous les mots présents sur la grille (horizontaux et verticaux,
-// y compris ceux formés incidemment par les croisements), pour pouvoir
-// les valider un par un — pas seulement le mot saisi dans chaque coup.
-export function findWordsOnGrid(grid: (string | null)[][]): FoundWord[] {
-  const size = grid.length;
-  const words: FoundWord[] = [];
-
-  for (let r = 0; r < size; r++) {
-    let c = 0;
-    while (c < size) {
-      if (!grid[r][c]) {
-        c++;
-        continue;
-      }
-      const startCol = c;
-      const cells: [number, number][] = [];
-      let word = "";
-      while (c < size && grid[r][c]) {
-        word += grid[r][c];
-        cells.push([r, c]);
-        c++;
-      }
-      if (word.length >= 2) words.push({ word, row: r, col: startCol, direction: "ACROSS", cells });
-    }
-  }
-
-  for (let c = 0; c < size; c++) {
-    let r = 0;
-    while (r < size) {
-      if (!grid[r][c]) {
-        r++;
-        continue;
-      }
-      const startRow = r;
-      const cells: [number, number][] = [];
-      let word = "";
-      while (r < size && grid[r][c]) {
-        word += grid[r][c];
-        cells.push([r, c]);
-        r++;
-      }
-      if (word.length >= 2) words.push({ word, row: startRow, col: c, direction: "DOWN", cells });
-    }
-  }
-
-  return words;
-}
-
-// Notation ligne (lettre) + colonne (numéro), ex. "H4".
-export function formatCoordinate(row: number, col: number): string {
-  return `${String.fromCharCode(65 + row)}${col + 1}`;
-}
-
-// Valide chaque mot trouvé sur la grille via le vérificateur fourni
-// (isValidWord) ; ne renvoie que ceux explicitement absents du
-// dictionnaire (un dictionnaire non configuré ne signale rien).
-export async function findInvalidWords(
-  grid: (string | null)[][],
-  checkWord: (word: string) => Promise<boolean | null>
-): Promise<FoundWord[]> {
-  const words = findWordsOnGrid(grid);
-  const invalid: FoundWord[] = [];
-  for (const found of words) {
-    const valid = await checkWord(found.word);
-    if (valid === false) invalid.push(found);
-  }
-  return invalid;
-}
-
-// Disposition standard des cases bonus du Scrabble, pour un rendu
-// visuellement conforme (n'affecte pas le calcul des scores, saisis
-// indépendamment coup par coup).
+// Disposition standard des cases bonus du Scrabble, utilisée à la fois
+// pour l'affichage et pour le calcul automatique des scores.
 type BonusCell = "TW" | "DW" | "TL" | "DL" | null;
 
 const TW: [number, number][] = [
@@ -147,4 +111,152 @@ export function getBonusGrid(): BonusCell[][] {
   for (const [r, c] of TL) grid[r][c] = "TL";
   for (const [r, c] of DL) grid[r][c] = "DL";
   return grid;
+}
+
+// Valeurs des lettres au Scrabble francophone (ODS).
+export const FRENCH_LETTER_VALUES: Record<string, number> = {
+  A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 10,
+  L: 1, M: 2, N: 1, O: 1, P: 3, Q: 8, R: 1, S: 1, T: 1, U: 1, V: 4,
+  W: 10, X: 10, Y: 10, Z: 10,
+};
+
+export interface BingoRule {
+  tileCount: number;
+  bonus: number;
+}
+
+const DEFAULT_BINGO_RULES: BingoRule[] = [{ tileCount: 7, bonus: 50 }];
+
+// Prime de Scrabble selon la formule du tournoi duplicate : les formules
+// standards (normale, semi-rapide, blitz, joker, 7 sur 8) ne primetent que
+// les tirages de 7 lettres posées (+50) ; la formule 7 et 8 ajoute une
+// prime de 75 points pour 8 lettres posées.
+export function getBingoRules(formula: string | null | undefined): BingoRule[] {
+  if (formula === "SEPT_ET_HUIT") {
+    return [{ tileCount: 7, bonus: 50 }, { tileCount: 8, bonus: 75 }];
+  }
+  return DEFAULT_BINGO_RULES;
+}
+
+// Durée par défaut du chronomètre de partie selon la formule (secondes).
+export function getFormulaTimerSeconds(formula: string | null | undefined): number {
+  if (formula === "SEMI_RAPIDE") return 120;
+  if (formula === "BLITZ") return 60;
+  return 180;
+}
+
+// Nombre d'avertissements gratuits (sur une même partie) avant que chaque
+// avertissement supplémentaire ne coûte 5 points : 5 en Blitz, 3 dans les
+// autres formules.
+export function getFreeAvertissementCount(formula: string | null | undefined): number {
+  return formula === "BLITZ" ? 5 : 3;
+}
+
+// Repère, à partir d'une case occupée de la grille, l'ensemble contigu de
+// cases formant un mot dans la direction donnée (perpendiculaire au sens
+// de jeu, pour retrouver les mots secondaires formés par un croisement).
+// Renvoie null si la case n'appartient à aucun mot d'au moins 2 lettres
+// dans cette direction.
+function scanWordThroughCell(
+  grid: (string | null)[][],
+  row: number,
+  col: number,
+  direction: "ACROSS" | "DOWN"
+): [number, number][] | null {
+  if (!grid[row][col]) return null;
+
+  if (direction === "ACROSS") {
+    let startCol = col;
+    while (startCol > 0 && grid[row][startCol - 1]) startCol--;
+    let endCol = col;
+    while (endCol < BOARD_SIZE - 1 && grid[row][endCol + 1]) endCol++;
+    if (endCol === startCol) return null;
+    const cells: [number, number][] = [];
+    for (let c = startCol; c <= endCol; c++) cells.push([row, c]);
+    return cells;
+  }
+
+  let startRow = row;
+  while (startRow > 0 && grid[startRow - 1][col]) startRow--;
+  let endRow = row;
+  while (endRow < BOARD_SIZE - 1 && grid[endRow + 1][col]) endRow++;
+  if (endRow === startRow) return null;
+  const cells: [number, number][] = [];
+  for (let r = startRow; r <= endRow; r++) cells.push([r, col]);
+  return cells;
+}
+
+// Calcule le score d'un coup (mot posé à partir de la case row/col dans le
+// sens donné) d'après l'état de la grille avant ce coup : valeur des
+// lettres, bonus de lettre/mot (qui ne s'appliquent qu'aux cases
+// nouvellement posées — une case déjà occupée garde sa valeur simple),
+// mots secondaires formés par les croisements, et prime de Scrabble selon
+// les règles fournies (par défaut +50 pour 7 lettres nouvelles).
+//
+// Une lettre saisie en minuscule est une lettre blanche (joker) : elle
+// vaut 0 point quelle que soit sa position, mais reste affichée en
+// majuscule sur la grille et compte normalement pour les bonus de case.
+export function computeMoveScore(
+  boardBeforeMove: (string | null)[][],
+  word: string,
+  row: number,
+  col: number,
+  direction: "ACROSS" | "DOWN",
+  bingoRules: BingoRule[] = DEFAULT_BINGO_RULES
+): number {
+  const bonus = getBonusGrid();
+  const boardAfter = boardBeforeMove.map((r) => [...r]);
+  const newCells = new Set<string>();
+  const blankCells = new Set<string>();
+
+  for (let i = 0; i < word.length; i++) {
+    const r = direction === "DOWN" ? row - 1 + i : row - 1;
+    const c = direction === "ACROSS" ? col - 1 + i : col - 1;
+    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
+    if (!boardBeforeMove[r][c]) {
+      const raw = word[i];
+      boardAfter[r][c] = raw.toUpperCase();
+      const key = `${r}-${c}`;
+      newCells.add(key);
+      if (raw === raw.toLowerCase() && raw !== raw.toUpperCase()) blankCells.add(key);
+    }
+  }
+
+  function scoreWordCells(cells: [number, number][]): number {
+    let letterScore = 0;
+    let wordMultiplier = 1;
+    for (const [r, c] of cells) {
+      const key = `${r}-${c}`;
+      const letter = boardAfter[r][c]!;
+      const isNew = newCells.has(key);
+      const value = blankCells.has(key) ? 0 : (FRENCH_LETTER_VALUES[letter] ?? 0);
+      if (isNew) {
+        const b = bonus[r][c];
+        if (b === "DL") letterScore += value * 2;
+        else if (b === "TL") letterScore += value * 3;
+        else letterScore += value;
+        if (b === "DW") wordMultiplier *= 2;
+        else if (b === "TW") wordMultiplier *= 3;
+      } else {
+        letterScore += value;
+      }
+    }
+    return letterScore * wordMultiplier;
+  }
+
+  const wordsToScore: [number, number][][] = [];
+  const primaryCells = scanWordThroughCell(boardAfter, row - 1, col - 1, direction);
+  if (primaryCells) wordsToScore.push(primaryCells);
+
+  const perpendicular = direction === "ACROSS" ? "DOWN" : "ACROSS";
+  for (const key of newCells) {
+    const [r, c] = key.split("-").map(Number);
+    const secondary = scanWordThroughCell(boardAfter, r, c, perpendicular);
+    if (secondary) wordsToScore.push(secondary);
+  }
+
+  let total = wordsToScore.reduce((sum, cells) => sum + scoreWordCells(cells), 0);
+  const rule = bingoRules.find((r) => r.tileCount === newCells.size);
+  if (rule) total += rule.bonus;
+  return total;
 }

@@ -10,8 +10,66 @@ import {
   setGameTimerDurationAction,
   startGameTimerAction,
 } from "@/lib/actions/duplicate";
+import { updateDuplicateFormulaAction } from "@/lib/actions/tournaments";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Game } from "@prisma/client";
+
+const formulaLabel: Record<string, string> = {
+  NORMALE: "Normale (3 min par coup)",
+  SEMI_RAPIDE: "Semi-rapide (2 min par coup)",
+  BLITZ: "Blitz (1 min par coup)",
+  JOKER: "Joker (6 lettres + 1 joker)",
+  SEPT_SUR_HUIT: "7 sur 8 (tirage de 8, 7 jouables)",
+  SEPT_ET_HUIT: "7 et 8 (prime de 75 pts à 8 lettres)",
+};
+
+function FormulaSettingsForm({
+  tournamentId,
+  duplicateFormula,
+  canManage,
+}: {
+  tournamentId: string;
+  duplicateFormula: string | null;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Formule</p>
+      {canManage ? (
+        <form
+          action={updateDuplicateFormulaAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <select
+            name="duplicateFormula"
+            defaultValue={duplicateFormula ?? "NORMALE"}
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+          >
+            {Object.entries(formulaLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {formulaLabel[duplicateFormula ?? "NORMALE"]}
+        </p>
+      )}
+      <p className="text-xs text-black/50 dark:text-white/50">
+        S&apos;applique à la durée par défaut du chronomètre des nouvelles
+        parties et à la prime de Scrabble de la grille de référence.
+      </p>
+    </div>
+  );
+}
 
 function GameTimerControls({
   game,
@@ -129,6 +187,12 @@ export default async function GamesPage({
           </a>
         )}
       </div>
+
+      <FormulaSettingsForm
+        tournamentId={tournament.id}
+        duplicateFormula={tournament.duplicateFormula}
+        canManage={canManage}
+      />
 
       {canManage && (
         <form action={addGameBound}>

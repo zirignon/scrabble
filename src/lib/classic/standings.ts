@@ -190,6 +190,13 @@ export function computeStandingsFromMatches(
     }
   }
 
+  // Confrontation directe : dernier recours en cas d'égalité parfaite sur
+  // tous les critères précédents, si les deux joueurs se sont affrontés.
+  const headToHead = new Map<string, Outcome>();
+  for (const m of matchups) {
+    headToHead.set(`${m.playerId}:${m.opponentId}`, m.outcome);
+  }
+
   return [...rows.values()].sort((a, b) => {
     if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
     if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
@@ -197,7 +204,11 @@ export function computeStandingsFromMatches(
     if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
     if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
     if (b.diff !== a.diff) return b.diff - a.diff;
-    return b.pointsFor - a.pointsFor;
+    if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+    const outcome = headToHead.get(`${a.playerId}:${b.playerId}`);
+    if (outcome === "WIN") return -1;
+    if (outcome === "LOSS") return 1;
+    return 0;
   });
 }
 

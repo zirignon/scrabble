@@ -37,6 +37,35 @@ enum ClassicFormat {
   KNOCKOUT
 }
 
+// Formules de tournoi duplicate (FISF/FFSc) : la formule détermine la durée
+// par défaut du chronomètre de partie, et pour 7 et 8, la prime de
+// Scrabble applicable à 8 lettres posées en plus de celle à 7. Le jeu du
+// joker (Partie Joker) ne change pas le calcul du score en lui-même : une
+// lettre blanche est simplement signalée par une minuscule dans le mot
+// saisi, quelle que soit la formule.
+enum DuplicateFormula {
+  NORMALE
+  SEMI_RAPIDE
+  BLITZ
+  JOKER
+  SEPT_SUR_HUIT
+  SEPT_ET_HUIT
+}
+
+// Pénalité d'arbitrage appliquée à un coup joué (saisie coup par coup) :
+// - AVERTISSEMENT : aucun effet chiffré direct sur le coup, mais chaque
+//   groupe complet d'avertissements dans la même partie (4 en temps normal,
+//   6 en Blitz) coûte 5 points au joueur sur cette partie.
+// - PENALITE : retire 5 points au score de la partie, en plus des points
+//   du coup lui-même.
+// - ZERO : le coup concerné rapporte 0 point, quels que soient les points
+//   saisis.
+enum DuplicateMovePenalty {
+  AVERTISSEMENT
+  PENALITE
+  ZERO
+}
+
 enum MatchStatus {
   SCHEDULED
   PLAYED
@@ -102,6 +131,7 @@ model Tournament {
   format       ClassicFormat?
   isTeamEvent  Boolean           @default(false)
   qualifiersPerPool Int          @default(2)
+  duplicateFormula DuplicateFormula?
   description  String?
   venue        String?
   startDate    DateTime
@@ -314,9 +344,7 @@ model DuplicateMove {
   points          Int      @default(0)
   top             Int?
   isPass          Boolean  @default(false)
-  // null = mot non vérifié (dictionnaire vide ou coup sans mot/passe) ;
-  // true/false = résultat de la vérification par rapport à DictionaryWord.
-  dictionaryValid Boolean?
+  penaltyType     DuplicateMovePenalty?
 
   @@unique([gameId, playerId, turnNumber])
 }

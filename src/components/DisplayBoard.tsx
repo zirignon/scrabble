@@ -123,21 +123,29 @@ function CurrentView({ data }: { data: DisplayData }) {
         )}
         <div className="flex flex-wrap items-start justify-center gap-10">
           {current.grid && (
-            <div className="flex flex-col gap-2">
-              <ScrabbleGrid
-                grid={current.grid}
-                cellSize={30}
-                dark
-                invalidCells={
-                  new Set(current.invalidWords.flatMap((w) => w.cells.map(([r, c]) => `${r}-${c}`)))
-                }
-              />
-              {current.invalidWords.length > 0 && (
-                <p className="text-sm text-red-400 max-w-[490px]">
-                  ⚠ Non reconnu(s) : {current.invalidWords.map((w) => `${w.word} (${w.coordinate})`).join(", ")}
-                </p>
-              )}
+            <div className="bg-white p-3 rounded">
+              <ScrabbleGrid grid={current.grid} cellSize={30} />
             </div>
+          )}
+          {current.referenceMoves.length > 0 && (
+            <table className="text-xl border-collapse">
+              <thead>
+                <tr className="text-left text-white/50 text-lg border-b border-white/20">
+                  <th className="py-2 pr-4">Réf.</th>
+                  <th className="py-2 pr-4">Mot</th>
+                  <th className="py-2 pr-4 text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {current.referenceMoves.map((m) => (
+                  <tr key={m.turnNumber} className="border-b border-white/10">
+                    <td className="py-1.5 pr-4 tabular-nums">{m.reference}</td>
+                    <td className="py-1.5 pr-4 font-semibold">{m.word}</td>
+                    <td className="py-1.5 pr-4 text-right tabular-nums">{m.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
           <table className="text-2xl border-collapse flex-1 min-w-[420px]">
             <thead>

@@ -12,6 +12,9 @@ const tournamentSchema = z.object({
   name: z.string().min(3, "Le nom est trop court."),
   type: z.enum(["CLASSIC", "DUPLICATE"]),
   format: z.enum(["ROUND_ROBIN", "SWISS", "GROUPS", "KNOCKOUT"]).optional(),
+  duplicateFormula: z
+    .enum(["NORMALE", "SEMI_RAPIDE", "BLITZ", "JOKER", "SEPT_SUR_HUIT", "SEPT_ET_HUIT"])
+    .optional(),
   isTeamEvent: z.string().optional(),
   venue: z.string().optional(),
   description: z.string().optional(),
@@ -29,6 +32,7 @@ export async function createTournamentAction(
     name: formData.get("name"),
     type: formData.get("type"),
     format: formData.get("format") || undefined,
+    duplicateFormula: formData.get("duplicateFormula") || undefined,
     isTeamEvent: formData.get("isTeamEvent") || undefined,
     venue: formData.get("venue") || undefined,
     description: formData.get("description") || undefined,
@@ -39,8 +43,17 @@ export async function createTournamentAction(
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const { name, type, format, isTeamEvent, venue, description, startDate, endDate } =
-    parsed.data;
+  const {
+    name,
+    type,
+    format,
+    duplicateFormula,
+    isTeamEvent,
+    venue,
+    description,
+    startDate,
+    endDate,
+  } = parsed.data;
 
   const baseSlug = slugify(name) || "tournoi";
   let slug = baseSlug;
@@ -56,6 +69,7 @@ export async function createTournamentAction(
       slug,
       type,
       format: type === "CLASSIC" ? format ?? "ROUND_ROBIN" : null,
+      duplicateFormula: type === "DUPLICATE" ? duplicateFormula ?? "NORMALE" : null,
       isTeamEvent: isTeamEvent === "on",
       venue,
       description,
@@ -69,6 +83,41 @@ export async function createTournamentAction(
   revalidatePath("/admin");
   revalidatePath("/tournois");
   redirect(`/admin/tournois/${tournament.id}`);
+}
+
+const duplicateFormulaValues = [
+  "NORMALE",
+  "SEMI_RAPIDE",
+  "BLITZ",
+  "JOKER",
+  "SEPT_SUR_HUIT",
+  "SEPT_ET_HUIT",
+] as const;
+
+export async function updateDuplicateFormulaAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  const session = await requireRole(STAFF_ROLES);
+  const tournament = await prisma.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+  });
+  if (!canManageTournament(session, tournament.organizerId)) {
+    throw new Error("Non autorisé.");
+  }
+  if (tournament.type !== "DUPLICATE") return;
+
+  const formula = formData.get("duplicateFormula");
+  if (typeof formula !== "string" || !duplicateFormulaValues.includes(formula as never)) {
+    return;
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { duplicateFormula: formula as (typeof duplicateFormulaValues)[number] },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
 }
 
 const statusValues = [

@@ -5,8 +5,7 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { reconstructBoard, findInvalidWords, formatCoordinate } from "@/lib/duplicate/board";
-import { isValidWord } from "@/lib/dictionary";
+import { reconstructBoard, formatReference, type BoardCell } from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -70,6 +69,13 @@ export interface DisplayGameTimer {
   startedAt: string | null;
 }
 
+export interface DisplayReferenceMove {
+  turnNumber: number;
+  reference: string;
+  word: string;
+  points: number;
+}
+
 export type DisplayCurrent =
   | { kind: "matches"; label: string; groups: DisplayRoundGroup[] }
   | {
@@ -77,8 +83,8 @@ export type DisplayCurrent =
       label: string;
       rows: DisplayDuplicateRow[];
       timer: DisplayGameTimer | null;
-      grid: (string | null)[][] | null;
-      invalidWords: { word: string; coordinate: string; cells: [number, number][] }[];
+      grid: (BoardCell | null)[][] | null;
+      referenceMoves: DisplayReferenceMove[];
     };
 
 export interface DisplayData {
@@ -282,7 +288,7 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
       rows: [],
       timer: null,
       grid: null,
-      invalidWords: [],
+      referenceMoves: [],
     };
   }
 
@@ -297,20 +303,22 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
     .map((r, i) => ({ rank: i + 1, ...r }));
 
   const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
-  const invalidWords = grid
-    ? (await findInvalidWords(grid, isValidWord)).map((w) => ({
-        word: w.word,
-        coordinate: formatCoordinate(w.row, w.col),
-        cells: w.cells,
-      }))
-    : [];
+  const referenceMoves = [...lastGame.referenceMoves]
+    .sort((a, b) => a.turnNumber - b.turnNumber)
+    .filter((m) => !m.isPass && m.word)
+    .map((m) => ({
+      turnNumber: m.turnNumber,
+      reference: formatReference(m.row, m.col, m.direction),
+      word: m.word!,
+      points: m.points,
+    }));
 
   return {
     kind: "duplicate",
     label: `Partie ${lastGame.number}`,
     rows,
     grid,
-    invalidWords,
+    referenceMoves,
     timer: {
       durationSeconds: lastGame.timerDurationSeconds,
       remainingSeconds: lastGame.timerRemainingSeconds ?? lastGame.timerDurationSeconds,

@@ -48,7 +48,8 @@ Après `npm run db:seed` :
 - Inscriptions gérées par l'organisateur, ou auto-inscription pour un joueur
   connecté quand les inscriptions sont ouvertes
 - Pages publiques : liste des tournois, fiche tournoi (participants,
-  planning, résultats, classement)
+  planning, résultats), et page de classement séparée
+  (`/tournois/[slug]/classement`)
 
 ### Scrabble classique
 - Génération automatique des rondes en round-robin (méthode du cercle,
@@ -70,31 +71,57 @@ Après `npm run db:seed` :
 - Saisie des scores, gestion des forfaits/annulations
 - Classement calculé automatiquement : points de match, puis
   départages Buchholz, Buchholz médian, Sonneborn-Berger et score
-  cumulé progressif, puis différence de score
+  cumulé progressif, puis différence de score et total de points ; en
+  cas d'égalité parfaite sur tous ces critères, la confrontation
+  directe entre les deux joueurs tranche
 
 ### Scrabble duplicate
+- Formule du tournoi (FISF/FFSc), modifiable à tout moment depuis la
+  page des parties : Normale (3 min/coup), Semi-rapide (2 min), Blitz
+  (1 min), Joker, 7 sur 8, 7 et 8 — détermine la durée par défaut du
+  chronomètre des nouvelles parties et, pour 7 et 8, la prime de
+  Scrabble à 8 lettres posées (75 pts, contre 50 pour 7 lettres dans
+  les autres formules). Le duplicate par paires s'obtient en cochant
+  « Tournoi par équipes » avec des équipes de 2 joueurs
 - Création de parties
 - Saisie des scores par joueur et par partie (mode simple), avec pénalités
 - Saisie détaillée coup par coup (tirage, mot joué, points, top,
   passe) : le score de la partie est alors recalculé automatiquement
   à partir des coups
+- Pénalités d'arbitrage sur un coup, en saisie coup par coup :
+  avertissement (aucun effet chiffré direct pour les premiers de la
+  partie — 5 gratuits en Blitz, 3 dans les autres formules — puis
+  chaque avertissement supplémentaire coûte 5 points), pénalité (-5
+  points immédiats) ou zéro (les points du coup sont ramenés à 0). La
+  pénalité totale de la partie (colonne « Pénalité » de la fiche
+  joueur) est recalculée automatiquement à partir de ces marques,
+  comme le score
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
-  alphanumériques, ex. H8) sur la page de saisie et sur l'affichage
-  grand écran ; tous les mots présents sur la grille (y compris ceux
-  formés par les croisements) sont vérifiés par rapport au
-  dictionnaire, avec mise en évidence des mots non reconnus
+  alphanumériques) sur la page de saisie et sur l'affichage grand
+  écran. Un seul champ de référence par coup, dont le sens (horizontal
+  ou vertical) est déduit de la notation elle-même — lettre puis
+  chiffre pour horizontal (ex. H4), chiffre puis lettre pour vertical
+  (ex. 4H), comme en notation duplicate standard. Une lettre saisie en
+  minuscule est une lettre blanche (joker) : elle vaut 0 point. Le
+  score de chaque coup de référence est calculé automatiquement
+  (valeur des lettres, bonus de lettre/mot appliqués uniquement aux
+  cases nouvellement posées, mots secondaires formés par les
+  croisements, prime de Scrabble selon la formule du tournoi) — pas de
+  saisie manuelle des points. Chaque lettre affiche son coefficient en
+  petit dans le coin de la case, comme sur un jeton physique ; les
+  lettres blanches (jokers) n'affichent aucun coefficient, pour les
+  repérer facilement sur la grille
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
-- Validation des mots joués par rapport à un dictionnaire (page
-  `/admin/dictionnaire` pour importer/compléter la liste) ; un mot
-  absent de la liste est signalé par une alerte lors de la saisie,
-  sans bloquer l'enregistrement (l'arbitre tranche). Le dictionnaire
-  ODS9 (`prisma/data/ods9.txt`) est chargé automatiquement par le seed
-  (`npm run db:seed`)
+- N'importe quel mot peut être saisi librement, sans validation
+  automatique — comme au jeu réel, c'est à l'adversaire de contester un
+  mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
+  ODS9 chargé automatiquement par le seed `npm run db:seed`) reste
+  disponible comme référence, sans intervenir dans la saisie
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
 
@@ -134,7 +161,8 @@ Après `npm run db:seed` :
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements
-- Projette la grille de référence de la partie en cours (duplicate)
+- Projette la grille de référence de la partie en cours (duplicate),
+  avec la liste des coups joués (référence, mot, points) à côté
 
 ### Exports
 
@@ -145,4 +173,4 @@ Après `npm run db:seed` :
 
 ## Prochaines étapes possibles
 
-- Départages avancés supplémentaires (Buchholz médian, dégressif...)
+- Aucune identifiée pour le moment.
