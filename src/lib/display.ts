@@ -76,9 +76,12 @@ export type DisplayCurrent =
       currentRack: string | null;
     };
 
+export type DisplayMode = "AUTO" | "STANDINGS" | "CURRENT";
+
 export interface DisplayData {
   tournamentName: string;
   tournamentStatus: string;
+  displayMode: DisplayMode;
   standingsTitle: string;
   standingsGroups: DisplayStandingGroup[];
   current: DisplayCurrent;
@@ -369,6 +372,7 @@ export async function getDisplayData(tournamentId: string): Promise<DisplayData>
   return {
     tournamentName: tournament.name,
     tournamentStatus: tournament.status,
+    displayMode: tournament.displayMode,
     standingsTitle: title,
     standingsGroups: groups,
     current,

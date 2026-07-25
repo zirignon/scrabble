@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { DisplayData } from "@/lib/display";
+import { useEffect, useRef, useState } from "react";
+import type { DisplayData, DisplayGameTimer } from "@/lib/display";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { FRENCH_LETTER_VALUES } from "@/lib/duplicate/board";
+import { computeLiveRemaining, formatClock } from "@/lib/timer";
+import { playBeep, unlockAudioOnFirstInteraction } from "@/lib/beep";
 
 const ROTATE_MS = 12000;
+const TIMER_WARN_SECONDS = 30;
 
 export function DisplayBoard({
   tournamentId,
@@ -17,6 +20,13 @@ export function DisplayBoard({
 }) {
   const [data, setData] = useState<DisplayData>(initialData);
   const [view, setView] = useState<"standings" | "current">("standings");
+
+  useEffect(() => {
+    // Les navigateurs bloquent la lecture audio sans interaction préalable :
+    // le premier clic/appui touche sur l'écran de projection débloque la
+    // sonnerie du minuteur pour le reste de la session.
+    unlockAudioOnFirstInteraction();
+  }, []);
 
   useEffect(() => {
     // Flux SSE : le serveur pousse une mise à jour dès qu'une action
@@ -31,11 +41,22 @@ export function DisplayBoard({
   }, [tournamentId]);
 
   useEffect(() => {
+    // Un mode figé par l'organisateur (STANDINGS/CURRENT) désactive
+    // l'alternance automatique et impose la vue choisie ; en mode AUTO,
+    // l'écran continue d'alterner toutes les 12s comme avant.
+    if (data.displayMode === "STANDINGS") {
+      setView("standings");
+      return;
+    }
+    if (data.displayMode === "CURRENT") {
+      setView("current");
+      return;
+    }
     const interval = setInterval(() => {
       setView((v) => (v === "standings" ? "current" : "standings"));
     }, ROTATE_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [data.displayMode]);
 
   return (
     <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">
@@ -105,6 +126,48 @@ function StandingsView({ data }: { data: DisplayData }) {
   );
 }
 
+// Minuteur de la partie en cours (duplicate) : passe en rouge et déclenche
+// une sonnerie une seule fois lorsqu'il descend sous TIMER_WARN_SECONDS,
+// pour alerter la salle sans distraire les joueurs le reste du temps.
+function DisplayTimer({ timer }: { timer: DisplayGameTimer }) {
+  const [now, setNow] = useState(() => Date.now());
+  const hasWarnedRef = useRef(false);
+
+  useEffect(() => {
+    if (!timer.running) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [timer.running, timer.startedAt]);
+
+  const remaining = timer.running
+    ? computeLiveRemaining(timer.remainingSeconds, timer.startedAt)
+    : timer.remainingSeconds;
+  void now;
+
+  const isWarning = timer.running && remaining <= TIMER_WARN_SECONDS;
+
+  useEffect(() => {
+    if (!isWarning) {
+      hasWarnedRef.current = false;
+      return;
+    }
+    if (!hasWarnedRef.current) {
+      hasWarnedRef.current = true;
+      playBeep();
+    }
+  }, [isWarning]);
+
+  const colorClass = isWarning
+    ? "text-brick"
+    : timer.running
+      ? "text-emerald-800"
+      : "text-black/70";
+
+  return (
+    <span className={`text-8xl font-bold tabular-nums ${colorClass}`}>{formatClock(remaining)}</span>
+  );
+}
+
 function RackColumn({ rack }: { rack: string }) {
   const cellSize = 56;
   const letters = rack.split("");
@@ -153,16 +216,10 @@ function CurrentView({ data }: { data: DisplayData }) {
       <div className="flex-1 overflow-auto flex flex-col gap-6">
         {current.timer && (
           <div className="flex items-center justify-center">
-            <LiveCountdown
-              baselineSeconds={current.timer.remainingSeconds}
-              runningSince={current.timer.running ? current.timer.startedAt : null}
-              className={`text-8xl font-bold tabular-nums ${
-                current.timer.running ? "text-emerald-800" : "text-black/70"
-              }`}
-            />
+            <DisplayTimer timer={current.timer} />
           </div>
         )}
-        <div className="flex flex-1 items-center justify-center gap-10">
+        <div className="flex flex-1 items-start justify-center gap-10">
           {current.grid && (
             <div className="bg-white p-4 rounded-lg shadow-xl border border-black/10">
               <ScrabbleGrid grid={current.grid} cellSize={38} />
