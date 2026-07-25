@@ -54,9 +54,36 @@ export async function setGameTimerDurationAction(
   revalidatePath(`/tournois`);
 }
 
+// Valide le tirage du tour en cours (avant que le mot ne soit décidé) :
+// projeté aussitôt tel quel sur l'affichage grand écran, pour que les
+// joueurs le voient avant que l'arbitre ne démarre le chrono.
+export async function validateGameRackAction(
+  tournamentId: string,
+  gameId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const rack = formData.get("rack");
+  if (typeof rack !== "string" || !rack.trim()) return;
+
+  await prisma.game.update({
+    where: { id: gameId },
+    data: { pendingRack: rack.toUpperCase() },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
+  revalidatePath(`/tournois`);
+}
+
+// Démarre le chrono — nécessite qu'un tirage ait d'abord été validé pour ce
+// tour, afin que le chrono ne parte jamais avant que la salle ait vu le
+// tirage sur l'affichage grand écran.
 export async function startGameTimerAction(tournamentId: string, gameId: string) {
   await assertCanManage(tournamentId);
   const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  if (!game.pendingRack) return;
   if (!game.timerRunning) {
     await prisma.game.update({
       where: { id: gameId },
@@ -347,7 +374,10 @@ function parseReferenceMove(formData: FormData) {
     // joker, voir computeMoveScore) — contrairement au coup par coup de
     // chaque joueur, dont le score n'est pas recalculé automatiquement.
     word: parsed.data.word || null,
-    rack: parsed.data.rack?.toUpperCase() || null,
+    // Le "+" est un simple séparateur d'affichage/saisie entre le reliquat
+    // et les lettres nouvellement tirées (voir validateGameRackAction) : il
+    // n'a pas sa place dans le tirage définitif enregistré sur le coup.
+    rack: parsed.data.rack ? parsed.data.rack.toUpperCase().replace(/\+/g, "") || null : null,
     isPass: parsed.data.isPass === "on",
   };
 }
@@ -407,17 +437,41 @@ export async function addReferenceMoveAction(
   const data = parseReferenceMove(formData);
   if (!data) return;
 
-  const last = await prisma.referenceMove.findFirst({
-    where: { gameId },
-    orderBy: { turnNumber: "desc" },
-  });
+  const [last, game] = await Promise.all([
+    prisma.referenceMove.findFirst({
+      where: { gameId },
+      orderBy: { turnNumber: "desc" },
+    }),
+    prisma.game.findUniqueOrThrow({ where: { id: gameId } }),
+  ]);
 
   await prisma.referenceMove.create({
-    data: { gameId, turnNumber: (last?.turnNumber ?? 0) + 1, points: 0, ...data },
+    data: {
+      gameId,
+      turnNumber: (last?.turnNumber ?? 0) + 1,
+      points: 0,
+      ...data,
+      rack: data.rack ?? game.pendingRack?.replace(/\+/g, "") ?? null,
+    },
+  });
+  // Le tirage validé est désormais joué : il n'y a plus de tirage "en
+  // attente" tant que l'arbitre n'en valide pas un nouveau pour le tour
+  // suivant (l'affichage bascule alors sur le reliquat de ce coup). Le
+  // chrono se réinitialise dans la foulée, prêt pour le tour suivant (dont
+  // le démarrage restera bloqué tant qu'un nouveau tirage n'est pas validé).
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      pendingRack: null,
+      timerRunning: false,
+      timerStartedAt: null,
+      timerRemainingSeconds: game.timerDurationSeconds,
+    },
   });
   await recomputeReferenceMoveScores(gameId);
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
   notifyTournamentUpdate(tournamentId);
 }
 

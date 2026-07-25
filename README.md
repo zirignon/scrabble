@@ -175,7 +175,17 @@ Après `npm run db:seed` :
   score décroissant ; l'arbitre choisit une solution pour préremplir
   automatiquement la référence et le mot avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
-  les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
+  les joueurs sur le même tirage), démarré/mis en pause par l'arbitre.
+  Avant de démarrer, l'arbitre doit valider le tirage du tour (page des
+  parties, à côté du chrono) : il est aussitôt projeté tel quel sur
+  l'affichage grand écran, pour que la salle le voie avant que le temps
+  ne commence à courir — le bouton « Démarrer » reste désactivé tant
+  qu'aucun tirage n'est validé. Le tirage validé préremplit aussi le
+  champ « Tirage » du formulaire de coup de référence ; dès que celui-ci
+  est enregistré, le tirage validé est effacé (le reliquat prend le
+  relais sur l'affichage) jusqu'à la validation du suivant, et le chrono
+  se réinitialise automatiquement à sa durée par défaut, prêt pour le
+  tour suivant
 
 ### Tournois par équipes
 
@@ -236,8 +246,12 @@ Après `npm run db:seed` :
   le reliquat (les lettres du tirage non posées sur la grille) est
   affiché, réorganisé en ordre alphabétique — lettres blanches en
   dernier — et suivi du signe « + » (ex. tirage AMHUQXV, mot joué VAUX
-  → reliquat HMQ+), conformément à l'annonce standard en duplicate — il
-  sera complété au tour suivant
+  → reliquat HMQ+), conformément à l'annonce standard en duplicate. Ce
+  reliquat préremplit le champ de validation du tirage du tour suivant :
+  l'arbitre n'a qu'à compléter avec les nouvelles lettres tirées (ex.
+  HMQ+AEISNT), et c'est ce tirage complet, reliquat et lettres
+  nouvellement tirées bien distingués par le « + », qui est projeté sur
+  l'affichage grand écran une fois validé
 
 ### Exports
 

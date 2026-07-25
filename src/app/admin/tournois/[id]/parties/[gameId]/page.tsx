@@ -197,6 +197,7 @@ export default async function GameMovesPage({
             addAction={addReferenceMoveBound}
             findSolutions={findSolutionsBound}
             turnNumber={game.referenceMoves.length + 1}
+            initialRack={game.pendingRack ?? ""}
           />
         )}
         <p className="text-xs text-black/50 dark:text-white/50">

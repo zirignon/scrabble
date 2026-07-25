@@ -306,6 +306,13 @@ model Game {
   timerRunning          Boolean   @default(false)
   timerStartedAt        DateTime?
 
+  // Tirage validé par l'arbitre pour le tour en cours, avant que le mot ne
+  // soit décidé : projeté tel quel (grille complète) sur l'affichage grand
+  // écran dès sa validation, pour que les joueurs le voient avant le
+  // démarrage du chrono. Effacé dès que le coup de référence correspondant
+  // est enregistré (le reliquat prend alors le relais pour l'affichage).
+  pendingRack String?
+
   results        DuplicateResult[]
   moves          DuplicateMove[]
   referenceMoves ReferenceMove[]

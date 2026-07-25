@@ -120,7 +120,9 @@ export function getNewlyPlacedLetters<T>(
 // qu'elle représente. Renvoie null si tout le tirage a été joué (rien à
 // compléter).
 export function formatReliquat(rack: string, playedLetters: PlayedLetter[]): string | null {
-  const remaining = rack.split("");
+  // Le "+" est un séparateur d'affichage/saisie (voir validateGameRackAction),
+  // pas une lettre du tirage — on l'ignore ici par sécurité s'il en reste un.
+  const remaining = rack.replace(/\+/g, "").split("");
   for (const played of playedLetters) {
     const idx = remaining.indexOf(played.isBlank ? "?" : played.letter);
     if (idx !== -1) remaining.splice(idx, 1);
@@ -129,6 +131,36 @@ export function formatReliquat(rack: string, playedLetters: PlayedLetter[]): str
   const letters = remaining.filter((c) => c !== "?").sort();
   const blanks = remaining.filter((c) => c === "?");
   return `${[...letters, ...blanks].join("")}+`;
+}
+
+export interface ReliquatMoveLike extends ReferenceMoveLike {
+  rack: string | null;
+}
+
+// Reliquat du dernier coup joué, à préremplir dans le champ de saisie du
+// tirage du tour suivant : l'arbitre n'a alors qu'à compléter avec les
+// nouvelles lettres tirées, ce qui donne à l'affichage un tirage de la
+// forme "B+AEISNT" (reliquat, puis lettres nouvellement tirées) — le même
+// calcul sert à la fois à l'affichage grand écran (tant qu'aucun tirage
+// n'a encore été validé pour le tour suivant) et à la valeur par défaut du
+// champ de saisie de l'arbitre.
+export function computeLastReliquat(moves: ReliquatMoveLike[]): string | null {
+  const sorted = [...moves].sort((a, b) => a.turnNumber - b.turnNumber);
+  const lastMove = sorted[sorted.length - 1];
+  if (!lastMove?.rack) return null;
+
+  if (!lastMove.isPass && lastMove.word) {
+    const boardBefore = reconstructBoard(sorted.filter((m) => m.turnNumber < lastMove.turnNumber));
+    const playedLetters = getNewlyPlacedLetters(
+      boardBefore,
+      lastMove.word,
+      lastMove.row,
+      lastMove.col,
+      lastMove.direction as "ACROSS" | "DOWN"
+    );
+    return formatReliquat(lastMove.rack, playedLetters);
+  }
+  return formatReliquat(lastMove.rack, []);
 }
 
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois
