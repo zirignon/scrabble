@@ -83,7 +83,7 @@ export function ScrabbleGrid({
                 className={`relative flex items-center justify-center border ${border} ${outerBorder} ${bg} ${textColor} font-bold`}
                 style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
               >
-                {cell ? (cell.isBlank ? "" : cell.letter) : b && cellSize >= 20 ? bonusLabel[b] : ""}
+                {cell ? cell.letter : b && cellSize >= 20 ? bonusLabel[b] : ""}
                 {value !== undefined && (
                   <span
                     className="absolute bottom-0 right-0.5 font-semibold leading-none"

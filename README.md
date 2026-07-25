@@ -153,8 +153,8 @@ Après `npm run db:seed` :
   croisements, prime de Scrabble selon la formule du tournoi) — pas de
   saisie manuelle des points. Chaque lettre affiche son coefficient en
   petit dans le coin de la case, comme sur un jeton physique ; une
-  lettre blanche (joker) s'affiche comme une tuile sans écriture (ni
-  lettre ni coefficient), pour la repérer facilement sur la grille
+  lettre blanche (joker) affiche la lettre qu'elle représente mais sans
+  coefficient, pour la repérer facilement sur la grille
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au

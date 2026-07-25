@@ -204,8 +204,8 @@ export default async function GameMovesPage({
           Référence : lettre puis chiffre pour un mot horizontal (ex. H4),
           chiffre puis lettre pour un mot vertical (ex. 4H). Une lettre en
           minuscule dans le mot joué est une lettre blanche (joker) : elle
-          vaut 0 point, et s&apos;affiche sur la grille sous forme d&apos;une
-          tuile sans lettre. Le score est calculé automatiquement (valeur
+          vaut 0 point, et s&apos;affiche sur la grille sans coefficient.
+          Le score est calculé automatiquement (valeur
           des lettres, cases bonus, mots croisés, prime de Scrabble selon la
           formule du tournoi). Dans le tirage, notez une lettre blanche en
           main avec un point d&apos;interrogation (?) : c&apos;est ainsi
