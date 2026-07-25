@@ -37,7 +37,7 @@ export function DisplayBoard({
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-sky-400 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">
+    <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">
       <header className="flex items-center justify-between border-b border-black/20 pb-4">
         <h1 className="text-4xl font-bold truncate">{data.tournamentName}</h1>
         <div className="flex gap-4 text-2xl shrink-0">
