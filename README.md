@@ -244,8 +244,12 @@ Après `npm run db:seed` :
   le reliquat (les lettres du tirage non posées sur la grille) est
   affiché, réorganisé en ordre alphabétique — lettres blanches en
   dernier — et suivi du signe « + » (ex. tirage AMHUQXV, mot joué VAUX
-  → reliquat HMQ+), conformément à l'annonce standard en duplicate — il
-  sera complété au tour suivant
+  → reliquat HMQ+), conformément à l'annonce standard en duplicate. Ce
+  reliquat préremplit le champ de validation du tirage du tour suivant :
+  l'arbitre n'a qu'à compléter avec les nouvelles lettres tirées (ex.
+  HMQ+AEISNT), et c'est ce tirage complet, reliquat et lettres
+  nouvellement tirées bien distingués par le « + », qui est projeté sur
+  l'affichage grand écran une fois validé
 
 ### Exports
 

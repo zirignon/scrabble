@@ -374,7 +374,10 @@ function parseReferenceMove(formData: FormData) {
     // joker, voir computeMoveScore) — contrairement au coup par coup de
     // chaque joueur, dont le score n'est pas recalculé automatiquement.
     word: parsed.data.word || null,
-    rack: parsed.data.rack?.toUpperCase() || null,
+    // Le "+" est un simple séparateur d'affichage/saisie entre le reliquat
+    // et les lettres nouvellement tirées (voir validateGameRackAction) : il
+    // n'a pas sa place dans le tirage définitif enregistré sur le coup.
+    rack: parsed.data.rack ? parsed.data.rack.toUpperCase().replace(/\+/g, "") || null : null,
     isPass: parsed.data.isPass === "on",
   };
 }
@@ -448,7 +451,7 @@ export async function addReferenceMoveAction(
       turnNumber: (last?.turnNumber ?? 0) + 1,
       points: 0,
       ...data,
-      rack: data.rack ?? game.pendingRack,
+      rack: data.rack ?? game.pendingRack?.replace(/\+/g, "") ?? null,
     },
   });
   // Le tirage validé est désormais joué : il n'y a plus de tirage "en

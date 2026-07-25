@@ -5,12 +5,7 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import {
-  reconstructBoard,
-  getNewlyPlacedLetters,
-  formatReliquat,
-  type BoardCell,
-} from "@/lib/duplicate/board";
+import { reconstructBoard, computeLastReliquat, type BoardCell } from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -325,31 +320,11 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
   }
 
   const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
-  const sortedMoves = [...lastGame.referenceMoves].sort((a, b) => a.turnNumber - b.turnNumber);
-  const lastMove = sortedMoves[sortedMoves.length - 1];
 
-  let currentRack: string | null = null;
-  if (lastGame.pendingRack) {
-    // Tirage validé par l'arbitre pour le tour en cours, mot pas encore
-    // décidé : projeté tel quel, avant même le démarrage du chrono.
-    currentRack = lastGame.pendingRack;
-  } else if (lastMove?.rack) {
-    if (!lastMove.isPass && lastMove.word) {
-      const boardBeforeLast = reconstructBoard(
-        sortedMoves.filter((m) => m.turnNumber < lastMove.turnNumber)
-      );
-      const playedLetters = getNewlyPlacedLetters(
-        boardBeforeLast,
-        lastMove.word,
-        lastMove.row,
-        lastMove.col,
-        lastMove.direction as "ACROSS" | "DOWN"
-      );
-      currentRack = formatReliquat(lastMove.rack, playedLetters);
-    } else {
-      currentRack = formatReliquat(lastMove.rack, []);
-    }
-  }
+  // Tirage validé par l'arbitre pour le tour en cours (mot pas encore
+  // décidé) : projeté tel quel, avant même le démarrage du chrono. Sinon,
+  // c'est le reliquat du dernier coup joué qui reste affiché.
+  const currentRack = lastGame.pendingRack ?? computeLastReliquat(lastGame.referenceMoves);
 
   return {
     kind: "duplicate",

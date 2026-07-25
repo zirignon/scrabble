@@ -13,7 +13,8 @@ import {
 } from "@/lib/actions/duplicate";
 import { updateDuplicateFormulaAction } from "@/lib/actions/tournaments";
 import { LiveCountdown } from "@/components/LiveCountdown";
-import type { Game } from "@prisma/client";
+import { computeLastReliquat } from "@/lib/duplicate/board";
+import type { Game, ReferenceMove } from "@prisma/client";
 
 const formulaLabel: Record<string, string> = {
   NORMALE: "Normale (3 min par coup)",
@@ -74,16 +75,23 @@ function FormulaSettingsForm({
 
 function GameTimerControls({
   game,
+  referenceMoves,
   canManage,
   tournamentId,
 }: {
   game: Game;
+  referenceMoves: ReferenceMove[];
   canManage: boolean;
   tournamentId: string;
 }) {
   const runningSince = game.timerRunning && game.timerStartedAt
     ? game.timerStartedAt.toISOString()
     : null;
+
+  // Préremplit le champ avec le reliquat du dernier coup joué (suivi de
+  // "+") tant qu'aucun tirage n'a encore été validé pour ce tour :
+  // l'arbitre n'a qu'à compléter avec les nouvelles lettres tirées.
+  const rackDefaultValue = game.pendingRack ?? computeLastReliquat(referenceMoves) ?? "";
 
   return (
     <div className="flex flex-col gap-2">
@@ -96,7 +104,7 @@ function GameTimerControls({
           <input
             type="text"
             name="rack"
-            defaultValue={game.pendingRack ?? ""}
+            defaultValue={rackDefaultValue}
             placeholder="Ex. AEHMNRS"
             className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
           />
@@ -184,7 +192,7 @@ export default async function GamesPage({
     include: {
       games: {
         orderBy: { number: "asc" },
-        include: { results: true },
+        include: { results: true, referenceMoves: true },
       },
       registrations: { include: { player: true }, orderBy: { createdAt: "asc" } },
     },
@@ -265,7 +273,12 @@ export default async function GamesPage({
               </Link>
             </h2>
 
-            <GameTimerControls game={game} canManage={canManage} tournamentId={tournament.id} />
+            <GameTimerControls
+              game={game}
+              referenceMoves={game.referenceMoves}
+              canManage={canManage}
+              tournamentId={tournament.id}
+            />
 
             <form
               action={saveGameScoresAction.bind(null, tournament.id, game.id)}
