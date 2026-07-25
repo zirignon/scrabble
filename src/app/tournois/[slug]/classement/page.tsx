@@ -17,6 +17,26 @@ const statusLabel: Record<string, string> = {
   ARCHIVED: "Archivé",
 };
 
+// Styles partagés par tous les tableaux de classement de cette page : un
+// filet plus marqué sous l'en-tête, des libellés de colonne discrets en
+// petites capitales, et les colonnes chiffrées alignées à droite en
+// tabular-nums pour que les scores s'alignent proprement.
+const headRow = "text-left border-b-2 border-navy/20 dark:border-navy-light/30";
+const th = "py-2.5 pr-4 text-xs font-semibold uppercase tracking-wide text-black/45 dark:text-white/50";
+const thNum = `${th} text-right`;
+const row = "border-b border-black/5 dark:border-white/5 hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
+const td = "py-2.5 pr-4";
+const tdNum = `${td} text-right tabular-nums`;
+const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
+
+function Rank({ value }: { value: number }) {
+  return (
+    <span className={value === 1 ? "font-heading font-semibold text-gold dark:text-gold-light" : ""}>
+      {value}
+    </span>
+  );
+}
+
 export default async function TournamentStandingsPage({
   params,
 }: {
@@ -66,63 +86,56 @@ export default async function TournamentStandingsPage({
           {" · "}
           {statusLabel[tournament.status]}
         </p>
-        <h1 className="text-3xl font-semibold">Classement — {tournament.name}</h1>
+        <h1 className="font-heading text-3xl font-semibold">Classement — {tournament.name}</h1>
       </div>
 
       {!(tournament.type === "CLASSIC" && tournament.format === "GROUPS") && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Classement</h2>
+            <h2 className="font-heading text-xl font-semibold">Classement</h2>
             <div className="flex gap-3">
-              <a
-                href={`/api/tournois/${tournament.id}/classement/export`}
-                className="text-sm text-emerald-700 dark:text-emerald-400 underline"
-              >
+              <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
               </a>
-              <a
-                href={`/api/tournois/${tournament.id}/classement/export/pdf`}
-                className="text-sm text-emerald-700 dark:text-emerald-400 underline"
-              >
+              <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
                 Exporter en PDF
               </a>
             </div>
           </div>
+          <div className="overflow-x-auto">
           {tournament.type === "CLASSIC" ? (
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Joueur</th>
-                  <th className="py-2 pr-4">J</th>
-                  <th className="py-2 pr-4">V</th>
-                  <th className="py-2 pr-4">N</th>
-                  <th className="py-2 pr-4">D</th>
-                  <th className="py-2 pr-4">Pts</th>
-                  <th className="py-2 pr-4" title="Buchholz">Bchz</th>
-                  <th className="py-2 pr-4" title="Buchholz médian">Bchz méd.</th>
-                  <th className="py-2 pr-4" title="Sonneborn-Berger">SB</th>
-                  <th className="py-2 pr-4" title="Score cumulé progressif">Cumul</th>
-                  <th className="py-2 pr-4">Diff</th>
+                <tr className={headRow}>
+                  <th className={th}>#</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Buchholz">Bchz</th>
+                  <th className={thNum} title="Buchholz médian">Bchz méd.</th>
+                  <th className={thNum} title="Sonneborn-Berger">SB</th>
+                  <th className={thNum} title="Score cumulé progressif">Cumul</th>
+                  <th className={thNum}>Diff</th>
                 </tr>
               </thead>
               <tbody>
-                {classicStandings.map((row, i) => (
-                  <tr key={row.playerId} className="border-b border-black/5 dark:border-white/5">
-                    <td className="py-2 pr-4">{i + 1}</td>
-                    <td className="py-2 pr-4">
-                      {row.firstName} {row.lastName}
-                    </td>
-                    <td className="py-2 pr-4">{row.played}</td>
-                    <td className="py-2 pr-4">{row.wins}</td>
-                    <td className="py-2 pr-4">{row.draws}</td>
-                    <td className="py-2 pr-4">{row.losses}</td>
-                    <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
-                    <td className="py-2 pr-4">{row.buchholz}</td>
-                    <td className="py-2 pr-4">{row.buchholzMedian}</td>
-                    <td className="py-2 pr-4">{row.sonnebornBerger}</td>
-                    <td className="py-2 pr-4">{row.cumulativeScore}</td>
-                    <td className="py-2 pr-4">{row.diff}</td>
+                {classicStandings.map((r, i) => (
+                  <tr key={r.playerId} className={row}>
+                    <td className={td}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.buchholz}</td>
+                    <td className={tdNum}>{r.buchholzMedian}</td>
+                    <td className={tdNum}>{r.sonnebornBerger}</td>
+                    <td className={tdNum}>{r.cumulativeScore}</td>
+                    <td className={tdNum}>{r.diff}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,31 +143,30 @@ export default async function TournamentStandingsPage({
           ) : (
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Joueur</th>
-                  <th className="py-2 pr-4">Parties</th>
-                  <th className="py-2 pr-4">Score total</th>
-                  <th className="py-2 pr-4">Pénalités</th>
-                  <th className="py-2 pr-4">Net</th>
+                <tr className={headRow}>
+                  <th className={th}>#</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>Parties</th>
+                  <th className={thNum}>Score total</th>
+                  <th className={thNum}>Pénalités</th>
+                  <th className={thNum}>Net</th>
                 </tr>
               </thead>
               <tbody>
-                {duplicateStandings.map((row, i) => (
-                  <tr key={row.playerId} className="border-b border-black/5 dark:border-white/5">
-                    <td className="py-2 pr-4">{i + 1}</td>
-                    <td className="py-2 pr-4">
-                      {row.firstName} {row.lastName}
-                    </td>
-                    <td className="py-2 pr-4">{row.gamesPlayed}</td>
-                    <td className="py-2 pr-4">{row.totalScore}</td>
-                    <td className="py-2 pr-4">{row.totalPenalty}</td>
-                    <td className="py-2 pr-4 font-medium">{row.net}</td>
+                {duplicateStandings.map((r, i) => (
+                  <tr key={r.playerId} className={row}>
+                    <td className={td}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
+                    <td className={tdNum}>{r.gamesPlayed}</td>
+                    <td className={tdNum}>{r.totalScore}</td>
+                    <td className={tdNum}>{r.totalPenalty}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.net}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          </div>
           {standingsCount === 0 && (
             <p className="text-sm text-black/50 dark:text-white/50">
               Le classement sera disponible une fois les premiers résultats saisis.
@@ -165,49 +177,49 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent && (
         <section>
-          <h2 className="text-xl font-semibold mb-3">Classement par poule</h2>
+          <h2 className="font-heading text-xl font-semibold mb-3">Classement par poule</h2>
           <div className="flex flex-col gap-6">
             {poolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
                 <h3 className="font-medium mb-2">{poolName}</h3>
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="text-left border-b border-black/10 dark:border-white/10">
-                      <th className="py-2 pr-4">#</th>
-                      <th className="py-2 pr-4">Joueur</th>
-                      <th className="py-2 pr-4">J</th>
-                      <th className="py-2 pr-4">V</th>
-                      <th className="py-2 pr-4">N</th>
-                      <th className="py-2 pr-4">D</th>
-                      <th className="py-2 pr-4">Pts</th>
-                      <th className="py-2 pr-4" title="Buchholz">Bchz</th>
-                      <th className="py-2 pr-4" title="Buchholz médian">Bchz méd.</th>
-                      <th className="py-2 pr-4" title="Sonneborn-Berger">SB</th>
-                      <th className="py-2 pr-4" title="Score cumulé progressif">Cumul</th>
-                      <th className="py-2 pr-4">Diff</th>
+                    <tr className={headRow}>
+                      <th className={th}>#</th>
+                      <th className={th}>Joueur</th>
+                      <th className={thNum}>J</th>
+                      <th className={thNum}>V</th>
+                      <th className={thNum}>N</th>
+                      <th className={thNum}>D</th>
+                      <th className={thNum}>Pts</th>
+                      <th className={thNum} title="Buchholz">Bchz</th>
+                      <th className={thNum} title="Buchholz médian">Bchz méd.</th>
+                      <th className={thNum} title="Sonneborn-Berger">SB</th>
+                      <th className={thNum} title="Score cumulé progressif">Cumul</th>
+                      <th className={thNum}>Diff</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {standings.map((row, i) => (
-                      <tr key={row.playerId} className="border-b border-black/5 dark:border-white/5">
-                        <td className="py-2 pr-4">{i + 1}</td>
-                        <td className="py-2 pr-4">
-                          {row.firstName} {row.lastName}
-                        </td>
-                        <td className="py-2 pr-4">{row.played}</td>
-                        <td className="py-2 pr-4">{row.wins}</td>
-                        <td className="py-2 pr-4">{row.draws}</td>
-                        <td className="py-2 pr-4">{row.losses}</td>
-                        <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
-                        <td className="py-2 pr-4">{row.buchholz}</td>
-                        <td className="py-2 pr-4">{row.buchholzMedian}</td>
-                        <td className="py-2 pr-4">{row.sonnebornBerger}</td>
-                        <td className="py-2 pr-4">{row.cumulativeScore}</td>
-                        <td className="py-2 pr-4">{row.diff}</td>
+                    {standings.map((r, i) => (
+                      <tr key={r.playerId} className={row}>
+                        <td className={td}><Rank value={i + 1} /></td>
+                        <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
+                        <td className={tdNum}>{r.played}</td>
+                        <td className={tdNum}>{r.wins}</td>
+                        <td className={tdNum}>{r.draws}</td>
+                        <td className={tdNum}>{r.losses}</td>
+                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                        <td className={tdNum}>{r.buchholz}</td>
+                        <td className={tdNum}>{r.buchholzMedian}</td>
+                        <td className={tdNum}>{r.sonnebornBerger}</td>
+                        <td className={tdNum}>{r.cumulativeScore}</td>
+                        <td className={tdNum}>{r.diff}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))}
             {poolStandings.length === 0 && (
@@ -221,45 +233,45 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && tournament.isTeamEvent && (
         <section>
-          <h2 className="text-xl font-semibold mb-3">Classement par poule (équipes)</h2>
+          <h2 className="font-heading text-xl font-semibold mb-3">Classement par poule (équipes)</h2>
           <div className="flex flex-col gap-6">
             {teamPoolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
                 <h3 className="font-medium mb-2">{poolName}</h3>
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="text-left border-b border-black/10 dark:border-white/10">
-                      <th className="py-2 pr-4">#</th>
-                      <th className="py-2 pr-4">Équipe</th>
-                      <th className="py-2 pr-4">J</th>
-                      <th className="py-2 pr-4">V</th>
-                      <th className="py-2 pr-4">N</th>
-                      <th className="py-2 pr-4">D</th>
-                      <th className="py-2 pr-4">Pts</th>
-                      <th className="py-2 pr-4" title="Échiquiers gagnés/nuls/perdus">
+                    <tr className={headRow}>
+                      <th className={th}>#</th>
+                      <th className={th}>Équipe</th>
+                      <th className={thNum}>J</th>
+                      <th className={thNum}>V</th>
+                      <th className={thNum}>N</th>
+                      <th className={thNum}>D</th>
+                      <th className={thNum}>Pts</th>
+                      <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
                         Éch. G/N/P
                       </th>
-                      <th className="py-2 pr-4">Diff</th>
+                      <th className={thNum}>Diff</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {standings.map((row, i) => (
-                      <tr key={row.teamId} className="border-b border-black/5 dark:border-white/5">
-                        <td className="py-2 pr-4">{i + 1}</td>
-                        <td className="py-2 pr-4">{row.name}</td>
-                        <td className="py-2 pr-4">{row.played}</td>
-                        <td className="py-2 pr-4">{row.wins}</td>
-                        <td className="py-2 pr-4">{row.draws}</td>
-                        <td className="py-2 pr-4">{row.losses}</td>
-                        <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
-                        <td className="py-2 pr-4">
-                          {row.boardsWon}/{row.boardsDrawn}/{row.boardsLost}
-                        </td>
-                        <td className="py-2 pr-4">{row.diff}</td>
+                    {standings.map((r, i) => (
+                      <tr key={r.teamId} className={row}>
+                        <td className={td}><Rank value={i + 1} /></td>
+                        <td className={`${td} font-medium`}>{r.name}</td>
+                        <td className={tdNum}>{r.played}</td>
+                        <td className={tdNum}>{r.wins}</td>
+                        <td className={tdNum}>{r.draws}</td>
+                        <td className={tdNum}>{r.losses}</td>
+                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                        <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                        <td className={tdNum}>{r.diff}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))}
             {teamPoolStandings.length === 0 && (
@@ -274,53 +286,46 @@ export default async function TournamentStandingsPage({
       {tournament.isTeamEvent && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Classement par équipes</h2>
+            <h2 className="font-heading text-xl font-semibold">Classement par équipes</h2>
             <div className="flex gap-3">
-              <a
-                href={`/api/tournois/${tournament.id}/classement/equipes/export`}
-                className="text-sm text-emerald-700 dark:text-emerald-400 underline"
-              >
+              <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
                 Exporter en CSV
               </a>
-              <a
-                href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`}
-                className="text-sm text-emerald-700 dark:text-emerald-400 underline"
-              >
+              <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
                 Exporter en PDF
               </a>
             </div>
           </div>
+          <div className="overflow-x-auto">
           {tournament.type === "CLASSIC" ? (
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Équipe</th>
-                  <th className="py-2 pr-4">J</th>
-                  <th className="py-2 pr-4">V</th>
-                  <th className="py-2 pr-4">N</th>
-                  <th className="py-2 pr-4">D</th>
-                  <th className="py-2 pr-4">Pts</th>
-                  <th className="py-2 pr-4" title="Échiquiers gagnés/nuls/perdus">
+                <tr className={headRow}>
+                  <th className={th}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
                     Éch. G/N/P
                   </th>
-                  <th className="py-2 pr-4">Diff</th>
+                  <th className={thNum}>Diff</th>
                 </tr>
               </thead>
               <tbody>
-                {classicTeamStandings.map((row, i) => (
-                  <tr key={row.teamId} className="border-b border-black/5 dark:border-white/5">
-                    <td className="py-2 pr-4">{i + 1}</td>
-                    <td className="py-2 pr-4">{row.name}</td>
-                    <td className="py-2 pr-4">{row.played}</td>
-                    <td className="py-2 pr-4">{row.wins}</td>
-                    <td className="py-2 pr-4">{row.draws}</td>
-                    <td className="py-2 pr-4">{row.losses}</td>
-                    <td className="py-2 pr-4 font-medium">{row.matchPoints}</td>
-                    <td className="py-2 pr-4">
-                      {row.boardsWon}/{row.boardsDrawn}/{row.boardsLost}
-                    </td>
-                    <td className="py-2 pr-4">{row.diff}</td>
+                {classicTeamStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={td}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
                   </tr>
                 ))}
               </tbody>
@@ -328,35 +333,36 @@ export default async function TournamentStandingsPage({
           ) : (
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Équipe</th>
-                  <th className="py-2 pr-4">Parties</th>
-                  <th className="py-2 pr-4">Score total</th>
-                  <th className="py-2 pr-4">Pénalités</th>
-                  <th className="py-2 pr-4">Net</th>
-                  <th className="py-2 pr-4">Négatif</th>
-                  <th className="py-2 pr-4">%</th>
+                <tr className={headRow}>
+                  <th className={th}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>Parties</th>
+                  <th className={thNum}>Score total</th>
+                  <th className={thNum}>Pénalités</th>
+                  <th className={thNum}>Net</th>
+                  <th className={thNum}>Négatif</th>
+                  <th className={thNum}>%</th>
                 </tr>
               </thead>
               <tbody>
-                {duplicateTeamStandings.map((row, i) => (
-                  <tr key={row.teamId} className="border-b border-black/5 dark:border-white/5">
-                    <td className="py-2 pr-4">{i + 1}</td>
-                    <td className="py-2 pr-4">{row.name}</td>
-                    <td className="py-2 pr-4">{row.gamesPlayed}</td>
-                    <td className="py-2 pr-4">{row.totalScore}</td>
-                    <td className="py-2 pr-4">{row.totalPenalty}</td>
-                    <td className="py-2 pr-4">{row.net}</td>
-                    <td className="py-2 pr-4">{row.negatif ?? "—"}</td>
-                    <td className="py-2 pr-4 font-medium">
-                      {row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—"}
+                {duplicateTeamStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={td}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.gamesPlayed}</td>
+                    <td className={tdNum}>{r.totalScore}</td>
+                    <td className={tdNum}>{r.totalPenalty}</td>
+                    <td className={tdNum}>{r.net}</td>
+                    <td className={tdNum}>{r.negatif ?? "—"}</td>
+                    <td className={`${tdNum} font-semibold`}>
+                      {r.pourcentage != null ? `${r.pourcentage.toFixed(2)} %` : "—"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          </div>
         </section>
       )}
     </div>
