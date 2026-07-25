@@ -90,9 +90,12 @@ function GameTimerControls({
     : null;
 
   // Préremplit le champ avec le reliquat du dernier coup joué (suivi de
-  // "+") tant qu'aucun tirage n'a encore été validé pour ce tour :
-  // l'arbitre n'a qu'à compléter avec les nouvelles lettres tirées.
-  const rackDefaultValue = game.pendingRack ?? computeLastReliquat(referenceMoves) ?? "";
+  // "+") tant qu'aucun tirage n'a encore été validé pour ce tour : l'arbitre
+  // n'a qu'à compléter avec les nouvelles lettres tirées. pendingRack vaut
+  // "" (distinct de null) après un rejet : le champ reste alors vierge
+  // plutôt que de resuggérer le même reliquat.
+  const rackDefaultValue =
+    game.pendingRack === null ? computeLastReliquat(referenceMoves) ?? "" : game.pendingRack;
 
   return (
     <div className="flex flex-col gap-2">

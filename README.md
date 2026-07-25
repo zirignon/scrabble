@@ -187,8 +187,10 @@ Après `npm run db:seed` :
   se réinitialise automatiquement à sa durée par défaut, prêt pour le
   tour suivant. Un tirage validé peut aussi être rejeté (erreur de
   saisie, tirage contesté...) tant qu'aucun coup n'a été enregistré
-  dessus : il disparaît aussitôt de l'affichage grand écran et le
-  chrono repart de zéro, en attendant la validation d'un nouveau tirage
+  dessus : il disparaît aussitôt de l'affichage grand écran (reliquat
+  suggéré compris) et le chrono repart de zéro — l'arbitre repart d'un
+  champ de tirage entièrement vierge, plutôt que de se voir resuggérer
+  le même reliquat, en attendant la validation d'un nouveau tirage
 
 ### Tournois par équipes
 

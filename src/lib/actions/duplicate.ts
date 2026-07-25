@@ -85,10 +85,14 @@ export async function rejectGameRackAction(tournamentId: string, gameId: string)
   await assertCanManage(tournamentId);
   const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
 
+  // pendingRack passe à "" (chaîne vide, distincte de null) : le rejet
+  // efface aussi bien le reliquat que les lettres nouvellement tirées de
+  // l'affichage et du champ de saisie, plutôt que de laisser réapparaître
+  // le reliquat suggéré — l'arbitre repart d'un tirage entièrement vierge.
   await prisma.game.update({
     where: { id: gameId },
     data: {
-      pendingRack: null,
+      pendingRack: "",
       timerRunning: false,
       timerStartedAt: null,
       timerRemainingSeconds: game.timerDurationSeconds,
@@ -475,7 +479,7 @@ export async function addReferenceMoveAction(
       turnNumber: (last?.turnNumber ?? 0) + 1,
       points: 0,
       ...data,
-      rack: data.rack ?? game.pendingRack?.replace(/\+/g, "") ?? null,
+      rack: data.rack ?? (game.pendingRack ? game.pendingRack.replace(/\+/g, "") : null),
     },
   });
   // Le tirage validé est désormais joué : il n'y a plus de tirage "en
