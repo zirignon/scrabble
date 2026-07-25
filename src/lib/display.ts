@@ -113,11 +113,7 @@ async function buildStandings(tournament: {
             rows: pool.standings.map((s, i) => ({
               rank: i + 1,
               name: s.name,
-              columns: [
-                { label: "Pts", value: String(s.matchPoints) },
-                { label: "Éch.", value: `${s.boardsWon}-${s.boardsLost}` },
-                { label: "Diff", value: formatDiff(s.diff) },
-              ],
+              columns: classicTeamColumns(s),
             })),
           })),
         };
@@ -130,10 +126,7 @@ async function buildStandings(tournament: {
           rows: pool.standings.map((s, i) => ({
             rank: i + 1,
             name: `${s.firstName} ${s.lastName}`,
-            columns: [
-              { label: "Pts", value: String(s.matchPoints) },
-              { label: "Diff", value: formatDiff(s.diff) },
-            ],
+            columns: classicIndividualColumns(s),
           })),
         })),
       };
@@ -148,11 +141,7 @@ async function buildStandings(tournament: {
             rows: rows.map((s, i) => ({
               rank: i + 1,
               name: s.name,
-              columns: [
-                { label: "Pts", value: String(s.matchPoints) },
-                { label: "Éch.", value: `${s.boardsWon}-${s.boardsLost}` },
-                { label: "Diff", value: formatDiff(s.diff) },
-              ],
+              columns: classicTeamColumns(s),
             })),
           },
         ],
@@ -167,10 +156,7 @@ async function buildStandings(tournament: {
           rows: rows.map((s, i) => ({
             rank: i + 1,
             name: `${s.firstName} ${s.lastName}`,
-            columns: [
-              { label: "Pts", value: String(s.matchPoints) },
-              { label: "Diff", value: formatDiff(s.diff) },
-            ],
+            columns: classicIndividualColumns(s),
           })),
         },
       ],
@@ -189,9 +175,12 @@ async function buildStandings(tournament: {
             rank: i + 1,
             name: s.name,
             columns: [
-              { label: "%", value: s.pourcentage != null ? s.pourcentage.toFixed(2) : "—" },
+              { label: "Parties", value: String(s.gamesPlayed) },
+              { label: "Score total", value: String(s.totalScore) },
+              { label: "Pénalités", value: String(s.totalPenalty) },
+              { label: "Net", value: String(s.net) },
               { label: "Négatif", value: s.negatif != null ? String(s.negatif) : "—" },
-              { label: "Cumul", value: String(s.net) },
+              { label: "%", value: s.pourcentage != null ? s.pourcentage.toFixed(2) : "—" },
             ],
           })),
         },
@@ -208,13 +197,65 @@ async function buildStandings(tournament: {
           rank: i + 1,
           name: `${s.firstName} ${s.lastName}`,
           columns: [
-            { label: "Cumul", value: String(s.net) },
             { label: "Parties", value: String(s.gamesPlayed) },
+            { label: "Score total", value: String(s.totalScore) },
+            { label: "Pénalités", value: String(s.totalPenalty) },
+            { label: "Net", value: String(s.net) },
           ],
         })),
       },
     ],
   };
+}
+
+// Mêmes colonnes que la page publique de classement (/tournois/[slug]/classement),
+// pour que l'affichage grand écran montre exactement les mêmes départages.
+function classicIndividualColumns(s: {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  matchPoints: number;
+  buchholz: number;
+  buchholzMedian: number;
+  sonnebornBerger: number;
+  cumulativeScore: number;
+  diff: number;
+}) {
+  return [
+    { label: "J", value: String(s.played) },
+    { label: "V", value: String(s.wins) },
+    { label: "N", value: String(s.draws) },
+    { label: "D", value: String(s.losses) },
+    { label: "Pts", value: String(s.matchPoints) },
+    { label: "Bchz", value: String(s.buchholz) },
+    { label: "Bchz méd.", value: String(s.buchholzMedian) },
+    { label: "SB", value: String(s.sonnebornBerger) },
+    { label: "Cumul", value: String(s.cumulativeScore) },
+    { label: "Diff", value: formatDiff(s.diff) },
+  ];
+}
+
+function classicTeamColumns(s: {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  matchPoints: number;
+  boardsWon: number;
+  boardsDrawn: number;
+  boardsLost: number;
+  diff: number;
+}) {
+  return [
+    { label: "J", value: String(s.played) },
+    { label: "V", value: String(s.wins) },
+    { label: "N", value: String(s.draws) },
+    { label: "D", value: String(s.losses) },
+    { label: "Pts", value: String(s.matchPoints) },
+    { label: "Éch. G/N/P", value: `${s.boardsWon}/${s.boardsDrawn}/${s.boardsLost}` },
+    { label: "Diff", value: formatDiff(s.diff) },
+  ];
 }
 
 async function buildCurrent(tournament: { id: string; type: string }): Promise<DisplayCurrent> {

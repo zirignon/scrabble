@@ -200,7 +200,11 @@ Après `npm run db:seed` :
   menu de navigation, pensée pour être projetée en salle — fond bleu ciel
 - Alterne automatiquement (toutes les 12 secondes) entre le classement
   (par poule le cas échéant) et la ronde en cours en classique, ou la
-  dernière partie en duplicate
+  dernière partie en duplicate. Le classement projeté affiche exactement
+  les mêmes colonnes que la page de classement de l'organisateur (J, V,
+  N, D, Pts, Buchholz, Buchholz médian, Sonneborn-Berger, cumul
+  progressif, diff en classique ; parties, score, pénalités, net en
+  duplicate, etc.)
 - Mise à jour en temps réel par flux SSE (Server-Sent Events) : dès
   qu'un score, une ronde ou un chrono est modifié côté admin, l'écran
   se met à jour instantanément, sans sondage périodique
