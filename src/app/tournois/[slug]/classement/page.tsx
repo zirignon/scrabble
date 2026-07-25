@@ -7,15 +7,7 @@ import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
-
-const statusLabel: Record<string, string> = {
-  DRAFT: "Brouillon",
-  REGISTRATION_OPEN: "Inscriptions ouvertes",
-  REGISTRATION_CLOSED: "Inscriptions fermées",
-  IN_PROGRESS: "En cours",
-  COMPLETED: "Terminé",
-  ARCHIVED: "Archivé",
-};
+import { tournamentStatusLabel } from "@/lib/labels";
 
 // Styles partagés par tous les tableaux de classement de cette page : un
 // filet plus marqué sous l'en-tête, des libellés de colonne discrets en
@@ -84,7 +76,7 @@ export default async function TournamentStandingsPage({
         <p className="text-sm text-black/50 dark:text-white/50 mt-1">
           {tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"}
           {" · "}
-          {statusLabel[tournament.status]}
+          {tournamentStatusLabel[tournament.status]}
         </p>
         <h1 className="font-heading text-3xl font-semibold">Classement — {tournament.name}</h1>
       </div>
