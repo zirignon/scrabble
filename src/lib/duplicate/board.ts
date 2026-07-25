@@ -75,6 +75,40 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (BoardCell | null)
   return grid;
 }
 
+// Lettres du tirage réellement consommées par un coup (cases nouvellement
+// posées uniquement) : un croisement qui réutilise une lettre déjà présente
+// sur la grille ne pioche pas de lettre supplémentaire dans le tirage.
+export function getNewlyPlacedLetters<T>(
+  boardBeforeMove: (T | null)[][],
+  word: string,
+  row: number,
+  col: number,
+  direction: "ACROSS" | "DOWN"
+): string[] {
+  const letters: string[] = [];
+  for (let i = 0; i < word.length; i++) {
+    const r = direction === "DOWN" ? row - 1 + i : row - 1;
+    const c = direction === "ACROSS" ? col - 1 + i : col - 1;
+    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
+    if (!boardBeforeMove[r][c]) letters.push(word[i].toUpperCase());
+  }
+  return letters;
+}
+
+// Reliquat du tirage annoncé à un tour donné : les lettres non jouées,
+// réorganisées en ordre alphabétique et suivies du signe "+" — convention
+// d'annonce standard en duplicate, signalant qu'il sera complété au tour
+// suivant. Renvoie null si tout le tirage a été joué (rien à compléter).
+export function formatReliquat(rack: string, playedLetters: string[]): string | null {
+  const remaining = rack.toUpperCase().split("");
+  for (const letter of playedLetters) {
+    const idx = remaining.indexOf(letter);
+    if (idx !== -1) remaining.splice(idx, 1);
+  }
+  if (remaining.length === 0) return null;
+  return `${remaining.sort().join("")}+`;
+}
+
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois
 // pour l'affichage et pour le calcul automatique des scores.
 type BonusCell = "TW" | "DW" | "TL" | "DL" | null;

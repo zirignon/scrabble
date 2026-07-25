@@ -5,7 +5,12 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { reconstructBoard, type BoardCell } from "@/lib/duplicate/board";
+import {
+  reconstructBoard,
+  getNewlyPlacedLetters,
+  formatReliquat,
+  type BoardCell,
+} from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -317,8 +322,27 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
   }
 
   const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
-  const lastMove = [...lastGame.referenceMoves].sort((a, b) => b.turnNumber - a.turnNumber)[0];
-  const currentRack = lastMove?.rack ?? null;
+  const sortedMoves = [...lastGame.referenceMoves].sort((a, b) => a.turnNumber - b.turnNumber);
+  const lastMove = sortedMoves[sortedMoves.length - 1];
+
+  let currentRack: string | null = null;
+  if (lastMove?.rack) {
+    if (!lastMove.isPass && lastMove.word) {
+      const boardBeforeLast = reconstructBoard(
+        sortedMoves.filter((m) => m.turnNumber < lastMove.turnNumber)
+      );
+      const playedLetters = getNewlyPlacedLetters(
+        boardBeforeLast,
+        lastMove.word,
+        lastMove.row,
+        lastMove.col,
+        lastMove.direction as "ACROSS" | "DOWN"
+      );
+      currentRack = formatReliquat(lastMove.rack, playedLetters);
+    } else {
+      currentRack = formatReliquat(lastMove.rack, []);
+    }
+  }
 
   return {
     kind: "duplicate",

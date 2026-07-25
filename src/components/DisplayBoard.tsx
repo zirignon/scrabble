@@ -111,6 +111,17 @@ function RackColumn({ rack }: { rack: string }) {
   return (
     <div className="flex flex-col gap-2 bg-white p-4 rounded-lg shadow-xl border border-black/10">
       {letters.map((letter, i) => {
+        if (letter === "+") {
+          return (
+            <div
+              key={i}
+              className="flex items-center justify-center bg-slate-100 border border-black/10 rounded-sm font-bold text-black/40"
+              style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
+            >
+              +
+            </div>
+          );
+        }
         const isBlank = letter === letter.toLowerCase() && letter !== letter.toUpperCase();
         const value = isBlank ? undefined : FRENCH_LETTER_VALUES[letter.toUpperCase()];
         return (

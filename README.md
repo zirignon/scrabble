@@ -216,7 +216,12 @@ Après `npm run db:seed` :
   le chronomètre. Le tirage du tour, saisi par l'arbitre (champ
   « Tirage » du coup de référence), apparaît automatiquement en colonne
   verticale à côté de la grille dès qu'il est renseigné — une lettre par
-  jeton, avec son coefficient, comme sur la grille
+  jeton, avec son coefficient, comme sur la grille. Dès que le mot joué
+  est renseigné, seul le reliquat (les lettres du tirage non posées sur
+  la grille) est affiché, réorganisé en ordre alphabétique et suivi du
+  signe « + » (ex. tirage AMHUQXV, mot joué VAUX → reliquat HMQ+),
+  conformément à l'annonce standard en duplicate — il sera complété au
+  tour suivant
 
 ### Exports
 
