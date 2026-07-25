@@ -4,9 +4,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// DATABASE_URL peut pointer vers une connexion "pooled" (ex. PgBouncer chez
+// Neon) pour les requêtes de l'application côté serverless ; DIRECT_URL doit
+// pointer vers une connexion directe (sans pooler), seule capable de tenir
+// le verrou de session dont `prisma migrate deploy` a besoin. En local, les
+// deux valeurs sont identiques (une seule instance Postgres, sans pooler).
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {

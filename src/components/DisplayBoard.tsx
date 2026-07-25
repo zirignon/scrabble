@@ -37,15 +37,15 @@ export function DisplayBoard({
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-black text-white flex flex-col px-12 py-8 gap-6 overflow-hidden">
-      <header className="flex items-center justify-between border-b border-white/20 pb-4">
+    <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">
+      <header className="flex items-center justify-between border-b border-black/20 pb-4">
         <h1 className="text-4xl font-bold truncate">{data.tournamentName}</h1>
         <div className="flex gap-4 text-2xl shrink-0">
-          <span className={view === "standings" ? "text-emerald-400" : "text-white/40"}>
+          <span className={view === "standings" ? "text-emerald-800" : "text-black/40"}>
             {data.standingsTitle}
           </span>
-          <span className="text-white/30">·</span>
-          <span className={view === "current" ? "text-emerald-400" : "text-white/40"}>
+          <span className="text-black/30">·</span>
+          <span className={view === "current" ? "text-emerald-800" : "text-black/40"}>
             {data.current.label}
           </span>
         </div>
@@ -63,11 +63,11 @@ function StandingsView({ data }: { data: DisplayData }) {
       {data.standingsGroups.map((group, gi) => (
         <div key={gi}>
           {group.name && (
-            <h2 className="text-3xl font-semibold mb-3 text-emerald-400">{group.name}</h2>
+            <h2 className="text-3xl font-semibold mb-3 text-emerald-800">{group.name}</h2>
           )}
           <table className="w-full text-2xl border-collapse">
             <thead>
-              <tr className="text-left text-white/50 text-xl border-b border-white/20">
+              <tr className="text-left text-black/50 text-xl border-b border-black/20">
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">Nom</th>
                 {group.rows[0]?.columns.map((c) => (
@@ -79,7 +79,7 @@ function StandingsView({ data }: { data: DisplayData }) {
             </thead>
             <tbody>
               {group.rows.map((row) => (
-                <tr key={row.rank} className="border-b border-white/10">
+                <tr key={row.rank} className="border-b border-black/10">
                   <td className="py-2 pr-4 font-bold">{row.rank}</td>
                   <td className="py-2 pr-4">{row.name}</td>
                   {row.columns.map((c) => (
@@ -91,7 +91,7 @@ function StandingsView({ data }: { data: DisplayData }) {
               ))}
               {group.rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-4 text-white/40 text-xl">
+                  <td colSpan={10} className="py-4 text-black/40 text-xl">
                     Pas encore de classement.
                   </td>
                 </tr>
@@ -116,7 +116,7 @@ function CurrentView({ data }: { data: DisplayData }) {
               baselineSeconds={current.timer.remainingSeconds}
               runningSince={current.timer.running ? current.timer.startedAt : null}
               className={`text-8xl font-bold tabular-nums ${
-                current.timer.running ? "text-emerald-400" : "text-white/70"
+                current.timer.running ? "text-emerald-800" : "text-black/70"
               }`}
             />
           </div>
@@ -130,7 +130,7 @@ function CurrentView({ data }: { data: DisplayData }) {
           {current.referenceMoves.length > 0 && (
             <table className="text-xl border-collapse">
               <thead>
-                <tr className="text-left text-white/50 text-lg border-b border-white/20">
+                <tr className="text-left text-black/50 text-lg border-b border-black/20">
                   <th className="py-2 pr-4">Réf.</th>
                   <th className="py-2 pr-4">Mot</th>
                   <th className="py-2 pr-4 text-right">Pts</th>
@@ -138,7 +138,7 @@ function CurrentView({ data }: { data: DisplayData }) {
               </thead>
               <tbody>
                 {current.referenceMoves.map((m) => (
-                  <tr key={m.turnNumber} className="border-b border-white/10">
+                  <tr key={m.turnNumber} className="border-b border-black/10">
                     <td className="py-1.5 pr-4 tabular-nums">{m.reference}</td>
                     <td className="py-1.5 pr-4 font-semibold">{m.word}</td>
                     <td className="py-1.5 pr-4 text-right tabular-nums">{m.points}</td>
@@ -149,7 +149,7 @@ function CurrentView({ data }: { data: DisplayData }) {
           )}
           <table className="text-2xl border-collapse flex-1 min-w-[420px]">
             <thead>
-              <tr className="text-left text-white/50 text-xl border-b border-white/20">
+              <tr className="text-left text-black/50 text-xl border-b border-black/20">
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">Joueur</th>
                 <th className="py-2 pr-4 text-right">Score</th>
@@ -159,7 +159,7 @@ function CurrentView({ data }: { data: DisplayData }) {
             </thead>
             <tbody>
               {current.rows.map((r) => (
-                <tr key={r.rank} className="border-b border-white/10">
+                <tr key={r.rank} className="border-b border-black/10">
                   <td className="py-2 pr-4 font-bold">{r.rank}</td>
                   <td className="py-2 pr-4">{r.name}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
@@ -169,7 +169,7 @@ function CurrentView({ data }: { data: DisplayData }) {
               ))}
               {current.rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-4 text-white/40 text-xl">
+                  <td colSpan={5} className="py-4 text-black/40 text-xl">
                     Pas encore de partie jouée.
                   </td>
                 </tr>
@@ -187,11 +187,11 @@ function CurrentView({ data }: { data: DisplayData }) {
       {current.groups.map((group, gi) => (
         <div key={gi}>
           {group.name && (
-            <h2 className="text-3xl font-semibold mb-3 text-emerald-400">{group.name}</h2>
+            <h2 className="text-3xl font-semibold mb-3 text-emerald-800">{group.name}</h2>
           )}
           <table className="w-full text-2xl border-collapse">
             <thead>
-              <tr className="text-left text-white/50 text-xl border-b border-white/20">
+              <tr className="text-left text-black/50 text-xl border-b border-black/20">
                 <th className="py-2 pr-4">Table</th>
                 <th className="py-2 pr-4">Domicile</th>
                 <th className="py-2 pr-4 text-right">⏱</th>
@@ -202,7 +202,7 @@ function CurrentView({ data }: { data: DisplayData }) {
             </thead>
             <tbody>
               {group.matches.map((m, mi) => (
-                <tr key={mi} className="border-b border-white/10">
+                <tr key={mi} className="border-b border-black/10">
                   <td className="py-2 pr-4">{m.table ?? "—"}</td>
                   <td className="py-2 pr-4">{m.home}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">
@@ -210,7 +210,7 @@ function CurrentView({ data }: { data: DisplayData }) {
                       <LiveCountdown
                         baselineSeconds={m.clock.homeRemainingSeconds}
                         runningSince={m.clock.runningSide === "HOME" ? m.clock.startedAt : null}
-                        className={m.clock.runningSide === "HOME" ? "text-emerald-400 font-semibold" : ""}
+                        className={m.clock.runningSide === "HOME" ? "text-emerald-800 font-semibold" : ""}
                       />
                     ) : (
                       "—"
@@ -225,7 +225,7 @@ function CurrentView({ data }: { data: DisplayData }) {
                       <LiveCountdown
                         baselineSeconds={m.clock.awayRemainingSeconds}
                         runningSince={m.clock.runningSide === "AWAY" ? m.clock.startedAt : null}
-                        className={m.clock.runningSide === "AWAY" ? "text-emerald-400 font-semibold" : ""}
+                        className={m.clock.runningSide === "AWAY" ? "text-emerald-800 font-semibold" : ""}
                       />
                     ) : (
                       "—"
@@ -235,7 +235,7 @@ function CurrentView({ data }: { data: DisplayData }) {
               ))}
               {group.matches.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-white/40 text-xl">
+                  <td colSpan={6} className="py-4 text-black/40 text-xl">
                     Aucun match.
                   </td>
                 </tr>

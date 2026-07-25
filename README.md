@@ -48,7 +48,12 @@ Après `npm run db:seed` :
    `postinstall` (`prisma generate`) régénère le client Prisma après
    `npm install`.
 3. **Variables d'environnement** (Project Settings → Environment Variables) :
-   - `DATABASE_URL` : la chaîne de connexion de l'étape 1.
+   - `DATABASE_URL` : la chaîne de connexion "pooled" (avec `-pooler` dans le
+     nom d'hôte chez Neon) — utilisée par l'application à l'exécution.
+   - `DIRECT_URL` : la chaîne de connexion **directe**, sans pooler (même
+     hôte sans le `-pooler` chez Neon) — nécessaire à `prisma migrate
+     deploy`, qui a besoin d'un verrou de session que PgBouncer/le pooler ne
+     supporte pas (erreur `P1002` sinon).
    - `SESSION_SECRET` : une valeur aléatoire longue (ex. `openssl rand -base64 32`).
 4. **Compte administrateur** : n'utilisez **pas** `npm run db:seed` en
    production (il crée le compte de démo `admin@scrabble.local` /
@@ -80,10 +85,13 @@ Après `npm run db:seed` :
   poules, parties/coups en duplicate
 - Inscriptions gérées par l'organisateur, ou auto-inscription pour un joueur
   connecté quand les inscriptions sont ouvertes
-- Pages publiques : liste des tournois, fiche tournoi (planning, résultats),
-  et page de classement séparée (`/tournois/[slug]/classement`). La liste
-  des participants est un tableau (numéro, licence, nom et prénoms, club,
-  fédé), exportable en CSV/PDF
+- Pages publiques : liste des tournois, fiche tournoi (aperçu et
+  inscription), chacune des rubriques suivantes ayant sa propre page :
+  classement (`/tournois/[slug]/classement`), participants
+  (`/tournois/[slug]/participants` — tableau numéro/licence/nom et
+  prénoms/club/fédé, exportable en CSV/PDF), rondes & résultats en
+  classique (`/tournois/[slug]/rondes`) ou parties & scores en duplicate
+  (`/tournois/[slug]/parties`)
 
 ### Scrabble classique
 - Génération automatique des rondes en round-robin (méthode du cercle,
@@ -189,10 +197,14 @@ Après `npm run db:seed` :
 ### Affichage grand écran
 
 - Page publique dédiée par tournoi (`/tournois/[slug]/affichage`), sans
-  menu de navigation, pensée pour être projetée en salle
+  menu de navigation, pensée pour être projetée en salle — fond bleu ciel
 - Alterne automatiquement (toutes les 12 secondes) entre le classement
   (par poule le cas échéant) et la ronde en cours en classique, ou la
-  dernière partie en duplicate
+  dernière partie en duplicate. Le classement projeté affiche exactement
+  les mêmes colonnes que la page de classement de l'organisateur (J, V,
+  N, D, Pts, Buchholz, Buchholz médian, Sonneborn-Berger, cumul
+  progressif, diff en classique ; parties, score, pénalités, net en
+  duplicate, etc.)
 - Mise à jour en temps réel par flux SSE (Server-Sent Events) : dès
   qu'un score, une ronde ou un chrono est modifié côté admin, l'écran
   se met à jour instantanément, sans sondage périodique
