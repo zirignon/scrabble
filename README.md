@@ -197,7 +197,7 @@ Après `npm run db:seed` :
 ### Affichage grand écran
 
 - Page publique dédiée par tournoi (`/tournois/[slug]/affichage`), sans
-  menu de navigation, pensée pour être projetée en salle
+  menu de navigation, pensée pour être projetée en salle — fond bleu ciel
 - Alterne automatiquement (toutes les 12 secondes) entre le classement
   (par poule le cas échéant) et la ronde en cours en classique, ou la
   dernière partie en duplicate
