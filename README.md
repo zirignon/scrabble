@@ -48,7 +48,12 @@ Après `npm run db:seed` :
    `postinstall` (`prisma generate`) régénère le client Prisma après
    `npm install`.
 3. **Variables d'environnement** (Project Settings → Environment Variables) :
-   - `DATABASE_URL` : la chaîne de connexion de l'étape 1.
+   - `DATABASE_URL` : la chaîne de connexion "pooled" (avec `-pooler` dans le
+     nom d'hôte chez Neon) — utilisée par l'application à l'exécution.
+   - `DIRECT_URL` : la chaîne de connexion **directe**, sans pooler (même
+     hôte sans le `-pooler` chez Neon) — nécessaire à `prisma migrate
+     deploy`, qui a besoin d'un verrou de session que PgBouncer/le pooler ne
+     supporte pas (erreur `P1002` sinon).
    - `SESSION_SECRET` : une valeur aléatoire longue (ex. `openssl rand -base64 32`).
 4. **Compte administrateur** : n'utilisez **pas** `npm run db:seed` en
    production (il crée le compte de démo `admin@scrabble.local` /
