@@ -75,6 +75,11 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (BoardCell | null)
   return grid;
 }
 
+export interface PlayedLetter {
+  letter: string;
+  isBlank: boolean;
+}
+
 // Lettres du tirage réellement consommées par un coup (cases nouvellement
 // posées uniquement) : un croisement qui réutilise une lettre déjà présente
 // sur la grille ne pioche pas de lettre supplémentaire dans le tirage.
@@ -84,29 +89,39 @@ export function getNewlyPlacedLetters<T>(
   row: number,
   col: number,
   direction: "ACROSS" | "DOWN"
-): string[] {
-  const letters: string[] = [];
+): PlayedLetter[] {
+  const letters: PlayedLetter[] = [];
   for (let i = 0; i < word.length; i++) {
     const r = direction === "DOWN" ? row - 1 + i : row - 1;
     const c = direction === "ACROSS" ? col - 1 + i : col - 1;
     if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
-    if (!boardBeforeMove[r][c]) letters.push(word[i].toUpperCase());
+    if (!boardBeforeMove[r][c]) {
+      const raw = word[i];
+      letters.push({ letter: raw.toUpperCase(), isBlank: raw !== raw.toUpperCase() });
+    }
   }
   return letters;
 }
 
 // Reliquat du tirage annoncé à un tour donné : les lettres non jouées,
-// réorganisées en ordre alphabétique et suivies du signe "+" — convention
-// d'annonce standard en duplicate, signalant qu'il sera complété au tour
-// suivant. Renvoie null si tout le tirage a été joué (rien à compléter).
-export function formatReliquat(rack: string, playedLetters: string[]): string | null {
-  const remaining = rack.toUpperCase().split("");
-  for (const letter of playedLetters) {
-    const idx = remaining.indexOf(letter);
+// réorganisées en ordre alphabétique (lettres blanches "?" en dernier) et
+// suivies du signe "+" — convention d'annonce standard en duplicate,
+// signalant qu'il sera complété au tour suivant. Une lettre blanche en main
+// est notée "?" dans le tirage (elle n'a pas de valeur propre tant qu'elle
+// n'est pas posée) ; quand un coup pose une lettre blanche (minuscule dans
+// le mot joué), c'est un "?" du tirage qui est consommé, pas la lettre
+// qu'elle représente. Renvoie null si tout le tirage a été joué (rien à
+// compléter).
+export function formatReliquat(rack: string, playedLetters: PlayedLetter[]): string | null {
+  const remaining = rack.split("");
+  for (const played of playedLetters) {
+    const idx = remaining.indexOf(played.isBlank ? "?" : played.letter);
     if (idx !== -1) remaining.splice(idx, 1);
   }
   if (remaining.length === 0) return null;
-  return `${remaining.sort().join("")}+`;
+  const letters = remaining.filter((c) => c !== "?").sort();
+  const blanks = remaining.filter((c) => c === "?");
+  return `${[...letters, ...blanks].join("")}+`;
 }
 
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois

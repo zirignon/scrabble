@@ -152,9 +152,9 @@ Après `npm run db:seed` :
   cases nouvellement posées, mots secondaires formés par les
   croisements, prime de Scrabble selon la formule du tournoi) — pas de
   saisie manuelle des points. Chaque lettre affiche son coefficient en
-  petit dans le coin de la case, comme sur un jeton physique ; les
-  lettres blanches (jokers) n'affichent aucun coefficient, pour les
-  repérer facilement sur la grille
+  petit dans le coin de la case, comme sur un jeton physique ; une
+  lettre blanche (joker) s'affiche comme une tuile sans écriture (ni
+  lettre ni coefficient), pour la repérer facilement sur la grille
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
@@ -214,14 +214,16 @@ Après `npm run db:seed` :
 - En duplicate, la vue « partie en cours » ne montre que l'essentiel
   pour la salle : la grille de référence (agrandie, carte en relief) et
   le chronomètre. Le tirage du tour, saisi par l'arbitre (champ
-  « Tirage » du coup de référence), apparaît automatiquement en colonne
-  verticale à côté de la grille dès qu'il est renseigné — une lettre par
-  jeton, avec son coefficient, comme sur la grille. Dès que le mot joué
-  est renseigné, seul le reliquat (les lettres du tirage non posées sur
-  la grille) est affiché, réorganisé en ordre alphabétique et suivi du
-  signe « + » (ex. tirage AMHUQXV, mot joué VAUX → reliquat HMQ+),
-  conformément à l'annonce standard en duplicate — il sera complété au
-  tour suivant
+  « Tirage » du coup de référence — une lettre blanche en main se note
+  avec un point d'interrogation « ? »), apparaît automatiquement en
+  colonne verticale à côté de la grille dès qu'il est renseigné — une
+  lettre par jeton, avec son coefficient, comme sur la grille (le « ? »
+  n'affiche aucun coefficient). Dès que le mot joué est renseigné, seul
+  le reliquat (les lettres du tirage non posées sur la grille) est
+  affiché, réorganisé en ordre alphabétique — lettres blanches en
+  dernier — et suivi du signe « + » (ex. tirage AMHUQXV, mot joué VAUX
+  → reliquat HMQ+), conformément à l'annonce standard en duplicate — il
+  sera complété au tour suivant
 
 ### Exports
 
