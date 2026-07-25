@@ -80,9 +80,10 @@ Après `npm run db:seed` :
   poules, parties/coups en duplicate
 - Inscriptions gérées par l'organisateur, ou auto-inscription pour un joueur
   connecté quand les inscriptions sont ouvertes
-- Pages publiques : liste des tournois, fiche tournoi (participants,
-  planning, résultats), et page de classement séparée
-  (`/tournois/[slug]/classement`)
+- Pages publiques : liste des tournois, fiche tournoi (planning, résultats),
+  et page de classement séparée (`/tournois/[slug]/classement`). La liste
+  des participants est un tableau (numéro, licence, nom et prénoms, club,
+  fédé), exportable en CSV/PDF
 
 ### Scrabble classique
 - Génération automatique des rondes en round-robin (méthode du cercle,

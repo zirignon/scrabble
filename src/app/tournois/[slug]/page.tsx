@@ -27,6 +27,10 @@ const matchRow = "border-b border-black/5 dark:border-white/5 hover:bg-navy/[0.0
 const matchCell = "py-2 pr-4";
 const scoreCell = "py-2 pr-4 font-semibold tabular-nums";
 
+const headRow = "text-left border-b-2 border-navy/20 dark:border-navy-light/30";
+const th = "py-2.5 pr-4 text-xs font-semibold uppercase tracking-wide text-black/45 dark:text-white/50";
+const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
+
 const pillClass: Record<string, string> = {
   moss: "bg-moss/10 text-moss dark:bg-moss-light/15 dark:text-moss-light",
   gold: "bg-gold/10 text-gold dark:bg-gold-light/15 dark:text-gold-light",
@@ -61,7 +65,10 @@ export default async function TournamentPublicPage({
   const tournament = await prisma.tournament.findUnique({
     where: { slug },
     include: {
-      registrations: { include: { player: { include: { club: true } } } },
+      registrations: {
+        include: { player: { include: { club: true } } },
+        orderBy: { player: { lastName: "asc" } },
+      },
       rounds: {
         orderBy: { number: "asc" },
         include: {
@@ -152,25 +159,54 @@ export default async function TournamentPublicPage({
       </div>
 
       <section>
-        <h2 className="font-heading text-xl font-semibold mb-3">
-          Participants ({tournament.registrations.length})
-        </h2>
-        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
-          {tournament.registrations.map((r) => (
-            <li key={r.id} className="text-black/80 dark:text-white/80">
-              {r.player.firstName} {r.player.lastName}
-              {r.player.club && (
-                <span className="text-black/50 dark:text-white/50">
-                  {" "}
-                  ({r.player.club.name})
-                </span>
-              )}
-            </li>
-          ))}
-          {tournament.registrations.length === 0 && (
-            <li className="text-black/50 dark:text-white/50">Aucun participant inscrit.</li>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading text-xl font-semibold">
+            Participants ({tournament.registrations.length})
+          </h2>
+          {tournament.registrations.length > 0 && (
+            <div className="flex gap-3">
+              <a href={`/api/tournois/${tournament.id}/participants/export`} className={exportLink}>
+                Exporter en CSV
+              </a>
+              <a href={`/api/tournois/${tournament.id}/participants/export/pdf`} className={exportLink}>
+                Exporter en PDF
+              </a>
+            </div>
           )}
-        </ul>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className={headRow}>
+                <th className={th}>Numéro</th>
+                <th className={th}>Licence</th>
+                <th className={th}>Nom et prénoms</th>
+                <th className={th}>Club</th>
+                <th className={th}>Fédé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tournament.registrations.map((r, i) => (
+                <tr key={r.id} className={matchRow}>
+                  <td className={`${matchCell} tabular-nums`}>{i + 1}</td>
+                  <td className={matchCell}>{r.player.licenseNumber ?? "—"}</td>
+                  <td className={`${matchCell} font-medium`}>
+                    {r.player.lastName} {r.player.firstName}
+                  </td>
+                  <td className={matchCell}>{r.player.club?.name ?? "—"}</td>
+                  <td className={matchCell}>{r.player.club?.federation ?? "—"}</td>
+                </tr>
+              ))}
+              {tournament.registrations.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-black/50 dark:text-white/50">
+                    Aucun participant inscrit.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {tournament.type === "CLASSIC" ? (
