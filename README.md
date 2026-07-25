@@ -220,7 +220,11 @@ Après `npm run db:seed` :
   se met à jour instantanément, sans sondage périodique
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
-  décompte fluide entre deux rafraîchissements
+  décompte fluide entre deux rafraîchissements. Le minuteur de la partie
+  en cours (duplicate) passe en rouge et déclenche une sonnerie (une
+  seule fois) dès qu'il descend sous 30 secondes, pour alerter la salle
+  sans distraire les joueurs le reste du temps — le premier clic/appui
+  sur l'écran débloque le son, comme l'exigent les navigateurs
 - En duplicate, la vue « partie en cours » ne montre que l'essentiel
   pour la salle : la grille de référence (agrandie, carte en relief) et
   le chronomètre. Le tirage du tour, saisi par l'arbitre (champ
