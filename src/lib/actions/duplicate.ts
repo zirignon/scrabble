@@ -456,8 +456,18 @@ export async function addReferenceMoveAction(
   });
   // Le tirage validé est désormais joué : il n'y a plus de tirage "en
   // attente" tant que l'arbitre n'en valide pas un nouveau pour le tour
-  // suivant (l'affichage bascule alors sur le reliquat de ce coup).
-  await prisma.game.update({ where: { id: gameId }, data: { pendingRack: null } });
+  // suivant (l'affichage bascule alors sur le reliquat de ce coup). Le
+  // chrono se réinitialise dans la foulée, prêt pour le tour suivant (dont
+  // le démarrage restera bloqué tant qu'un nouveau tirage n'est pas validé).
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      pendingRack: null,
+      timerRunning: false,
+      timerStartedAt: null,
+      timerRemainingSeconds: game.timerDurationSeconds,
+    },
+  });
   await recomputeReferenceMoveScores(gameId);
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);

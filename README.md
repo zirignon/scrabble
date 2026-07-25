@@ -183,7 +183,9 @@ Après `npm run db:seed` :
   qu'aucun tirage n'est validé. Le tirage validé préremplit aussi le
   champ « Tirage » du formulaire de coup de référence ; dès que celui-ci
   est enregistré, le tirage validé est effacé (le reliquat prend le
-  relais sur l'affichage) jusqu'à la validation du suivant
+  relais sur l'affichage) jusqu'à la validation du suivant, et le chrono
+  se réinitialise automatiquement à sa durée par défaut, prêt pour le
+  tour suivant
 
 ### Tournois par équipes
 
