@@ -173,7 +173,7 @@ function CurrentView({ data }: { data: DisplayData }) {
             />
           </div>
         )}
-        <div className="flex flex-1 items-center justify-center gap-10">
+        <div className="flex flex-1 items-start justify-center gap-10">
           {current.grid && (
             <div className="bg-white p-4 rounded-lg shadow-xl border border-black/10">
               <ScrabbleGrid grid={current.grid} cellSize={38} />
