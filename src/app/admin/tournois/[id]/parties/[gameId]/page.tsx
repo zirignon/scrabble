@@ -7,11 +7,13 @@ import {
   addReferenceMoveAction,
   deleteMoveAction,
   deleteReferenceMoveAction,
+  findReferenceMoveSolutionsAction,
   updateMoveAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
 import { reconstructBoard, formatReference, getFreeAvertissementCount } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
+import { ReferenceMoveSolverForm } from "@/components/admin/ReferenceMoveSolverForm";
 
 const penaltyLabel: Record<string, string> = {
   AVERTISSEMENT: "Avertissement (A)",
@@ -56,6 +58,7 @@ export default async function GameMovesPage({
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
   const board = reconstructBoard(game.referenceMoves);
   const addReferenceMoveBound = addReferenceMoveAction.bind(null, tournament.id, game.id);
+  const findSolutionsBound = findReferenceMoveSolutionsAction.bind(null, tournament.id, game.id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -190,48 +193,28 @@ export default async function GameMovesPage({
         </table>
 
         {canManage && (
-          <form action={addReferenceMoveBound} className="flex flex-wrap items-center gap-2">
-            <span className="w-10 text-black/60 dark:text-white/60 text-sm">
-              #{game.referenceMoves.length + 1}
-            </span>
-            <input
-              type="text"
-              name="reference"
-              placeholder="Ex. H4 / 4H"
-              className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-            />
-            <input
-              type="text"
-              name="rack"
-              placeholder="Tirage"
-              className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-            />
-            <input
-              type="text"
-              name="word"
-              placeholder="Mot joué"
-              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-            />
-            <label className="flex items-center gap-1 text-xs">
-              <input type="checkbox" name="isPass" />
-              Passe
-            </label>
-            <button
-              type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
-            >
-              + Coup de référence
-            </button>
-          </form>
+          <ReferenceMoveSolverForm
+            addAction={addReferenceMoveBound}
+            findSolutions={findSolutionsBound}
+            turnNumber={game.referenceMoves.length + 1}
+          />
         )}
         <p className="text-xs text-black/50 dark:text-white/50">
           Référence : lettre puis chiffre pour un mot horizontal (ex. H4),
           chiffre puis lettre pour un mot vertical (ex. 4H). Une lettre en
-          minuscule est une lettre blanche (joker) : elle vaut 0 point. Le
-          score est calculé automatiquement (valeur des lettres, cases
-          bonus, mots croisés, prime de Scrabble selon la formule du
-          tournoi). Le tirage est projeté automatiquement sur l&apos;affichage
-          grand écran dès qu&apos;il est saisi ici.
+          minuscule dans le mot joué est une lettre blanche (joker) : elle
+          vaut 0 point, et s&apos;affiche sur la grille sous forme d&apos;une
+          tuile sans lettre. Le score est calculé automatiquement (valeur
+          des lettres, cases bonus, mots croisés, prime de Scrabble selon la
+          formule du tournoi). Dans le tirage, notez une lettre blanche en
+          main avec un point d&apos;interrogation (?) : c&apos;est ainsi
+          qu&apos;elle s&apos;affiche sur l&apos;affichage grand écran. Le
+          tirage est projeté automatiquement dès qu&apos;il est saisi ici, et
+          n&apos;affiche plus que le reliquat (lettres non jouées) une fois
+          le mot renseigné. Le bouton « Solutions » cherche, à partir du
+          tirage saisi et du dictionnaire importé (page Dictionnaire), tous
+          les mots jouables sur la grille actuelle, triés par points ;
+          cliquez sur « Choisir » pour préremplir la référence et le mot.
         </p>
       </section>
 

@@ -12,7 +12,9 @@ import {
   getBingoRules,
   getFormulaTimerSeconds,
   parseReference,
+  buildPlainBoard,
 } from "@/lib/duplicate/board";
+import { findWordSolutions, type SolverSolution } from "@/lib/duplicate/solver";
 
 const movePenaltyValues = ["AVERTISSEMENT", "PENALITE", "ZERO"] as const;
 
@@ -447,4 +449,35 @@ export async function deleteReferenceMoveAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   notifyTournamentUpdate(tournamentId);
+}
+
+// Cherche, pour le tirage saisi, tous les coups valides jouables sur la
+// grille actuelle d'après le dictionnaire importé (ODS9 ou autre), triés
+// par points décroissants — pour que l'arbitre choisisse un mot au lieu de
+// le chercher lui-même. Renvoie un tableau vide si le dictionnaire n'a pas
+// été importé.
+export async function findReferenceMoveSolutionsAction(
+  tournamentId: string,
+  gameId: string,
+  rack: string
+): Promise<SolverSolution[]> {
+  await assertCanManage(tournamentId);
+  if (!rack.trim()) return [];
+
+  const dictionaryCount = await prisma.dictionaryWord.count();
+  if (dictionaryCount === 0) return [];
+
+  const [game, dictionaryWords] = await Promise.all([
+    prisma.game.findUniqueOrThrow({
+      where: { id: gameId },
+      include: { tournament: true, referenceMoves: true },
+    }),
+    prisma.dictionaryWord.findMany({ select: { word: true } }),
+  ]);
+
+  const board = buildPlainBoard(game.referenceMoves);
+  const dictionary = new Set(dictionaryWords.map((w) => w.word));
+  const bingoRules = getBingoRules(game.tournament.duplicateFormula);
+
+  return findWordSolutions(board, rack, dictionary, bingoRules, 30);
 }
