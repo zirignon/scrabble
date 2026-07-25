@@ -322,9 +322,14 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
   const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
 
   // Tirage validé par l'arbitre pour le tour en cours (mot pas encore
-  // décidé) : projeté tel quel, avant même le démarrage du chrono. Sinon,
-  // c'est le reliquat du dernier coup joué qui reste affiché.
-  const currentRack = lastGame.pendingRack ?? computeLastReliquat(lastGame.referenceMoves);
+  // décidé) : projeté tel quel, avant même le démarrage du chrono. pendingRack
+  // vaut "" (distinct de null) après un rejet : le reliquat suggéré est alors
+  // volontairement masqué plutôt que réaffiché. Sinon (jamais rien validé
+  // depuis le dernier coup), c'est le reliquat du dernier coup qui s'affiche.
+  const currentRack =
+    lastGame.pendingRack === null
+      ? computeLastReliquat(lastGame.referenceMoves)
+      : lastGame.pendingRack || null;
 
   return {
     kind: "duplicate",

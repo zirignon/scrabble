@@ -77,6 +77,34 @@ export async function validateGameRackAction(
   revalidatePath(`/tournois`);
 }
 
+// Annule le tirage validé (erreur de saisie, tirage contesté...) sans qu'un
+// coup n'ait été joué dessus : disparaît aussitôt de l'affichage grand
+// écran, et le chrono repart de zéro — l'arbitre valide alors un nouveau
+// tirage avant de pouvoir redémarrer.
+export async function rejectGameRackAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+
+  // pendingRack passe à "" (chaîne vide, distincte de null) : le rejet
+  // efface aussi bien le reliquat que les lettres nouvellement tirées de
+  // l'affichage et du champ de saisie, plutôt que de laisser réapparaître
+  // le reliquat suggéré — l'arbitre repart d'un tirage entièrement vierge.
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      pendingRack: "",
+      timerRunning: false,
+      timerStartedAt: null,
+      timerRemainingSeconds: game.timerDurationSeconds,
+    },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
+  revalidatePath(`/tournois`);
+}
+
 // Démarre le chrono — nécessite qu'un tirage ait d'abord été validé pour ce
 // tour, afin que le chrono ne parte jamais avant que la salle ait vu le
 // tirage sur l'affichage grand écran.
@@ -451,7 +479,7 @@ export async function addReferenceMoveAction(
       turnNumber: (last?.turnNumber ?? 0) + 1,
       points: 0,
       ...data,
-      rack: data.rack ?? game.pendingRack?.replace(/\+/g, "") ?? null,
+      rack: data.rack ?? (game.pendingRack ? game.pendingRack.replace(/\+/g, "") : null),
     },
   });
   // Le tirage validé est désormais joué : il n'y a plus de tirage "en

@@ -5,6 +5,7 @@ import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
   addGameAction,
   pauseGameTimerAction,
+  rejectGameRackAction,
   resetGameTimerAction,
   saveGameScoresAction,
   setGameTimerDurationAction,
@@ -89,35 +90,49 @@ function GameTimerControls({
     : null;
 
   // Préremplit le champ avec le reliquat du dernier coup joué (suivi de
-  // "+") tant qu'aucun tirage n'a encore été validé pour ce tour :
-  // l'arbitre n'a qu'à compléter avec les nouvelles lettres tirées.
-  const rackDefaultValue = game.pendingRack ?? computeLastReliquat(referenceMoves) ?? "";
+  // "+") tant qu'aucun tirage n'a encore été validé pour ce tour : l'arbitre
+  // n'a qu'à compléter avec les nouvelles lettres tirées. pendingRack vaut
+  // "" (distinct de null) après un rejet : le champ reste alors vierge
+  // plutôt que de resuggérer le même reliquat.
+  const rackDefaultValue =
+    game.pendingRack === null ? computeLastReliquat(referenceMoves) ?? "" : game.pendingRack;
 
   return (
     <div className="flex flex-col gap-2">
       {canManage && (
-        <form
-          action={validateGameRackAction.bind(null, tournamentId, game.id)}
-          className="flex flex-wrap items-center gap-2 text-sm"
-        >
-          <span className="text-black/50 dark:text-white/50">Tirage du tour :</span>
-          <input
-            type="text"
-            name="rack"
-            defaultValue={rackDefaultValue}
-            placeholder="Ex. AEHMNRS"
-            className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-          />
-          <button
-            type="submit"
-            className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <form
+            action={validateGameRackAction.bind(null, tournamentId, game.id)}
+            className="flex flex-wrap items-center gap-2"
           >
-            Valider le tirage
-          </button>
+            <span className="text-black/50 dark:text-white/50">Tirage du tour :</span>
+            <input
+              type="text"
+              name="rack"
+              defaultValue={rackDefaultValue}
+              placeholder="Ex. AEHMNRS"
+              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+            />
+            <button
+              type="submit"
+              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+            >
+              Valider le tirage
+            </button>
+          </form>
+          <form action={rejectGameRackAction.bind(null, tournamentId, game.id)}>
+            <button
+              type="submit"
+              title="Efface le reliquat suggéré et le tirage éventuellement validé (erreur de saisie, tirage contesté...), sans jouer de coup, et réinitialise le chrono"
+              className="rounded border border-brick/40 text-brick px-2 py-1 text-xs"
+            >
+              Rejeter le tirage
+            </button>
+          </form>
           {game.pendingRack && (
             <span className="text-xs text-moss">✓ Projeté sur l&apos;affichage grand écran</span>
           )}
-        </form>
+        </div>
       )}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-black/50 dark:text-white/50">⏱ Temps restant :</span>
