@@ -329,7 +329,11 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
   const lastMove = sortedMoves[sortedMoves.length - 1];
 
   let currentRack: string | null = null;
-  if (lastMove?.rack) {
+  if (lastGame.pendingRack) {
+    // Tirage validé par l'arbitre pour le tour en cours, mot pas encore
+    // décidé : projeté tel quel, avant même le démarrage du chrono.
+    currentRack = lastGame.pendingRack;
+  } else if (lastMove?.rack) {
     if (!lastMove.isPass && lastMove.word) {
       const boardBeforeLast = reconstructBoard(
         sortedMoves.filter((m) => m.turnNumber < lastMove.turnNumber)

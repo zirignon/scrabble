@@ -7,12 +7,14 @@ export function ReferenceMoveSolverForm({
   addAction,
   findSolutions,
   turnNumber,
+  initialRack = "",
 }: {
   addAction: (formData: FormData) => Promise<void>;
   findSolutions: (rack: string) => Promise<SolverSolution[]>;
   turnNumber: number;
+  initialRack?: string;
 }) {
-  const [rack, setRack] = useState("");
+  const [rack, setRack] = useState(initialRack);
   const [reference, setReference] = useState("");
   const [word, setWord] = useState("");
   const [solutions, setSolutions] = useState<SolverSolution[] | null>(null);

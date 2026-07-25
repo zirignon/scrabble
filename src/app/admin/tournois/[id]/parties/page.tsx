@@ -9,6 +9,7 @@ import {
   saveGameScoresAction,
   setGameTimerDurationAction,
   startGameTimerAction,
+  validateGameRackAction,
 } from "@/lib/actions/duplicate";
 import { updateDuplicateFormulaAction } from "@/lib/actions/tournaments";
 import { LiveCountdown } from "@/components/LiveCountdown";
@@ -85,24 +86,51 @@ function GameTimerControls({
     : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="text-black/50 dark:text-white/50">⏱ Temps restant :</span>
-      <LiveCountdown
-        baselineSeconds={game.timerRemainingSeconds ?? game.timerDurationSeconds}
-        runningSince={runningSince}
-        className={game.timerRunning ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : "text-base"}
-      />
+    <div className="flex flex-col gap-2">
       {canManage && (
-        <>
-          <form action={startGameTimerAction.bind(null, tournamentId, game.id)}>
-            <button
-              type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
-            >
-              ▶ Démarrer
-            </button>
-          </form>
-          <form action={pauseGameTimerAction.bind(null, tournamentId, game.id)}>
+        <form
+          action={validateGameRackAction.bind(null, tournamentId, game.id)}
+          className="flex flex-wrap items-center gap-2 text-sm"
+        >
+          <span className="text-black/50 dark:text-white/50">Tirage du tour :</span>
+          <input
+            type="text"
+            name="rack"
+            defaultValue={game.pendingRack ?? ""}
+            placeholder="Ex. AEHMNRS"
+            className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+          />
+          <button
+            type="submit"
+            className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+          >
+            Valider le tirage
+          </button>
+          {game.pendingRack && (
+            <span className="text-xs text-moss">✓ Projeté sur l&apos;affichage grand écran</span>
+          )}
+        </form>
+      )}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-black/50 dark:text-white/50">⏱ Temps restant :</span>
+        <LiveCountdown
+          baselineSeconds={game.timerRemainingSeconds ?? game.timerDurationSeconds}
+          runningSince={runningSince}
+          className={game.timerRunning ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : "text-base"}
+        />
+        {canManage && (
+          <>
+            <form action={startGameTimerAction.bind(null, tournamentId, game.id)}>
+              <button
+                type="submit"
+                disabled={!game.pendingRack}
+                title={!game.pendingRack ? "Validez d'abord le tirage du tour" : undefined}
+                className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                ▶ Démarrer
+              </button>
+            </form>
+            <form action={pauseGameTimerAction.bind(null, tournamentId, game.id)}>
             <button
               type="submit"
               className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
@@ -136,8 +164,9 @@ function GameTimerControls({
               Durée
             </button>
           </form>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
