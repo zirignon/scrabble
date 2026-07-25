@@ -168,6 +168,12 @@ Après `npm run db:seed` :
   requête d'un hébergeur serverless, quelle que soit la taille du
   fichier) reste disponible
   comme référence, sans intervenir dans la saisie
+- Recherche automatique de solutions pour la grille de référence : à
+  partir du tirage saisi, de la grille actuelle et du dictionnaire
+  importé, le bouton « Solutions » du formulaire de coup de référence
+  propose tous les mots jouables (mot, référence, points), triés par
+  score décroissant ; l'arbitre choisit une solution pour préremplir
+  automatiquement la référence et le mot avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre
 

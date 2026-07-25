@@ -75,6 +75,13 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (BoardCell | null)
   return grid;
 }
 
+// Même reconstruction que reconstructBoard, mais sous forme de simples
+// lettres (sans le statut "lettre blanche") — le format attendu par
+// computeMoveScore et par le solveur de mots.
+export function buildPlainBoard(moves: ReferenceMoveLike[]): (string | null)[][] {
+  return reconstructBoard(moves).map((row) => row.map((cell) => (cell ? cell.letter : null)));
+}
+
 export interface PlayedLetter {
   letter: string;
   isBlank: boolean;
@@ -206,7 +213,7 @@ export function getFreeAvertissementCount(formula: string | null | undefined): n
 // de jeu, pour retrouver les mots secondaires formés par un croisement).
 // Renvoie null si la case n'appartient à aucun mot d'au moins 2 lettres
 // dans cette direction.
-function scanWordThroughCell(
+export function scanWordThroughCell(
   grid: (string | null)[][],
   row: number,
   col: number,
