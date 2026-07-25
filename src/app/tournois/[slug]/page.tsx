@@ -21,6 +21,36 @@ const matchStatusLabel: Record<string, string> = {
   CANCELLED: "Annulé",
 };
 
+// Styles partagés par toutes les tables de rondes/résultats et parties/scores
+// de cette page.
+const matchRow = "border-b border-black/5 dark:border-white/5 hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
+const matchCell = "py-2 pr-4";
+const scoreCell = "py-2 pr-4 font-semibold tabular-nums";
+
+const pillClass: Record<string, string> = {
+  moss: "bg-moss/10 text-moss dark:bg-moss-light/15 dark:text-moss-light",
+  gold: "bg-gold/10 text-gold dark:bg-gold-light/15 dark:text-gold-light",
+  brick: "bg-brick/10 text-brick dark:bg-brick-light/15 dark:text-brick-light",
+  muted: "bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50",
+};
+
+function Pill({ tone, children }: { tone: keyof typeof pillClass; children: React.ReactNode }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${pillClass[tone]}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {children}
+    </span>
+  );
+}
+
+function MatchStatusPill({ status, isBye }: { status: string; isBye: boolean }) {
+  if (isBye) return <Pill tone="muted">Exempt</Pill>;
+  if (status === "PLAYED") return <Pill tone="moss">Joué</Pill>;
+  if (status === "SCHEDULED") return <Pill tone="gold">À jouer</Pill>;
+  if (status === "CANCELLED") return <Pill tone="muted">Annulé</Pill>;
+  return <Pill tone="brick">{matchStatusLabel[status] ?? status}</Pill>;
+}
+
 export default async function TournamentPublicPage({
   params,
 }: {
@@ -75,7 +105,7 @@ export default async function TournamentPublicPage({
           {" · "}
           {statusLabel[tournament.status]}
         </p>
-        <h1 className="text-3xl font-semibold">{tournament.name}</h1>
+        <h1 className="font-heading text-3xl font-semibold">{tournament.name}</h1>
         <p className="text-sm text-black/60 dark:text-white/60 mt-2">
           {new Date(tournament.startDate).toLocaleDateString("fr-FR")}
           {tournament.endDate &&
@@ -91,14 +121,14 @@ export default async function TournamentPublicPage({
         <p className="mt-3 flex gap-4">
           <Link
             href={`/tournois/${tournament.slug}/classement`}
-            className="text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="text-sm text-navy dark:text-navy-light hover:underline"
           >
             🏆 Classement
           </Link>
           <Link
             href={`/tournois/${tournament.slug}/affichage`}
             target="_blank"
-            className="text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="text-sm text-navy dark:text-navy-light hover:underline"
           >
             📺 Affichage grand écran
           </Link>
@@ -108,21 +138,21 @@ export default async function TournamentPublicPage({
           <form action={selfRegisterAction.bind(null, tournament.id)} className="mt-4">
             <button
               type="submit"
-              className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              className="rounded-md bg-navy text-white px-4 py-2 text-sm font-medium"
             >
               S&apos;inscrire à ce tournoi
             </button>
           </form>
         )}
         {session && isRegistered && (
-          <p className="mt-4 text-sm text-emerald-700 dark:text-emerald-400">
+          <p className="mt-4 text-sm text-navy dark:text-navy-light">
             Vous êtes inscrit à ce tournoi.
           </p>
         )}
       </div>
 
       <section>
-        <h2 className="text-xl font-semibold mb-3">
+        <h2 className="font-heading text-xl font-semibold mb-3">
           Participants ({tournament.registrations.length})
         </h2>
         <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
@@ -145,7 +175,7 @@ export default async function TournamentPublicPage({
 
       {tournament.type === "CLASSIC" ? (
         <section>
-          <h2 className="text-xl font-semibold mb-3">Rondes &amp; résultats</h2>
+          <h2 className="font-heading text-xl font-semibold mb-3">Rondes &amp; résultats</h2>
           <div className="flex flex-col gap-6">
             {tournament.rounds.map((round) => {
               const roundHasPoolMatches = round.matches.some((m) => m.pool);
@@ -167,29 +197,29 @@ export default async function TournamentPublicPage({
                   <div key={round.id} className="flex flex-col gap-4">
                     <h3 className="font-medium">Ronde {round.number}</h3>
                     {[...byPool.values()].map(({ poolName, matches }) => (
-                      <div key={poolName}>
+                      <div key={poolName} className="overflow-x-auto">
                         <p className="text-sm font-medium mb-1">{poolName}</p>
                         <table className="w-full text-sm border-collapse">
                           <tbody>
                             {matches.map((match) => (
-                              <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
-                                <td className="py-1.5 pr-4">
+                              <tr key={match.id} className={matchRow}>
+                                <td className={matchCell}>
                                   {match.homePlayer
                                     ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
                                     : "—"}
                                 </td>
-                                <td className="py-1.5 pr-4 font-medium">
+                                <td className={scoreCell}>
                                   {match.isBye
-                                    ? "Exempt"
+                                    ? "—"
                                     : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
                                 </td>
-                                <td className="py-1.5 pr-4">
+                                <td className={matchCell}>
                                   {match.awayPlayer
                                     ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
                                     : "—"}
                                 </td>
-                                <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
-                                  {matchStatusLabel[match.status]}
+                                <td className={matchCell}>
+                                  <MatchStatusPill status={match.status} isBye={match.isBye} />
                                 </td>
                               </tr>
                             ))}
@@ -203,7 +233,7 @@ export default async function TournamentPublicPage({
 
               if (!tournament.isTeamEvent) {
                 return (
-                  <div key={round.id}>
+                  <div key={round.id} className="overflow-x-auto">
                     <h3 className="font-medium mb-2">
                       Ronde {round.number}
                       {tournament.format === "GROUPS" && " — Phase finale"}
@@ -211,24 +241,24 @@ export default async function TournamentPublicPage({
                     <table className="w-full text-sm border-collapse">
                       <tbody>
                         {round.matches.map((match) => (
-                          <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
-                            <td className="py-1.5 pr-4">
+                          <tr key={match.id} className={matchRow}>
+                            <td className={matchCell}>
                               {match.homePlayer
                                 ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
                                 : "—"}
                             </td>
-                            <td className="py-1.5 pr-4 font-medium">
+                            <td className={scoreCell}>
                               {match.isBye
-                                ? "Exempt"
+                                ? "—"
                                 : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
                             </td>
-                            <td className="py-1.5 pr-4">
+                            <td className={matchCell}>
                               {match.awayPlayer
                                 ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
                                 : "—"}
                             </td>
-                            <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
-                              {matchStatusLabel[match.status]}
+                            <td className={matchCell}>
+                              <MatchStatusPill status={match.status} isBye={match.isBye} />
                             </td>
                           </tr>
                         ))}
@@ -283,29 +313,29 @@ export default async function TournamentPublicPage({
                       <div key={poolName} className="flex flex-col gap-3">
                         <p className="text-sm font-semibold">{poolName}</p>
                         {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
-                          <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4">
+                          <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 overflow-x-auto">
                             <p className="text-sm font-medium mb-1">
                               {homeTeamName} vs {awayTeamName}
                             </p>
                             <table className="w-full text-sm border-collapse">
                               <tbody>
                                 {matches.map((match) => (
-                                  <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
-                                    <td className="py-1.5 pr-4">
+                                  <tr key={match.id} className={matchRow}>
+                                    <td className={matchCell}>
                                       {match.homePlayer
                                         ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
                                         : "—"}
                                     </td>
-                                    <td className="py-1.5 pr-4 font-medium">
+                                    <td className={scoreCell}>
                                       {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
                                     </td>
-                                    <td className="py-1.5 pr-4">
+                                    <td className={matchCell}>
                                       {match.awayPlayer
                                         ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
                                         : "—"}
                                     </td>
-                                    <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
-                                      {matchStatusLabel[match.status]}
+                                    <td className={matchCell}>
+                                      <MatchStatusPill status={match.status} isBye={false} />
                                     </td>
                                   </tr>
                                 ))}
@@ -355,29 +385,29 @@ export default async function TournamentPublicPage({
                     {tournament.format === "GROUPS" && " — Phase finale"}
                   </h3>
                   {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
-                    <div key={`${homeTeamName}:${awayTeamName}`}>
+                    <div key={`${homeTeamName}:${awayTeamName}`} className="overflow-x-auto">
                       <p className="text-sm font-medium mb-1">
                         {homeTeamName} vs {awayTeamName}
                       </p>
                       <table className="w-full text-sm border-collapse">
                         <tbody>
                           {matches.map((match) => (
-                            <tr key={match.id} className="border-b border-black/5 dark:border-white/5">
-                              <td className="py-1.5 pr-4">
+                            <tr key={match.id} className={matchRow}>
+                              <td className={matchCell}>
                                 {match.homePlayer
                                   ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
                                   : "—"}
                               </td>
-                              <td className="py-1.5 pr-4 font-medium">
+                              <td className={scoreCell}>
                                 {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
                               </td>
-                              <td className="py-1.5 pr-4">
+                              <td className={matchCell}>
                                 {match.awayPlayer
                                   ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
                                   : "—"}
                               </td>
-                              <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
-                                {matchStatusLabel[match.status]}
+                              <td className={matchCell}>
+                                <MatchStatusPill status={match.status} isBye={false} />
                               </td>
                             </tr>
                           ))}
@@ -402,10 +432,10 @@ export default async function TournamentPublicPage({
         </section>
       ) : (
         <section>
-          <h2 className="text-xl font-semibold mb-3">Parties &amp; scores</h2>
+          <h2 className="font-heading text-xl font-semibold mb-3">Parties &amp; scores</h2>
           <div className="flex flex-col gap-6">
             {tournament.games.map((game) => (
-              <div key={game.id}>
+              <div key={game.id} className="overflow-x-auto">
                 <h3 className="font-medium mb-2">
                   Partie {game.number}
                   {game.top != null && (
@@ -419,18 +449,18 @@ export default async function TournamentPublicPage({
                     {game.results.map((result) => {
                       const net = result.score - result.penalty;
                       return (
-                        <tr key={result.id} className="border-b border-black/5 dark:border-white/5">
-                          <td className="py-1.5 pr-4">
+                        <tr key={result.id} className={matchRow}>
+                          <td className={matchCell}>
                             {result.player.firstName} {result.player.lastName}
                           </td>
-                          <td className="py-1.5 pr-4 font-medium">{result.score}</td>
+                          <td className={scoreCell}>{result.score}</td>
                           {result.penalty > 0 && (
-                            <td className="py-1.5 pr-4 text-xs text-red-600">
-                              -{result.penalty} pénalité
+                            <td className="py-2 pr-4">
+                              <Pill tone="brick">-{result.penalty} pénalité</Pill>
                             </td>
                           )}
                           {game.top != null && (
-                            <td className="py-1.5 pr-4 text-xs text-black/50 dark:text-white/50">
+                            <td className="py-2 pr-4 text-xs text-black/50 dark:text-white/50">
                               écart au top : {game.top - net}
                             </td>
                           )}

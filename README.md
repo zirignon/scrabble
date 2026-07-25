@@ -8,7 +8,8 @@ direct, pour les organisateurs, arbitres, joueurs et le public.
 
 - [Next.js](https://nextjs.org) (App Router, TypeScript, Server Actions)
 - [Prisma](https://www.prisma.io) + PostgreSQL
-- Tailwind CSS
+- Tailwind CSS — palette encre/navy/or (`globals.css`), Fraunces pour les
+  titres et Work Sans pour le reste (`next/font/google`)
 - Authentification maison par cookie de session signé (JWT via `jose`),
   mots de passe hachés avec `bcryptjs`
 
