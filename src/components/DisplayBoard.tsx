@@ -123,17 +123,17 @@ function CurrentView({ data }: { data: DisplayData }) {
         )}
         <div className="flex flex-wrap items-start justify-center gap-10">
           {current.grid && (
-            <div className="bg-white p-3 rounded">
-              <ScrabbleGrid grid={current.grid} cellSize={30} />
+            <div className="bg-white p-4 rounded-lg shadow-xl border border-black/10">
+              <ScrabbleGrid grid={current.grid} cellSize={38} />
             </div>
           )}
           {current.referenceMoves.length > 0 && (
             <table className="text-xl border-collapse">
               <thead>
-                <tr className="text-left text-black/50 text-lg border-b border-black/20">
-                  <th className="py-2 pr-4">Réf.</th>
-                  <th className="py-2 pr-4">Mot</th>
-                  <th className="py-2 pr-4 text-right">Pts</th>
+                <tr className="text-left text-black/50 text-sm uppercase tracking-wide border-b-2 border-navy/30">
+                  <th className="py-2 pr-4 font-semibold">Réf.</th>
+                  <th className="py-2 pr-4 font-semibold">Mot</th>
+                  <th className="py-2 pr-4 text-right font-semibold">Pts</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,18 +149,18 @@ function CurrentView({ data }: { data: DisplayData }) {
           )}
           <table className="text-2xl border-collapse flex-1 min-w-[420px]">
             <thead>
-              <tr className="text-left text-black/50 text-xl border-b border-black/20">
-                <th className="py-2 pr-4">#</th>
-                <th className="py-2 pr-4">Joueur</th>
-                <th className="py-2 pr-4 text-right">Score</th>
-                <th className="py-2 pr-4 text-right">Pénalité</th>
-                <th className="py-2 pr-4 text-right">Net</th>
+              <tr className="text-left text-black/50 text-sm uppercase tracking-wide border-b-2 border-navy/30">
+                <th className="py-2 pr-4 font-semibold">#</th>
+                <th className="py-2 pr-4 font-semibold">Joueur</th>
+                <th className="py-2 pr-4 text-right font-semibold">Score</th>
+                <th className="py-2 pr-4 text-right font-semibold">Pénalité</th>
+                <th className="py-2 pr-4 text-right font-semibold">Net</th>
               </tr>
             </thead>
             <tbody>
               {current.rows.map((r) => (
                 <tr key={r.rank} className="border-b border-black/10">
-                  <td className="py-2 pr-4 font-bold">{r.rank}</td>
+                  <td className={`py-2 pr-4 font-bold ${r.rank === 1 ? "text-gold" : ""}`}>{r.rank}</td>
                   <td className="py-2 pr-4">{r.name}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">{r.penalty}</td>

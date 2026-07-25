@@ -212,7 +212,10 @@ Après `npm run db:seed` :
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements
 - Projette la grille de référence de la partie en cours (duplicate),
-  avec la liste des coups joués (référence, mot, points) à côté
+  avec la liste des coups joués (référence, mot, points) à côté — grille
+  agrandie avec une carte en relief (ombre, bordure), en-têtes de
+  tableaux alignés sur le reste du site, meneur du classement de la
+  partie mis en évidence
 
 ### Exports
 
