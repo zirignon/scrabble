@@ -210,7 +210,11 @@ Après `npm run db:seed` :
   les mêmes colonnes que la page de classement de l'organisateur (J, V,
   N, D, Pts, Buchholz, Buchholz médian, Sonneborn-Berger, cumul
   progressif, diff en classique ; parties, score, pénalités, net en
-  duplicate, etc.)
+  duplicate, etc.). L'organisateur peut figer l'affichage sur l'une des
+  deux vues (section « Affichage grand écran » de la fiche tournoi), par
+  exemple pendant un temps fort, au lieu de laisser l'écran basculer
+  automatiquement ; le changement est répercuté instantanément sur
+  l'écran de projection
 - Mise à jour en temps réel par flux SSE (Server-Sent Events) : dès
   qu'un score, une ronde ou un chrono est modifié côté admin, l'écran
   se met à jour instantanément, sans sondage périodique

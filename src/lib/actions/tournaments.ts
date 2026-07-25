@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireUser, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { slugify } from "@/lib/slug";
+import { notifyTournamentUpdate } from "@/lib/displayEvents";
 import type { ActionState } from "@/lib/actions/auth";
 
 const tournamentSchema = z.object({
@@ -181,6 +182,37 @@ export async function updateTournamentStatusFormAction(
     tournamentId,
     status as (typeof statusValues)[number]
   );
+}
+
+const displayModeValues = ["AUTO", "STANDINGS", "CURRENT"] as const;
+
+// Permet à l'organisateur de figer l'affichage grand écran sur le
+// classement ou sur la ronde/partie en cours (au lieu de l'alternance
+// automatique toutes les 12s), par ex. pendant un temps fort.
+export async function setDisplayModeAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  const session = await requireRole(STAFF_ROLES);
+  const tournament = await prisma.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+  });
+  if (!canManageTournament(session, tournament.organizerId)) {
+    throw new Error("Non autorisé.");
+  }
+
+  const mode = formData.get("displayMode");
+  if (typeof mode !== "string" || !displayModeValues.includes(mode as never)) {
+    return;
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { displayMode: mode as (typeof displayModeValues)[number] },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}`);
+  notifyTournamentUpdate(tournamentId);
 }
 
 export async function registerPlayerAction(

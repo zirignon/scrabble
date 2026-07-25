@@ -31,11 +31,22 @@ export function DisplayBoard({
   }, [tournamentId]);
 
   useEffect(() => {
+    // Un mode figé par l'organisateur (STANDINGS/CURRENT) désactive
+    // l'alternance automatique et impose la vue choisie ; en mode AUTO,
+    // l'écran continue d'alterner toutes les 12s comme avant.
+    if (data.displayMode === "STANDINGS") {
+      setView("standings");
+      return;
+    }
+    if (data.displayMode === "CURRENT") {
+      setView("current");
+      return;
+    }
     const interval = setInterval(() => {
       setView((v) => (v === "standings" ? "current" : "standings"));
     }, ROTATE_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [data.displayMode]);
 
   return (
     <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">

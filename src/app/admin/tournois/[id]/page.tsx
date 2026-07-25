@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
   registerPlayerAction,
+  setDisplayModeAction,
   unregisterPlayerAction,
   updateTournamentStatusFormAction,
 } from "@/lib/actions/tournaments";
@@ -48,6 +49,13 @@ export default async function ManageTournamentPage({
 
   const registerBound = registerPlayerAction.bind(null, tournament.id);
   const statusBound = updateTournamentStatusFormAction.bind(null, tournament.id);
+  const displayModeBound = setDisplayModeAction.bind(null, tournament.id);
+
+  const displayModeOptions = [
+    ["AUTO", "Automatique"],
+    ["STANDINGS", "Classement"],
+    ["CURRENT", tournament.type === "CLASSIC" ? "Ronde en cours" : "Partie en cours"],
+  ] as const;
 
   return (
     <div className="flex flex-col gap-8">
@@ -213,6 +221,36 @@ export default async function ManageTournamentPage({
           </Link>
         )}
       </section>
+
+      {canManage && (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Affichage grand écran</h2>
+            <p className="text-sm text-black/60 dark:text-white/60 mt-1">
+              {`Par défaut, l'écran de projection alterne automatiquement toutes les 12 secondes entre le classement et ${
+                tournament.type === "CLASSIC" ? "la ronde" : "la partie"
+              } en cours. Vous pouvez figer l'affichage sur l'une des deux vues, par exemple pendant un temps fort.`}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {displayModeOptions.map(([value, label]) => (
+              <form key={value} action={displayModeBound}>
+                <input type="hidden" name="displayMode" value={value} />
+                <button
+                  type="submit"
+                  className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                    tournament.displayMode === value
+                      ? "bg-navy text-white border-navy"
+                      : "border-black/10 dark:border-white/20"
+                  }`}
+                >
+                  {label}
+                </button>
+              </form>
+            ))}
+          </div>
+        </section>
+      )}
 
       {canManage && (
         <section className="flex flex-col gap-3 rounded-md border border-red-600/30 px-4 py-3">
