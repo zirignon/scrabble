@@ -154,7 +154,10 @@ Après `npm run db:seed` :
   saisie manuelle des points. Chaque lettre affiche son coefficient en
   petit dans le coin de la case, comme sur un jeton physique ; une
   lettre blanche (joker) affiche la lettre qu'elle représente mais sans
-  coefficient, pour la repérer facilement sur la grille
+  coefficient, pour la repérer facilement sur la grille. La saisie se
+  fait via un sélecteur « Coup » à côté de la grille (un seul coup
+  affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
+  tous les coups joués, pour ne pas surcharger l'espace
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au

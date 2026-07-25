@@ -13,7 +13,7 @@ import {
 } from "@/lib/actions/duplicate";
 import { reconstructBoard, formatReference, getFreeAvertissementCount } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
-import { ReferenceMoveSolverForm } from "@/components/admin/ReferenceMoveSolverForm";
+import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
 
 const penaltyLabel: Record<string, string> = {
   AVERTISSEMENT: "Avertissement (A)",
@@ -58,7 +58,18 @@ export default async function GameMovesPage({
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
   const board = reconstructBoard(game.referenceMoves);
   const addReferenceMoveBound = addReferenceMoveAction.bind(null, tournament.id, game.id);
+  const updateReferenceMoveBound = updateReferenceMoveAction.bind(null, tournament.id, game.id);
+  const deleteReferenceMoveBound = deleteReferenceMoveAction.bind(null, tournament.id, game.id);
   const findSolutionsBound = findReferenceMoveSolutionsAction.bind(null, tournament.id, game.id);
+  const navigatorMoves = game.referenceMoves.map((move) => ({
+    id: move.id,
+    turnNumber: move.turnNumber,
+    reference: formatReference(move.row, move.col, move.direction),
+    rack: move.rack ?? "",
+    word: move.word ?? "",
+    points: move.points,
+    isPass: move.isPass,
+  }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -92,115 +103,48 @@ export default async function GameMovesPage({
             <ScrabbleGrid grid={board} cellSize={26} />
           </div>
 
-          <div className="flex-1 min-w-[520px] flex flex-col gap-3">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">Coup</th>
-                  <th className="py-2 pr-4">Référence</th>
-                  <th className="py-2 pr-4">Tirage</th>
-                  <th className="py-2 pr-4">Mot</th>
-                  <th className="py-2 pr-4">Points</th>
-                  <th className="py-2 pr-4">Passe</th>
-                  {canManage && <th className="py-2 pr-4"></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {game.referenceMoves.map((move) => (
-                  <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
-                    {canManage ? (
-                      <td colSpan={7} className="py-1.5">
-                        <form
-                          action={updateReferenceMoveAction.bind(
-                            null,
-                            tournament.id,
-                            game.id,
-                            move.id
-                          )}
-                          className="flex flex-wrap items-center gap-2"
-                        >
-                          <span className="w-10 text-black/60 dark:text-white/60">
-                            #{move.turnNumber}
-                          </span>
-                          <input
-                            type="text"
-                            name="reference"
-                            defaultValue={formatReference(move.row, move.col, move.direction)}
-                            placeholder="Ex. H4 / 4H"
-                            className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
-                          />
-                          <input
-                            type="text"
-                            name="rack"
-                            defaultValue={move.rack ?? ""}
-                            placeholder="Tirage"
-                            className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
-                          />
-                          <input
-                            type="text"
-                            name="word"
-                            defaultValue={move.word ?? ""}
-                            placeholder="Mot joué"
-                            className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                          />
-                          <span className="w-16 text-sm text-black/60 dark:text-white/60">
-                            {move.points} pts
-                          </span>
-                          <label className="flex items-center gap-1 text-xs">
-                            <input type="checkbox" name="isPass" defaultChecked={move.isPass} />
-                            Passe
-                          </label>
-                          <button
-                            type="submit"
-                            className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-                          >
-                            OK
-                          </button>
-                          <button
-                            type="submit"
-                            formAction={deleteReferenceMoveAction.bind(
-                              null,
-                              tournament.id,
-                              game.id,
-                              move.id
-                            )}
-                            className="rounded border border-red-600 text-red-600 px-2 py-1 text-xs"
-                          >
-                            Supprimer
-                          </button>
-                        </form>
-                      </td>
-                    ) : (
-                      <>
-                        <td className="py-1.5 pr-4">{move.turnNumber}</td>
-                        <td className="py-1.5 pr-4">
-                          {formatReference(move.row, move.col, move.direction)}
-                        </td>
-                        <td className="py-1.5 pr-4">{move.rack ?? "—"}</td>
-                        <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word ?? "—"}</td>
-                        <td className="py-1.5 pr-4">{move.points}</td>
-                        <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-                {game.referenceMoves.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-2 text-black/50 dark:text-white/50">
-                      Aucun coup de référence saisi.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-
-            {canManage && (
-              <ReferenceMoveSolverForm
+          <div className="flex-1 min-w-[420px] flex flex-col gap-3">
+            {canManage ? (
+              <ReferenceMoveNavigator
+                moves={navigatorMoves}
                 addAction={addReferenceMoveBound}
+                updateActionBase={updateReferenceMoveBound}
+                deleteActionBase={deleteReferenceMoveBound}
                 findSolutions={findSolutionsBound}
-                turnNumber={game.referenceMoves.length + 1}
                 initialRack={game.pendingRack ?? ""}
               />
+            ) : (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left border-b border-black/10 dark:border-white/10">
+                    <th className="py-2 pr-4">Coup</th>
+                    <th className="py-2 pr-4">Référence</th>
+                    <th className="py-2 pr-4">Tirage</th>
+                    <th className="py-2 pr-4">Mot</th>
+                    <th className="py-2 pr-4">Points</th>
+                    <th className="py-2 pr-4">Passe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {navigatorMoves.map((move) => (
+                    <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
+                      <td className="py-1.5 pr-4">{move.turnNumber}</td>
+                      <td className="py-1.5 pr-4">{move.reference}</td>
+                      <td className="py-1.5 pr-4">{move.rack || "—"}</td>
+                      <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word || "—"}</td>
+                      <td className="py-1.5 pr-4">{move.points}</td>
+                      <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
+                    </tr>
+                  ))}
+                  {navigatorMoves.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-2 text-black/50 dark:text-white/50">
+                        Aucun coup de référence saisi.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
@@ -221,6 +165,9 @@ export default async function GameMovesPage({
           tirage saisi et du dictionnaire importé (page Dictionnaire), tous
           les mots jouables sur la grille actuelle, triés par points ;
           cliquez sur « Choisir » pour préremplir la référence et le mot.
+          Le sélecteur « Coup » fait apparaître les champs du tour choisi
+          pour le corriger ou le supprimer, sans afficher tout
+          l&apos;historique en même temps.
         </p>
       </section>
 
