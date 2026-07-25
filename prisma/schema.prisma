@@ -318,6 +318,10 @@ model ReferenceMove {
   word       String?
   points     Int     @default(0)
   isPass     Boolean @default(false)
+  // Tirage annoncé pour ce tour (commun à tous les joueurs en duplicate) :
+  // saisi par l'arbitre, projeté automatiquement sur l'affichage grand
+  // écran dès qu'il est renseigné, avant même que le mot ne le soit.
+  rack       String?
 
   @@unique([gameId, turnNumber])
 }

@@ -93,6 +93,7 @@ export default async function GameMovesPage({
             <tr className="text-left border-b border-black/10 dark:border-white/10">
               <th className="py-2 pr-4">Coup</th>
               <th className="py-2 pr-4">Référence</th>
+              <th className="py-2 pr-4">Tirage</th>
               <th className="py-2 pr-4">Mot</th>
               <th className="py-2 pr-4">Points</th>
               <th className="py-2 pr-4">Passe</th>
@@ -103,7 +104,7 @@ export default async function GameMovesPage({
             {game.referenceMoves.map((move) => (
               <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
                 {canManage ? (
-                  <td colSpan={6} className="py-1.5">
+                  <td colSpan={7} className="py-1.5">
                     <form
                       action={updateReferenceMoveAction.bind(
                         null,
@@ -122,6 +123,13 @@ export default async function GameMovesPage({
                         defaultValue={formatReference(move.row, move.col, move.direction)}
                         placeholder="Ex. H4 / 4H"
                         className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
+                      />
+                      <input
+                        type="text"
+                        name="rack"
+                        defaultValue={move.rack ?? ""}
+                        placeholder="Tirage"
+                        className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
                       />
                       <input
                         type="text"
@@ -163,6 +171,7 @@ export default async function GameMovesPage({
                     <td className="py-1.5 pr-4">
                       {formatReference(move.row, move.col, move.direction)}
                     </td>
+                    <td className="py-1.5 pr-4">{move.rack ?? "—"}</td>
                     <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word ?? "—"}</td>
                     <td className="py-1.5 pr-4">{move.points}</td>
                     <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
@@ -172,7 +181,7 @@ export default async function GameMovesPage({
             ))}
             {game.referenceMoves.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-2 text-black/50 dark:text-white/50">
+                <td colSpan={7} className="py-2 text-black/50 dark:text-white/50">
                   Aucun coup de référence saisi.
                 </td>
               </tr>
@@ -190,6 +199,12 @@ export default async function GameMovesPage({
               name="reference"
               placeholder="Ex. H4 / 4H"
               className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+            />
+            <input
+              type="text"
+              name="rack"
+              placeholder="Tirage"
+              className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
             />
             <input
               type="text"
@@ -215,7 +230,8 @@ export default async function GameMovesPage({
           minuscule est une lettre blanche (joker) : elle vaut 0 point. Le
           score est calculé automatiquement (valeur des lettres, cases
           bonus, mots croisés, prime de Scrabble selon la formule du
-          tournoi).
+          tournoi). Le tirage est projeté automatiquement sur l&apos;affichage
+          grand écran dès qu&apos;il est saisi ici.
         </p>
       </section>
 

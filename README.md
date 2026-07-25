@@ -211,11 +211,12 @@ Après `npm run db:seed` :
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements
-- Projette la grille de référence de la partie en cours (duplicate),
-  avec la liste des coups joués (référence, mot, points) à côté — grille
-  agrandie avec une carte en relief (ombre, bordure), en-têtes de
-  tableaux alignés sur le reste du site, meneur du classement de la
-  partie mis en évidence
+- En duplicate, la vue « partie en cours » ne montre que l'essentiel
+  pour la salle : la grille de référence (agrandie, carte en relief) et
+  le chronomètre. Le tirage du tour, saisi par l'arbitre (champ
+  « Tirage » du coup de référence), apparaît automatiquement en colonne
+  verticale à côté de la grille dès qu'il est renseigné — une lettre par
+  jeton, avec son coefficient, comme sur la grille
 
 ### Exports
 
