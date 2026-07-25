@@ -185,12 +185,13 @@ Après `npm run db:seed` :
   est enregistré, le tirage validé est effacé (le reliquat prend le
   relais sur l'affichage) jusqu'à la validation du suivant, et le chrono
   se réinitialise automatiquement à sa durée par défaut, prêt pour le
-  tour suivant. Un tirage validé peut aussi être rejeté (erreur de
-  saisie, tirage contesté...) tant qu'aucun coup n'a été enregistré
-  dessus : il disparaît aussitôt de l'affichage grand écran (reliquat
-  suggéré compris) et le chrono repart de zéro — l'arbitre repart d'un
-  champ de tirage entièrement vierge, plutôt que de se voir resuggérer
-  le même reliquat, en attendant la validation d'un nouveau tirage
+  tour suivant. Le bouton « Rejeter le tirage » reste disponible en
+  permanence, avant ou après validation : il efface le reliquat
+  suggéré et/ou le tirage validé (erreur de saisie, tirage contesté...)
+  tant qu'aucun coup n'a été enregistré dessus — tout disparaît
+  aussitôt de l'affichage grand écran, le champ de saisie repart
+  entièrement vierge (sans resuggérer le même reliquat) et le chrono
+  repart de zéro, en attendant la validation d'un nouveau tirage
 
 ### Tournois par équipes
 

@@ -120,19 +120,17 @@ function GameTimerControls({
               Valider le tirage
             </button>
           </form>
+          <form action={rejectGameRackAction.bind(null, tournamentId, game.id)}>
+            <button
+              type="submit"
+              title="Efface le reliquat suggéré et le tirage éventuellement validé (erreur de saisie, tirage contesté...), sans jouer de coup, et réinitialise le chrono"
+              className="rounded border border-brick/40 text-brick px-2 py-1 text-xs"
+            >
+              Rejeter le tirage
+            </button>
+          </form>
           {game.pendingRack && (
-            <>
-              <span className="text-xs text-moss">✓ Projeté sur l&apos;affichage grand écran</span>
-              <form action={rejectGameRackAction.bind(null, tournamentId, game.id)}>
-                <button
-                  type="submit"
-                  title="Annule ce tirage (erreur de saisie, tirage contesté...) sans jouer de coup, et réinitialise le chrono"
-                  className="rounded border border-brick/40 text-brick px-2 py-1 text-xs"
-                >
-                  Rejeter le tirage
-                </button>
-              </form>
-            </>
+            <span className="text-xs text-moss">✓ Projeté sur l&apos;affichage grand écran</span>
           )}
         </div>
       )}
