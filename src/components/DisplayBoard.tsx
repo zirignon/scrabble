@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { DisplayData } from "@/lib/display";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
+import { FRENCH_LETTER_VALUES } from "@/lib/duplicate/board";
 
 const ROTATE_MS = 12000;
 
@@ -104,6 +105,36 @@ function StandingsView({ data }: { data: DisplayData }) {
   );
 }
 
+function RackColumn({ rack }: { rack: string }) {
+  const cellSize = 56;
+  const letters = rack.split("");
+  return (
+    <div className="flex flex-col gap-2 bg-white p-4 rounded-lg shadow-xl border border-black/10">
+      {letters.map((letter, i) => {
+        const isBlank = letter === letter.toLowerCase() && letter !== letter.toUpperCase();
+        const value = isBlank ? undefined : FRENCH_LETTER_VALUES[letter.toUpperCase()];
+        return (
+          <div
+            key={i}
+            className="relative flex items-center justify-center bg-amber-100 border border-black/20 rounded-sm font-bold text-black"
+            style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
+          >
+            {letter.toUpperCase()}
+            {value !== undefined && (
+              <span
+                className="absolute bottom-0.5 right-1 font-semibold leading-none"
+                style={{ fontSize: Math.max(9, cellSize * 0.22) }}
+              >
+                {value}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CurrentView({ data }: { data: DisplayData }) {
   const { current } = data;
 
@@ -121,61 +152,13 @@ function CurrentView({ data }: { data: DisplayData }) {
             />
           </div>
         )}
-        <div className="flex flex-wrap items-start justify-center gap-10">
+        <div className="flex flex-1 items-center justify-center gap-10">
           {current.grid && (
-            <div className="bg-white p-3 rounded">
-              <ScrabbleGrid grid={current.grid} cellSize={30} />
+            <div className="bg-white p-4 rounded-lg shadow-xl border border-black/10">
+              <ScrabbleGrid grid={current.grid} cellSize={38} />
             </div>
           )}
-          {current.referenceMoves.length > 0 && (
-            <table className="text-xl border-collapse">
-              <thead>
-                <tr className="text-left text-black/50 text-lg border-b border-black/20">
-                  <th className="py-2 pr-4">Réf.</th>
-                  <th className="py-2 pr-4">Mot</th>
-                  <th className="py-2 pr-4 text-right">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {current.referenceMoves.map((m) => (
-                  <tr key={m.turnNumber} className="border-b border-black/10">
-                    <td className="py-1.5 pr-4 tabular-nums">{m.reference}</td>
-                    <td className="py-1.5 pr-4 font-semibold">{m.word}</td>
-                    <td className="py-1.5 pr-4 text-right tabular-nums">{m.points}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          <table className="text-2xl border-collapse flex-1 min-w-[420px]">
-            <thead>
-              <tr className="text-left text-black/50 text-xl border-b border-black/20">
-                <th className="py-2 pr-4">#</th>
-                <th className="py-2 pr-4">Joueur</th>
-                <th className="py-2 pr-4 text-right">Score</th>
-                <th className="py-2 pr-4 text-right">Pénalité</th>
-                <th className="py-2 pr-4 text-right">Net</th>
-              </tr>
-            </thead>
-            <tbody>
-              {current.rows.map((r) => (
-                <tr key={r.rank} className="border-b border-black/10">
-                  <td className="py-2 pr-4 font-bold">{r.rank}</td>
-                  <td className="py-2 pr-4">{r.name}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums">{r.score}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums">{r.penalty}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums font-semibold">{r.net}</td>
-                </tr>
-              ))}
-              {current.rows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-4 text-black/40 text-xl">
-                    Pas encore de partie jouée.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {current.currentRack && <RackColumn rack={current.currentRack} />}
         </div>
       </div>
     );

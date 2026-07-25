@@ -321,6 +321,7 @@ export async function deleteMoveAction(
 const referenceMoveSchema = z.object({
   reference: z.string().min(2),
   word: z.string().optional(),
+  rack: z.string().optional(),
   isPass: z.string().optional(),
 });
 
@@ -328,6 +329,7 @@ function parseReferenceMove(formData: FormData) {
   const parsed = referenceMoveSchema.safeParse({
     reference: formData.get("reference"),
     word: formData.get("word") || undefined,
+    rack: formData.get("rack") || undefined,
     isPass: formData.get("isPass") || undefined,
   });
   if (!parsed.success) return null;
@@ -343,6 +345,7 @@ function parseReferenceMove(formData: FormData) {
     // joker, voir computeMoveScore) — contrairement au coup par coup de
     // chaque joueur, dont le score n'est pas recalculé automatiquement.
     word: parsed.data.word || null,
+    rack: parsed.data.rack?.toUpperCase() || null,
     isPass: parsed.data.isPass === "on",
   };
 }
