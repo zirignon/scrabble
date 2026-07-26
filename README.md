@@ -154,7 +154,10 @@ Après `npm run db:seed` :
   saisie manuelle des points. Chaque lettre affiche son coefficient en
   petit dans le coin de la case, comme sur un jeton physique ; une
   lettre blanche (joker) affiche la lettre qu'elle représente mais sans
-  coefficient, pour la repérer facilement sur la grille
+  coefficient, pour la repérer facilement sur la grille. La saisie se
+  fait via un sélecteur « Coup » à côté de la grille (un seul coup
+  affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
+  tous les coups joués, pour ne pas surcharger l'espace
 - Classement cumulé (score total, pénalités, net)
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
@@ -176,8 +179,9 @@ Après `npm run db:seed` :
   automatiquement la référence et le mot avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre.
-  Avant de démarrer, l'arbitre doit valider le tirage du tour (page des
-  parties, à côté du chrono) : il est aussitôt projeté tel quel sur
+  Avant de démarrer, l'arbitre doit valider le tirage du tour (page de
+  détail coup par coup, sous la grille de référence) : il est aussitôt
+  projeté tel quel sur
   l'affichage grand écran, pour que la salle le voie avant que le temps
   ne commence à courir — le bouton « Démarrer » reste désactivé tant
   qu'aucun tirage n'est validé. Le tirage validé préremplit aussi le
