@@ -180,6 +180,14 @@ Après `npm run db:seed` :
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
+- Redistribution des tables selon le classement général : sur la page de
+  gestion du tournoi, l'organisateur fixe un nombre de tables puis
+  redistribue à tout moment — le 1er du classement va à la table 1, le
+  2e à la table 2, ..., le N-ième à la table N, puis ça repart à la
+  table 1 pour le joueur suivant. Le nombre de tables saisi est
+  mémorisé et réutilisé par défaut à la prochaine redistribution. La
+  table de chaque joueur est visible sur la page de gestion (regroupée
+  par table) et sur la page publique des participants
 - N'importe quel mot peut être saisi librement, sans validation
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
