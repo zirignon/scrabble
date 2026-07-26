@@ -14,6 +14,7 @@ import {
 import { reconstructBoard, formatReference, getFreeAvertissementCount } from "@/lib/duplicate/board";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
+import { GameTimerControls } from "@/components/admin/GameTimerControls";
 
 const penaltyLabel: Record<string, string> = {
   AVERTISSEMENT: "Avertissement (A)",
@@ -146,6 +147,13 @@ export default async function GameMovesPage({
                 </tbody>
               </table>
             )}
+
+            <GameTimerControls
+              game={game}
+              referenceMoves={game.referenceMoves}
+              canManage={canManage}
+              tournamentId={tournament.id}
+            />
           </div>
         </div>
 

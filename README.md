@@ -179,8 +179,9 @@ Après `npm run db:seed` :
   automatiquement la référence et le mot avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré/mis en pause par l'arbitre.
-  Avant de démarrer, l'arbitre doit valider le tirage du tour (page des
-  parties, à côté du chrono) : il est aussitôt projeté tel quel sur
+  Avant de démarrer, l'arbitre doit valider le tirage du tour (page de
+  détail coup par coup, sous la grille de référence) : il est aussitôt
+  projeté tel quel sur
   l'affichage grand écran, pour que la salle le voie avant que le temps
   ne commence à courir — le bouton « Démarrer » reste désactivé tant
   qu'aucun tirage n'est validé. Le tirage validé préremplit aussi le
