@@ -14,28 +14,40 @@ import {
   formatReference,
   getFreeAvertissementCount,
   computeAvertissementCosts,
+  computeSoloWinners,
+  SOLO_BONUS_MIN_PLAYERS,
+  SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
 import { anonymizePlayersForGame } from "@/lib/duplicate/anonymize";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
 import { GameTimerControls } from "@/components/admin/GameTimerControls";
 
-// Étiquette + info d'affichage pour la marque de pénalité d'un coup : indique
-// si l'avertissement est encore gratuit (quota du joueur non dépassé) ou s'il
-// coûte 5 points comme la pénalité, afin de calculer le net à afficher sur ce
-// coup précis (le stockage de DuplicateMove.points reste le score brut du
-// mot ; le -5 n'est réellement appliqué qu'au total de la partie).
-function movePenaltyInfo(
+// Étiquette + info d'affichage pour un coup : la marque de pénalité (indique
+// si l'avertissement est encore gratuit ou s'il coûte 5 points comme la
+// pénalité) et la bonification solo (règlement FISF §3.5), pour calculer le
+// net à afficher sur ce coup précis (le stockage de DuplicateMove.points
+// reste le score brut du mot ; les ajustements ne sont réellement appliqués
+// qu'au total de la partie). Une pénalité ne peut jamais rendre le net
+// négatif (§5.6) — déjà empêché à la saisie, mais on s'en protège ici aussi.
+function moveDisplayInfo(
   pm: { points: number; penaltyType: string | null } | undefined,
-  costsFive: boolean
+  costsFive: boolean,
+  isSolo: boolean,
+  soloEligible: boolean
 ) {
   const penaltyType = pm?.penaltyType ?? null;
-  if (!penaltyType) return null;
-  const badgeLabel = penaltyType === "AVERTISSEMENT" ? "A" : penaltyType === "PENALITE" ? "P" : "Z";
+  const badgeLabel =
+    penaltyType === "AVERTISSEMENT" ? "A" : penaltyType === "PENALITE" ? "P" : penaltyType === "ZERO" ? "Z" : null;
   const isFreeAvertissement = penaltyType === "AVERTISSEMENT" && !costsFive;
-  const netPenalty = penaltyType === "PENALITE" || (penaltyType === "AVERTISSEMENT" && costsFive);
-  const net = pm && netPenalty ? pm.points - 5 : null;
-  return { badgeLabel, isFreeAvertissement, netPenalty, net };
+  const penaltyDeduction =
+    penaltyType === "PENALITE" || (penaltyType === "AVERTISSEMENT" && costsFive) ? 5 : 0;
+  const soloBonus = isSolo && soloEligible ? SOLO_BONUS_POINTS : 0;
+  const net =
+    pm && (penaltyDeduction > 0 || soloBonus > 0)
+      ? Math.max(0, pm.points - penaltyDeduction) + soloBonus
+      : null;
+  return { badgeLabel, isFreeAvertissement, isSolo, soloBonus, net };
 }
 
 export default async function GameMovesPage({
@@ -92,6 +104,8 @@ export default async function GameMovesPage({
   );
   const freeAvertissements = getFreeAvertissementCount(tournament.duplicateFormula);
   const avertissementCostMap = computeAvertissementCosts(game.moves, freeAvertissements);
+  const soloWinners = computeSoloWinners(game.moves);
+  const soloEligible = players.length >= SOLO_BONUS_MIN_PLAYERS;
 
   return (
     <div className="flex flex-col gap-8">
@@ -220,15 +234,28 @@ export default async function GameMovesPage({
           L&apos;avertissement (A) n&apos;a
           pas d&apos;effet chiffré direct, mais au-delà des{" "}
           {freeAvertissements} avertissements
-          gratuits de la partie (pour cette formule), chaque avertissement
-          supplémentaire coûte 5 points ; la pénalité (P) retire 5 points
-          immédiatement ; le zéro (Z) ramène les points du coup à 0. La
-          pénalité totale de la partie (colonne Pénalité de la fiche joueur)
-          est recalculée automatiquement à partir de ces marques ; le badge
-          affiché sur un coup indique la marque appliquée et, le cas échéant,
-          le total net après -5. Pour corriger une pénalité ou un
-          avertissement saisi par erreur, changez simplement la valeur du
-          sélecteur sur le coup concerné et validez à nouveau la ligne.
+          gratuits de la partie (5 en Blitz et dans les formules originales
+          Joker/7 sur 8/7 et 8, 3 sinon), chaque avertissement supplémentaire
+          coûte 5 points ; la pénalité (P) retire 5 points immédiatement —
+          sauf si le coup rapporte 4 points ou moins, auquel cas c&apos;est
+          obligatoirement un zéro (Z) plutôt qu&apos;une pénalité, pour ne
+          jamais aboutir à un score négatif (règlement §5.6) ; le zéro (Z)
+          ramène les points du coup à 0. La pénalité totale de la partie
+          (colonne Pénalité de la fiche joueur) est recalculée
+          automatiquement à partir de ces marques ; le badge affiché sur un
+          coup indique la marque appliquée et, le cas échéant, le total net
+          après -5. Pour corriger une pénalité ou un avertissement saisi par
+          erreur, changez simplement la valeur du sélecteur sur le coup
+          concerné et validez à nouveau la ligne.
+        </p>
+        <p className="mt-2">
+          Bonification solo (règlement §3.5) : le joueur seul à avoir le
+          meilleur score sur un coup donné (avant pénalité) reçoit le badge
+          « Solo ». À partir de {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits au
+          tournoi, ce solo rapporte {SOLO_BONUS_POINTS} points de
+          bonification, ajoutés automatiquement au score de la partie ; en
+          dessous de ce seuil, le solo est signalé mais ne rapporte aucun
+          point.
         </p>
       </details>
 
@@ -282,8 +309,9 @@ export default async function GameMovesPage({
                         const pm = moveByTurnAndPlayer.get(`${move.turnNumber}:${player.id}`);
                         const costsFive =
                           avertissementCostMap.get(`${move.turnNumber}:${player.id}`) ?? false;
-                        const info = movePenaltyInfo(pm, costsFive);
-                        const badge = info && (
+                        const isSolo = soloWinners.get(move.turnNumber) === player.id;
+                        const info = moveDisplayInfo(pm, costsFive, isSolo, soloEligible);
+                        const penaltyBadge = info.badgeLabel && (
                           <span
                             title={
                               info.badgeLabel === "A"
@@ -301,10 +329,22 @@ export default async function GameMovesPage({
                             }`}
                           >
                             {info.badgeLabel}
-                            {info.isFreeAvertissement ? " libre" : info.netPenalty ? " −5" : ""}
+                            {info.isFreeAvertissement ? " libre" : info.badgeLabel !== "Z" ? " −5" : ""}
                           </span>
                         );
-                        const netLine = info?.netPenalty && (
+                        const soloBadge = info.isSolo && (
+                          <span
+                            title={
+                              soloEligible
+                                ? "Solo : seul meilleur score du coup, +10 points (règlement §3.5)"
+                                : "Solo : seul meilleur score du coup (pas de bonification, moins de 16 joueurs inscrits)"
+                            }
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-400/25 text-amber-800 dark:text-amber-300"
+                          >
+                            Solo{info.soloBonus > 0 ? " +10" : ""}
+                          </span>
+                        );
+                        const netLine = info.net !== null && (
                           <span className="text-[10px] text-black/50 dark:text-white/50">
                             net {info.net}
                           </span>
@@ -334,13 +374,15 @@ export default async function GameMovesPage({
                                   <option value="PENALITE">P</option>
                                   <option value="ZERO">Z</option>
                                 </select>
-                                {badge}
+                                {penaltyBadge}
+                                {soloBadge}
                                 {netLine}
                               </div>
                             ) : (
                               <div className="flex flex-col items-center gap-0.5">
                                 <span>{pm?.points ?? "—"}</span>
-                                {badge}
+                                {penaltyBadge}
+                                {soloBadge}
                                 {netLine}
                               </div>
                             )}

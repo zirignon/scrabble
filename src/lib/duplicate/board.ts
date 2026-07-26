@@ -234,10 +234,50 @@ export function getFormulaTimerSeconds(formula: string | null | undefined): numb
 }
 
 // Nombre d'avertissements gratuits (sur une même partie) avant que chaque
-// avertissement supplémentaire ne coûte 5 points : 5 en Blitz, 3 dans les
-// autres formules.
+// avertissement supplémentaire ne coûte 5 points : 5 en Blitz ou dans une
+// formule originale (Joker, 7 sur 8, 7 et 8), 3 dans les autres formules
+// (règlement FISF §5.9 : "au quatrième (sixième en blitz ou partie
+// originale), il se voit retirer cinq points de pénalité").
 export function getFreeAvertissementCount(formula: string | null | undefined): number {
-  return formula === "BLITZ" ? 5 : 3;
+  const sixthFormulas = ["BLITZ", "JOKER", "SEPT_SUR_HUIT", "SEPT_ET_HUIT"];
+  return sixthFormulas.includes(formula ?? "") ? 5 : 3;
+}
+
+export interface MoveScoreLike {
+  turnNumber: number;
+  playerId: string;
+  points: number;
+}
+
+// Nombre de joueurs inscrits à partir duquel la bonification solo (+10 pts)
+// s'applique (règlement FISF §3.5).
+export const SOLO_BONUS_MIN_PLAYERS = 16;
+export const SOLO_BONUS_POINTS = 10;
+
+// Détermine, pour chaque tour, le joueur "solo" éventuel : celui dont le
+// score sur ce coup est strictement supérieur à celui de tous les autres
+// joueurs ayant un coup enregistré pour ce même tour (règlement FISF §3.5 —
+// comparaison sur le score brut, avant application d'une éventuelle
+// pénalité). Un tour avec moins de deux coups enregistrés, ou une égalité
+// pour le meilleur score, n'a pas de solo. Renvoie une Map
+// turnNumber -> playerId du joueur solo.
+export function computeSoloWinners(moves: MoveScoreLike[]): Map<number, string> {
+  const byTurn = new Map<number, MoveScoreLike[]>();
+  for (const move of moves) {
+    const list = byTurn.get(move.turnNumber) ?? [];
+    list.push(move);
+    byTurn.set(move.turnNumber, list);
+  }
+
+  const solos = new Map<number, string>();
+  for (const [turnNumber, list] of byTurn) {
+    if (list.length < 2) continue;
+    const sorted = [...list].sort((a, b) => b.points - a.points);
+    if (sorted[0].points > sorted[1].points) {
+      solos.set(turnNumber, sorted[0].playerId);
+    }
+  }
+  return solos;
 }
 
 export interface MovePenaltyLike {

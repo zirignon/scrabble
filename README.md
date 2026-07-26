@@ -138,25 +138,36 @@ Après `npm run db:seed` :
   ne puisse pas favoriser un joueur qu'il reconnaîtrait ; les vrais
   noms restent affichés partout ailleurs (fiche de classement,
   classement public...)
-- Pénalités d'arbitrage sur un coup, en saisie coup par coup :
-  avertissement (aucun effet chiffré direct pour les premiers de la
-  partie — 5 gratuits en Blitz, 3 dans les autres formules — puis
-  chaque avertissement supplémentaire coûte 5 points), pénalité (-5
-  points immédiats) ou zéro (les points du coup sont ramenés à 0). La
-  pénalité totale de la partie (colonne « Pénalité » de la fiche
-  joueur) est recalculée automatiquement à partir de ces marques,
-  comme le score. Un badge visible apparaît sur le coup concerné dès
-  qu'une marque est appliquée (A, P ou Z), avec le total net après -5
-  affiché juste en dessous quand la pénalité ou l'avertissement
-  (au-delà du quota gratuit) réduit les points de ce coup précis. Pour
-  corriger une marque saisie par erreur, il suffit de changer la
-  valeur du sélecteur sur le coup concerné et de valider à nouveau la
-  ligne : le badge, le net affiché et le quota d'avertissements
-  gratuits des autres coups du joueur se recalculent automatiquement.
-  Un score de joueur ne peut jamais dépasser le top du coup de
-  référence (le meilleur score possible pour le tirage de ce tour) :
-  la saisie le bloque immédiatement dans le navigateur, et le serveur
-  refuse également toute tentative de contournement
+- Pénalités d'arbitrage sur un coup, en saisie coup par coup, conformes
+  au règlement FISF du duplicate (janvier 2023) : avertissement (aucun
+  effet chiffré direct pour les premiers de la partie — 5 gratuits en
+  Blitz et dans les formules originales Joker/7 sur 8/7 et 8, 3 dans
+  les autres formules, §5.9 — puis chaque avertissement supplémentaire
+  coûte 5 points), pénalité (-5 points immédiats — sauf sur un coup de
+  4 points ou moins, où elle est obligatoirement remplacée par un
+  zéro pour ne jamais aboutir à un score négatif, §5.6) ou zéro (les
+  points du coup sont ramenés à 0). La pénalité totale de la partie
+  (colonne « Pénalité » de la fiche joueur) est recalculée
+  automatiquement à partir de ces marques, comme le score. Un badge
+  visible apparaît sur le coup concerné dès qu'une marque est
+  appliquée (A, P ou Z), avec le total net après -5 affiché juste en
+  dessous quand la pénalité ou l'avertissement (au-delà du quota
+  gratuit) réduit les points de ce coup précis. Pour corriger une
+  marque saisie par erreur, il suffit de changer la valeur du
+  sélecteur sur le coup concerné et de valider à nouveau la ligne : le
+  badge, le net affiché et le quota d'avertissements gratuits des
+  autres coups du joueur se recalculent automatiquement. Un score de
+  joueur ne peut jamais dépasser le top du coup de référence (le
+  meilleur score possible pour le tirage de ce tour) : la saisie le
+  bloque immédiatement dans le navigateur, et le serveur refuse
+  également toute tentative de contournement
+- Bonification solo (règlement §3.5) : le joueur seul à avoir le
+  meilleur score sur un coup donné (comparaison sur le score brut,
+  avant pénalité) reçoit un badge « Solo » sur ce coup. À partir de 16
+  joueurs inscrits au tournoi, la bonification de 10 points s'ajoute
+  automatiquement au score de la partie ; en dessous de ce seuil, le
+  solo est signalé mais ne rapporte aucun point, comme prévu par le
+  règlement
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
