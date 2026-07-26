@@ -216,28 +216,111 @@ export interface BingoRule {
 const DEFAULT_BINGO_RULES: BingoRule[] = [{ tileCount: 7, bonus: 50 }];
 
 // Prime de Scrabble selon la formule du tournoi duplicate : les formules
-// standards (normale, semi-rapide, blitz, joker, 7 sur 8) ne primetent que
-// les tirages de 7 lettres posées (+50) ; la formule 7 et 8 ajoute une
-// prime de 75 points pour 8 lettres posées.
+// standards (normale, joker, 7 sur 8, 7 sur 8 joker) ne primetent que les
+// tirages de 7 lettres posées (+50) ; la formule 7 et 8 (avec ou sans
+// joker) ajoute une prime de 75 points pour 8 lettres posées.
 export function getBingoRules(formula: string | null | undefined): BingoRule[] {
-  if (formula === "SEPT_ET_HUIT") {
+  if (formula === "SEPT_ET_HUIT" || formula === "SEPT_ET_HUIT_JOKER") {
     return [{ tileCount: 7, bonus: 50 }, { tileCount: 8, bonus: 75 }];
   }
   return DEFAULT_BINGO_RULES;
 }
 
-// Durée par défaut du chronomètre de partie selon la formule (secondes).
-export function getFormulaTimerSeconds(formula: string | null | undefined): number {
-  if (formula === "SEMI_RAPIDE") return 120;
-  if (formula === "BLITZ") return 60;
-  return 180;
+// Durée par défaut du chronomètre de partie selon le rythme (secondes) :
+// Normal 3' (2'30+0'30), Semi-normal 2'30 (2'00+0'30), Semi-rapide 2'00
+// (1'30+0'30), Semi-blitz 1'30 (1'10+0'20), Blitz 1' (0'40+0'20).
+export function getRythmeTimerSeconds(rythme: string | null | undefined): number {
+  switch (rythme) {
+    case "SEMI_NORMAL":
+      return 150;
+    case "SEMI_RAPIDE":
+      return 120;
+    case "SEMI_BLITZ":
+      return 90;
+    case "BLITZ":
+      return 60;
+    default:
+      return 180;
+  }
+}
+
+// Repère d'alerte avant la fin du temps de jeu, en secondes restantes
+// (règlement FISF §3.3 : l'arbitre annonce "chrono – trente (ou vingt)
+// secondes – terminé") : 30 secondes pour les rythmes Normal/Semi-normal/
+// Semi-rapide, 20 secondes pour Semi-blitz/Blitz.
+export function getRythmeAlertSeconds(rythme: string | null | undefined): number {
+  return rythme === "SEMI_BLITZ" || rythme === "BLITZ" ? 20 : 30;
 }
 
 // Nombre d'avertissements gratuits (sur une même partie) avant que chaque
-// avertissement supplémentaire ne coûte 5 points : 5 en Blitz, 3 dans les
-// autres formules.
-export function getFreeAvertissementCount(formula: string | null | undefined): number {
-  return formula === "BLITZ" ? 5 : 3;
+// avertissement supplémentaire ne coûte 5 points : 5 dans le rythme Blitz
+// uniquement (le 6e coûte 5 points), 3 dans tous les autres rythmes — le
+// 4e coûte 5 points (règlement FISF §5.9).
+export function getFreeAvertissementCount(rythme: string | null | undefined): number {
+  return rythme === "BLITZ" ? 5 : 3;
+}
+
+export interface MoveScoreLike {
+  turnNumber: number;
+  playerId: string;
+  points: number;
+}
+
+// Nombre de joueurs inscrits à partir duquel la bonification solo (+10 pts)
+// s'applique (règlement FISF §3.5).
+export const SOLO_BONUS_MIN_PLAYERS = 16;
+export const SOLO_BONUS_POINTS = 10;
+
+// Détermine, pour chaque tour, le joueur "solo" éventuel : celui dont le
+// score sur ce coup est strictement supérieur à celui de tous les autres
+// joueurs ayant un coup enregistré pour ce même tour (règlement FISF §3.5 —
+// comparaison sur le score brut, avant application d'une éventuelle
+// pénalité). Un tour avec moins de deux coups enregistrés, ou une égalité
+// pour le meilleur score, n'a pas de solo. Renvoie une Map
+// turnNumber -> playerId du joueur solo.
+export function computeSoloWinners(moves: MoveScoreLike[]): Map<number, string> {
+  const byTurn = new Map<number, MoveScoreLike[]>();
+  for (const move of moves) {
+    const list = byTurn.get(move.turnNumber) ?? [];
+    list.push(move);
+    byTurn.set(move.turnNumber, list);
+  }
+
+  const solos = new Map<number, string>();
+  for (const [turnNumber, list] of byTurn) {
+    if (list.length < 2) continue;
+    const sorted = [...list].sort((a, b) => b.points - a.points);
+    if (sorted[0].points > sorted[1].points) {
+      solos.set(turnNumber, sorted[0].playerId);
+    }
+  }
+  return solos;
+}
+
+export interface MovePenaltyLike {
+  turnNumber: number;
+  playerId: string;
+  penaltyType: string | null;
+}
+
+// Pour chaque coup marqué "avertissement", indique s'il est encore dans le
+// quota gratuit du joueur ou s'il coûte 5 points (au-delà) — en comptant,
+// dans l'ordre des tours, les avertissements déjà posés à CE joueur dans
+// la partie. Clé de la map : "turnNumber:playerId".
+export function computeAvertissementCosts(
+  moves: MovePenaltyLike[],
+  freeCount: number
+): Map<string, boolean> {
+  const costsFive = new Map<string, boolean>();
+  const countByPlayer = new Map<string, number>();
+  const sorted = [...moves].sort((a, b) => a.turnNumber - b.turnNumber);
+  for (const move of sorted) {
+    if (move.penaltyType !== "AVERTISSEMENT") continue;
+    const count = (countByPlayer.get(move.playerId) ?? 0) + 1;
+    countByPlayer.set(move.playerId, count);
+    costsFive.set(`${move.turnNumber}:${move.playerId}`, count > freeCount);
+  }
+  return costsFive;
 }
 
 // Repère, à partir d'une case occupée de la grille, l'ensemble contigu de

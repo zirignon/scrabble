@@ -5,7 +5,12 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { reconstructBoard, computeLastReliquat, type BoardCell } from "@/lib/duplicate/board";
+import {
+  reconstructBoard,
+  computeLastReliquat,
+  getRythmeAlertSeconds,
+  type BoardCell,
+} from "@/lib/duplicate/board";
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -59,6 +64,9 @@ export interface DisplayGameTimer {
   remainingSeconds: number;
   running: boolean;
   startedAt: string | null;
+  // Repère d'alerte (règlement §3.3), en secondes restantes : 30 ou 20
+  // selon le rythme de la partie.
+  alertSeconds: number;
 }
 
 export type DisplayCurrent =
@@ -245,7 +253,11 @@ function classicTeamColumns(s: {
   ];
 }
 
-async function buildCurrent(tournament: { id: string; type: string }): Promise<DisplayCurrent> {
+async function buildCurrent(tournament: {
+  id: string;
+  type: string;
+  duplicateRythme: string | null;
+}): Promise<DisplayCurrent> {
   if (tournament.type === "CLASSIC") {
     const lastRound = await prisma.round.findFirst({
       where: { tournamentId: tournament.id },
@@ -340,6 +352,7 @@ async function buildCurrent(tournament: { id: string; type: string }): Promise<D
       durationSeconds: lastGame.timerDurationSeconds,
       remainingSeconds: lastGame.timerRemainingSeconds ?? lastGame.timerDurationSeconds,
       running: lastGame.timerRunning,
+      alertSeconds: getRythmeAlertSeconds(tournament.duplicateRythme),
       startedAt: lastGame.timerStartedAt ? lastGame.timerStartedAt.toISOString() : null,
     },
   };

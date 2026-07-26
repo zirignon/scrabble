@@ -176,6 +176,7 @@ export default async function ManageTournamentPage({
         </table>
       </section>
 
+
       <section className="flex flex-col gap-3">
         {tournament.isTeamEvent && (
           <Link

@@ -1,30 +1,38 @@
-// Hash simple (FNV-1a) : pas un besoin cryptographique, juste une façon
-// déterministe de dériver un ordre qui a l'air aléatoire.
-function hashString(input: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
+import { prisma } from "@/lib/prisma";
 
 export interface AnonymizedPlayer<T> {
   player: T;
   label: string;
 }
 
-// Ordre et étiquette anonymisés des joueurs pour la saisie des scores :
-// dérivés d'un hash de gameId + playerId, stables pour toute la partie
-// (l'arbitre voit toujours "Joueur 3" à la même position en y revenant)
-// mais différents d'une partie à l'autre — pour qu'il ne puisse pas
-// mémoriser "telle colonne = tel joueur" sur la durée du tournoi et
-// favoriser quelqu'un qu'il reconnaîtrait.
-export function anonymizePlayersForGame<T extends { id: string }>(
-  gameId: string,
-  players: T[]
-): AnonymizedPlayer<T>[] {
+// Étiquette anonymisée des joueurs pour la saisie des scores, basée sur le
+// classement général cumulé AVANT cette partie (parties de numéro inférieur
+// uniquement) : le 1er du classement devient "Joueur 1", le 2e "Joueur 2",
+// etc. Le classement à vrais noms reste visible sur les pages de classement
+// — seule cette grille de saisie masque l'identité, pour que l'arbitre ne
+// puisse pas favoriser un joueur qu'il reconnaîtrait. Pour la 1re partie
+// (aucun résultat antérieur), tous les joueurs sont à égalité et l'ordre
+// retombe sur le nom de famille, puis le prénom.
+export async function anonymizePlayersForGame<
+  T extends { id: string; firstName: string; lastName: string }
+>(tournamentId: string, gameNumber: number, players: T[]): Promise<AnonymizedPlayer<T>[]> {
+  const priorResults = await prisma.duplicateResult.findMany({
+    where: { game: { tournamentId, number: { lt: gameNumber } } },
+  });
+
+  const netByPlayer = new Map<string, number>();
+  for (const result of priorResults) {
+    netByPlayer.set(
+      result.playerId,
+      (netByPlayer.get(result.playerId) ?? 0) + result.score - result.penalty
+    );
+  }
+
   return [...players]
-    .sort((a, b) => hashString(`${gameId}:${a.id}`) - hashString(`${gameId}:${b.id}`))
+    .sort((a, b) => {
+      const netDiff = (netByPlayer.get(b.id) ?? 0) - (netByPlayer.get(a.id) ?? 0);
+      if (netDiff !== 0) return netDiff;
+      return `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`);
+    })
     .map((player, i) => ({ player, label: `Joueur ${i + 1}` }));
 }

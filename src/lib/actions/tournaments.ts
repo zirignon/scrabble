@@ -14,7 +14,17 @@ const tournamentSchema = z.object({
   type: z.enum(["CLASSIC", "DUPLICATE"]),
   format: z.enum(["ROUND_ROBIN", "SWISS", "GROUPS", "KNOCKOUT"]).optional(),
   duplicateFormula: z
-    .enum(["NORMALE", "SEMI_RAPIDE", "BLITZ", "JOKER", "SEPT_SUR_HUIT", "SEPT_ET_HUIT"])
+    .enum([
+      "NORMALE",
+      "JOKER",
+      "SEPT_SUR_HUIT",
+      "SEPT_SUR_HUIT_JOKER",
+      "SEPT_ET_HUIT",
+      "SEPT_ET_HUIT_JOKER",
+    ])
+    .optional(),
+  duplicateRythme: z
+    .enum(["NORMAL", "SEMI_NORMAL", "SEMI_RAPIDE", "SEMI_BLITZ", "BLITZ"])
     .optional(),
   isTeamEvent: z.string().optional(),
   venue: z.string().optional(),
@@ -34,6 +44,7 @@ export async function createTournamentAction(
     type: formData.get("type"),
     format: formData.get("format") || undefined,
     duplicateFormula: formData.get("duplicateFormula") || undefined,
+    duplicateRythme: formData.get("duplicateRythme") || undefined,
     isTeamEvent: formData.get("isTeamEvent") || undefined,
     venue: formData.get("venue") || undefined,
     description: formData.get("description") || undefined,
@@ -49,6 +60,7 @@ export async function createTournamentAction(
     type,
     format,
     duplicateFormula,
+    duplicateRythme,
     isTeamEvent,
     venue,
     description,
@@ -71,6 +83,7 @@ export async function createTournamentAction(
       type,
       format: type === "CLASSIC" ? format ?? "ROUND_ROBIN" : null,
       duplicateFormula: type === "DUPLICATE" ? duplicateFormula ?? "NORMALE" : null,
+      duplicateRythme: type === "DUPLICATE" ? duplicateRythme ?? "NORMAL" : null,
       isTeamEvent: isTeamEvent === "on",
       venue,
       description,
@@ -88,14 +101,24 @@ export async function createTournamentAction(
 
 const duplicateFormulaValues = [
   "NORMALE",
-  "SEMI_RAPIDE",
-  "BLITZ",
   "JOKER",
   "SEPT_SUR_HUIT",
+  "SEPT_SUR_HUIT_JOKER",
   "SEPT_ET_HUIT",
+  "SEPT_ET_HUIT_JOKER",
 ] as const;
 
-export async function updateDuplicateFormulaAction(
+const duplicateRythmeValues = [
+  "NORMAL",
+  "SEMI_NORMAL",
+  "SEMI_RAPIDE",
+  "SEMI_BLITZ",
+  "BLITZ",
+] as const;
+
+// Met à jour la formule (règles de jeu) et le rythme (durée du chrono) du
+// tournoi duplicate, indépendamment l'un de l'autre.
+export async function updateDuplicateSettingsAction(
   tournamentId: string,
   formData: FormData
 ) {
@@ -109,13 +132,22 @@ export async function updateDuplicateFormulaAction(
   if (tournament.type !== "DUPLICATE") return;
 
   const formula = formData.get("duplicateFormula");
-  if (typeof formula !== "string" || !duplicateFormulaValues.includes(formula as never)) {
+  const rythme = formData.get("duplicateRythme");
+  if (
+    typeof formula !== "string" ||
+    !duplicateFormulaValues.includes(formula as never) ||
+    typeof rythme !== "string" ||
+    !duplicateRythmeValues.includes(rythme as never)
+  ) {
     return;
   }
 
   await prisma.tournament.update({
     where: { id: tournamentId },
-    data: { duplicateFormula: formula as (typeof duplicateFormulaValues)[number] },
+    data: {
+      duplicateFormula: formula as (typeof duplicateFormulaValues)[number],
+      duplicateRythme: rythme as (typeof duplicateRythmeValues)[number],
+    },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);

@@ -9,7 +9,6 @@ import { computeLiveRemaining, formatClock } from "@/lib/timer";
 import { playBeep, unlockAudioOnFirstInteraction } from "@/lib/beep";
 
 const ROTATE_MS = 12000;
-const TIMER_WARN_SECONDS = 30;
 
 export function DisplayBoard({
   tournamentId,
@@ -127,8 +126,9 @@ function StandingsView({ data }: { data: DisplayData }) {
 }
 
 // Minuteur de la partie en cours (duplicate) : passe en rouge et déclenche
-// une sonnerie une seule fois lorsqu'il descend sous TIMER_WARN_SECONDS,
-// pour alerter la salle sans distraire les joueurs le reste du temps.
+// une sonnerie une seule fois lorsqu'il descend sous le repère d'alerte du
+// rythme de la partie (30 ou 20 secondes, règlement §3.3), pour alerter la
+// salle sans distraire les joueurs le reste du temps.
 function DisplayTimer({ timer }: { timer: DisplayGameTimer }) {
   const [now, setNow] = useState(() => Date.now());
   const hasWarnedRef = useRef(false);
@@ -144,7 +144,7 @@ function DisplayTimer({ timer }: { timer: DisplayGameTimer }) {
     : timer.remainingSeconds;
   void now;
 
-  const isWarning = timer.running && remaining <= TIMER_WARN_SECONDS;
+  const isWarning = timer.running && remaining <= timer.alertSeconds;
 
   useEffect(() => {
     if (!isWarning) {

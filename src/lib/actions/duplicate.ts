@@ -8,11 +8,14 @@ import { notifyTournamentUpdate } from "@/lib/displayEvents";
 import {
   BOARD_SIZE,
   computeMoveScore,
+  computeSoloWinners,
   getFreeAvertissementCount,
   getBingoRules,
-  getFormulaTimerSeconds,
+  getRythmeTimerSeconds,
   parseReference,
   buildPlainBoard,
+  SOLO_BONUS_MIN_PLAYERS,
+  SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
 import { findWordSolutions, type SolverSolution } from "@/lib/duplicate/solver";
 
@@ -177,7 +180,7 @@ export async function addGameAction(tournamentId: string) {
     data: {
       tournamentId,
       number: (last?.number ?? 0) + 1,
-      timerDurationSeconds: getFormulaTimerSeconds(tournament.duplicateFormula),
+      timerDurationSeconds: getRythmeTimerSeconds(tournament.duplicateRythme),
     },
   });
 
@@ -230,19 +233,36 @@ export async function saveGameScoresAction(
 // détaillé — elle découle des pénalités d'arbitrage posées sur les coups
 // (une PENALITE coûte 5 points ; les AVERTISSEMENT sont gratuits jusqu'à un
 // certain nombre selon la formule du tournoi, puis chaque avertissement
-// supplémentaire coûte 5 points).
+// supplémentaire coûte 5 points). Le score inclut aussi la bonification
+// solo (+10 pts par coup où ce joueur est seul à avoir le meilleur score,
+// règlement FISF §3.5), si le tournoi compte au moins 16 joueurs inscrits.
 async function recomputeGameScore(gameId: string, playerId: string) {
   const game = await prisma.game.findUniqueOrThrow({
     where: { id: gameId },
-    include: { tournament: true },
+    include: { tournament: { include: { _count: { select: { registrations: true } } } } },
   });
-  const moves = await prisma.duplicateMove.findMany({
-    where: { gameId, playerId },
-    select: { points: true, penaltyType: true },
-  });
-  const score = moves.reduce((sum, m) => sum + m.points, 0);
+  const [moves, allMoves] = await Promise.all([
+    prisma.duplicateMove.findMany({
+      where: { gameId, playerId },
+      select: { points: true, penaltyType: true },
+    }),
+    prisma.duplicateMove.findMany({
+      where: { gameId },
+      select: { turnNumber: true, playerId: true, points: true },
+    }),
+  ]);
 
-  const freeAvertissements = getFreeAvertissementCount(game.tournament.duplicateFormula);
+  let soloBonus = 0;
+  if (game.tournament._count.registrations >= SOLO_BONUS_MIN_PLAYERS) {
+    const soloWinners = computeSoloWinners(allMoves);
+    for (const winnerId of soloWinners.values()) {
+      if (winnerId === playerId) soloBonus += SOLO_BONUS_POINTS;
+    }
+  }
+
+  const score = moves.reduce((sum, m) => sum + m.points, 0) + soloBonus;
+
+  const freeAvertissements = getFreeAvertissementCount(game.tournament.duplicateRythme);
   const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
   const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
   const penalty =
@@ -394,11 +414,27 @@ export async function saveTurnScoresAction(
   ]);
   const top = referenceMove?.points ?? null;
 
+  // Le top d'un coup est le meilleur score possible pour le tirage de ce
+  // tour : aucun score de joueur ne peut donc légitimement le dépasser.
+  // On valide toute la ligne avant la moindre écriture, pour ne jamais
+  // enregistrer partiellement une saisie contenant un score impossible.
+  const entries: {
+    playerId: string;
+    points: number;
+    penaltyType: (typeof movePenaltyValues)[number] | null;
+  }[] = [];
+
   for (const { playerId } of registrations) {
     const scoreRaw = formData.get(`score_${playerId}`);
     if (scoreRaw === null || scoreRaw === "") continue;
-    const points = Number(scoreRaw);
-    if (Number.isNaN(points)) continue;
+    const rawPoints = Number(scoreRaw);
+    if (Number.isNaN(rawPoints)) continue;
+
+    if (top !== null && rawPoints > top) {
+      throw new Error(
+        `Score invalide (${rawPoints} pts) : le top de ce coup est de ${top} points, aucun score ne peut le dépasser.`
+      );
+    }
 
     const penaltyRaw = formData.get(`penalty_${playerId}`);
     const penaltyType =
@@ -406,6 +442,21 @@ export async function saveTurnScoresAction(
         ? (penaltyRaw as (typeof movePenaltyValues)[number])
         : null;
 
+    // Règlement FISF §5.6 : une pénalité de 5 points ne peut jamais rendre
+    // un score négatif — si elle s'applique à un coup de 4 points ou moins,
+    // la sanction doit être un zéro, pas une pénalité.
+    if (penaltyType === "PENALITE" && rawPoints <= 4) {
+      throw new Error(
+        `Pénalité invalide (${rawPoints} pts) : une pénalité de 5 points appliquée à un score de 4 points ou moins doit être un Zéro, pas une Pénalité (aucun score négatif autorisé).`
+      );
+    }
+
+    const points = penaltyType === "ZERO" ? 0 : rawPoints;
+
+    entries.push({ playerId, points, penaltyType });
+  }
+
+  for (const { playerId, points, penaltyType } of entries) {
     await prisma.duplicateMove.upsert({
       where: { gameId_playerId_turnNumber: { gameId, playerId, turnNumber } },
       update: { points, top, penaltyType },

@@ -118,33 +118,69 @@ Après `npm run db:seed` :
   directe entre les deux joueurs tranche
 
 ### Scrabble duplicate
-- Formule du tournoi (FISF/FFSc), modifiable à tout moment depuis la
-  page des parties : Normale (3 min/coup), Semi-rapide (2 min), Blitz
-  (1 min), Joker, 7 sur 8, 7 et 8 — détermine la durée par défaut du
-  chronomètre des nouvelles parties et, pour 7 et 8, la prime de
-  Scrabble à 8 lettres posées (75 pts, contre 50 pour 7 lettres dans
-  les autres formules). Le duplicate par paires s'obtient en cochant
-  « Tournoi par équipes » avec des équipes de 2 joueurs
+- Formule et rythme du tournoi (FISF/FFSc), deux réglages indépendants
+  modifiables à tout moment depuis la page des parties :
+  - la **formule** détermine les règles de jeu et les primes de
+    Scrabble — Partie normale, Partie joker, Partie 7 sur 8 (avec ou
+    sans joker), Partie 7 et 8 (avec ou sans joker, prime de 75 pts à
+    8 lettres posées contre 50 pour 7 dans les autres formules) ;
+  - le **rythme** détermine la durée par défaut du chronomètre des
+    nouvelles parties — Normal (3 min), Semi-normal (2 min 30),
+    Semi-rapide (2 min), Semi-blitz (1 min 30), Blitz (1 min). Le
+    chronomètre passe visuellement en alerte (couleur, sur la page
+    d'arbitrage comme sur l'affichage grand écran, où une sonnerie se
+    déclenche aussi) à 30 secondes de la fin pour les rythmes
+    Normal/Semi-normal/Semi-rapide, 20 secondes pour Semi-blitz/Blitz,
+    comme le prévoit le règlement (annonce "trente (ou vingt)
+    secondes" avant la fin du temps de jeu). Seul le rythme Blitz
+    bénéficie par ailleurs d'un quota d'avertissements gratuits élargi
+    (5 au lieu de 3, cf. plus bas)
+
+  Le duplicate par paires s'obtient en cochant « Tournoi par équipes »
+  avec des équipes de 2 joueurs
 - Création de parties
 - Saisie des scores par joueur et par partie (mode simple), avec pénalités
 - Saisie détaillée coup par coup : une feuille de partie (une ligne par
   tour de la grille de référence, une colonne par joueur) permet de
   saisir le score de chaque joueur à chaque tour, chaque ligne se
   validant indépendamment — le score de la partie est alors recalculé
-  automatiquement à partir des coups. Les joueurs y sont affichés dans
-  un ordre anonymisé propre à la partie (« Joueur 1 », « Joueur 2 »...,
-  mélangé différemment d'une partie à l'autre) pour que l'arbitre ne
-  puisse pas favoriser quelqu'un qu'il reconnaîtrait à sa position
-  habituelle — les vrais noms restent affichés partout ailleurs
-  (fiche de classement, classement public...)
-- Pénalités d'arbitrage sur un coup, en saisie coup par coup :
-  avertissement (aucun effet chiffré direct pour les premiers de la
-  partie — 5 gratuits en Blitz, 3 dans les autres formules — puis
+  automatiquement à partir des coups. Les joueurs y sont affichés sous
+  une étiquette anonymisée (« Joueur 1 », « Joueur 2 »...) basée sur le
+  classement général cumulé avant cette partie — le 1er du classement
+  devient « Joueur 1 », le 2e « Joueur 2 », etc. — pour que l'arbitre
+  ne puisse pas favoriser un joueur qu'il reconnaîtrait ; les vrais
+  noms restent affichés partout ailleurs (fiche de classement,
+  classement public...)
+- Pénalités d'arbitrage sur un coup, en saisie coup par coup, conformes
+  au règlement FISF du duplicate (janvier 2023) : avertissement (aucun
+  effet chiffré direct pour les premiers de la partie — 5 gratuits en
+  rythme Blitz uniquement, 3 dans tous les autres rythmes, §5.9 — puis
   chaque avertissement supplémentaire coûte 5 points), pénalité (-5
-  points immédiats) ou zéro (les points du coup sont ramenés à 0). La
-  pénalité totale de la partie (colonne « Pénalité » de la fiche
-  joueur) est recalculée automatiquement à partir de ces marques,
-  comme le score
+  points immédiats — sauf sur un coup de
+  4 points ou moins, où elle est obligatoirement remplacée par un
+  zéro pour ne jamais aboutir à un score négatif, §5.6) ou zéro (les
+  points du coup sont ramenés à 0). La pénalité totale de la partie
+  (colonne « Pénalité » de la fiche joueur) est recalculée
+  automatiquement à partir de ces marques, comme le score. Un badge
+  visible apparaît sur le coup concerné dès qu'une marque est
+  appliquée (A, P ou Z), avec le total net après -5 affiché juste en
+  dessous quand la pénalité ou l'avertissement (au-delà du quota
+  gratuit) réduit les points de ce coup précis. Pour corriger une
+  marque saisie par erreur, il suffit de changer la valeur du
+  sélecteur sur le coup concerné et de valider à nouveau la ligne : le
+  badge, le net affiché et le quota d'avertissements gratuits des
+  autres coups du joueur se recalculent automatiquement. Un score de
+  joueur ne peut jamais dépasser le top du coup de référence (le
+  meilleur score possible pour le tirage de ce tour) : la saisie le
+  bloque immédiatement dans le navigateur, et le serveur refuse
+  également toute tentative de contournement
+- Bonification solo (règlement §3.5) : le joueur seul à avoir le
+  meilleur score sur un coup donné (comparaison sur le score brut,
+  avant pénalité) reçoit un badge « Solo » sur ce coup. À partir de 16
+  joueurs inscrits au tournoi, la bonification de 10 points s'ajoute
+  automatiquement au score de la partie ; en dessous de ce seuil, le
+  solo est signalé mais ne rapporte aucun point, comme prévu par le
+  règlement
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
