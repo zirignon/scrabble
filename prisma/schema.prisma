@@ -148,10 +148,6 @@ model Tournament {
   isTeamEvent  Boolean           @default(false)
   qualifiersPerPool Int          @default(2)
   duplicateFormula DuplicateFormula?
-  // Nombre fixe de tables (duplicate) sur lesquelles les joueurs sont
-  // répartis selon le classement général : mémorisé pour être réutilisé
-  // par défaut à chaque nouvelle redistribution.
-  tableCount   Int?
   description  String?
   venue        String?
   startDate    DateTime
@@ -177,10 +173,6 @@ model Registration {
   player       Player             @relation(fields: [playerId], references: [id])
   status       RegistrationStatus @default(CONFIRMED)
   createdAt    DateTime           @default(now())
-  // Table physique actuelle du joueur (duplicate), attribuée par la
-  // redistribution selon le classement général. Nul tant qu'aucune
-  // redistribution n'a eu lieu.
-  tableNumber  Int?
 
   @@unique([tournamentId, playerId])
 }

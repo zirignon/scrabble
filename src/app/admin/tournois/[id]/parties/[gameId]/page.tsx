@@ -82,10 +82,11 @@ export default async function GameMovesPage({
     isPass: move.isPass,
   }));
 
-  // Joueurs affichés dans un ordre anonymisé (propre à cette partie) pour la
-  // saisie des scores, afin que l'arbitre ne favorise pas un joueur qu'il
-  // reconnaîtrait à sa position habituelle.
-  const anonymizedPlayers = anonymizePlayersForGame(game.id, players);
+  // Joueurs affichés dans un ordre anonymisé pour la saisie des scores,
+  // basé sur le classement général avant cette partie (le 1er du
+  // classement devient "Joueur 1", etc.), afin que l'arbitre ne favorise
+  // pas un joueur qu'il reconnaîtrait.
+  const anonymizedPlayers = await anonymizePlayersForGame(tournament.id, game.number, players);
   const moveByTurnAndPlayer = new Map(
     game.moves.map((m) => [`${m.turnNumber}:${m.playerId}`, m])
   );

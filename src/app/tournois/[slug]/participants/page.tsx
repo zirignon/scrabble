@@ -66,7 +66,6 @@ export default async function TournamentParticipantsPage({
                 <th className={th}>Nom et prénoms</th>
                 <th className={th}>Club</th>
                 <th className={th}>Fédé</th>
-                {tournament.type === "DUPLICATE" && <th className={th}>Table</th>}
               </tr>
             </thead>
             <tbody>
@@ -79,17 +78,11 @@ export default async function TournamentParticipantsPage({
                   </td>
                   <td className={matchCell}>{r.player.club?.name ?? "—"}</td>
                   <td className={matchCell}>{r.player.club?.federation ?? "—"}</td>
-                  {tournament.type === "DUPLICATE" && (
-                    <td className={`${matchCell} tabular-nums`}>{r.tableNumber ?? "—"}</td>
-                  )}
                 </tr>
               ))}
               {tournament.registrations.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={tournament.type === "DUPLICATE" ? 6 : 5}
-                    className="py-4 text-black/50 dark:text-white/50"
-                  >
+                  <td colSpan={5} className="py-4 text-black/50 dark:text-white/50">
                     Aucun participant inscrit.
                   </td>
                 </tr>

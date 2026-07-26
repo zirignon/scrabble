@@ -3,13 +3,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
-  redistributeTablesAction,
   registerPlayerAction,
   setDisplayModeAction,
   unregisterPlayerAction,
   updateTournamentStatusFormAction,
 } from "@/lib/actions/tournaments";
-import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 
 const statusOptions = [
@@ -52,46 +50,12 @@ export default async function ManageTournamentPage({
   const registerBound = registerPlayerAction.bind(null, tournament.id);
   const statusBound = updateTournamentStatusFormAction.bind(null, tournament.id);
   const displayModeBound = setDisplayModeAction.bind(null, tournament.id);
-  const redistributeTablesBound = redistributeTablesAction.bind(null, tournament.id);
 
   const displayModeOptions = [
     ["AUTO", "Automatique"],
     ["STANDINGS", "Classement"],
     ["CURRENT", tournament.type === "CLASSIC" ? "Ronde en cours" : "Partie en cours"],
   ] as const;
-
-  // Regroupement des joueurs par table (duplicate), triés par classement
-  // général au sein de chaque table, pour affichage sous forme de fiches
-  // "Table N".
-  const tablesGrouped: {
-    tableNumber: number;
-    players: { playerId: string; firstName: string; lastName: string }[];
-  }[] = [];
-  if (tournament.type === "DUPLICATE") {
-    const standings = await computeDuplicateStandings(tournament.id);
-    const rankByPlayer = new Map(standings.map((row, i) => [row.playerId, i]));
-    const byTable = new Map<number, { playerId: string; firstName: string; lastName: string }[]>();
-    for (const reg of tournament.registrations) {
-      if (reg.tableNumber == null) continue;
-      const list = byTable.get(reg.tableNumber) ?? [];
-      list.push({
-        playerId: reg.playerId,
-        firstName: reg.player.firstName,
-        lastName: reg.player.lastName,
-      });
-      byTable.set(reg.tableNumber, list);
-    }
-    for (const players of byTable.values()) {
-      players.sort(
-        (a, b) => (rankByPlayer.get(a.playerId) ?? 0) - (rankByPlayer.get(b.playerId) ?? 0)
-      );
-    }
-    tablesGrouped.push(
-      ...[...byTable.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([tableNumber, players]) => ({ tableNumber, players }))
-    );
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -212,68 +176,6 @@ export default async function ManageTournamentPage({
         </table>
       </section>
 
-      {tournament.type === "DUPLICATE" && (
-        <section className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Tables</h2>
-            <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-              Répartit les joueurs sur un nombre fixe de tables selon le
-              classement général actuel : le 1er du classement va à la
-              table 1, le 2e à la table 2, ..., le N-ième à la table N,
-              puis ça repart à la table 1 pour le joueur suivant.
-            </p>
-          </div>
-
-          {canManage && (
-            <form action={redistributeTablesBound} className="flex items-end gap-3">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="tableCount" className="text-xs font-medium">
-                  Nombre de tables
-                </label>
-                <input
-                  id="tableCount"
-                  name="tableCount"
-                  type="number"
-                  min={1}
-                  required
-                  defaultValue={tournament.tableCount ?? ""}
-                  className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-28"
-                />
-              </div>
-              <button
-                type="submit"
-                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-              >
-                Redistribuer les tables
-              </button>
-            </form>
-          )}
-
-          {tablesGrouped.length === 0 ? (
-            <p className="text-sm text-black/50 dark:text-white/50">
-              Aucune table attribuée pour l&apos;instant.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {tablesGrouped.map(({ tableNumber, players }) => (
-                <div
-                  key={tableNumber}
-                  className="rounded-md border border-black/10 dark:border-white/20 p-3"
-                >
-                  <p className="font-medium mb-1">Table {tableNumber}</p>
-                  <ul className="text-sm flex flex-col gap-0.5">
-                    {players.map((p) => (
-                      <li key={p.playerId}>
-                        {p.firstName} {p.lastName}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
 
       <section className="flex flex-col gap-3">
         {tournament.isTeamEvent && (

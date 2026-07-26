@@ -7,7 +7,6 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireUser, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { slugify } from "@/lib/slug";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
-import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import type { ActionState } from "@/lib/actions/auth";
 
 const tournamentSchema = z.object({
@@ -282,50 +281,4 @@ export async function selfRegisterAction(tournamentId: string) {
   });
 
   revalidatePath(`/tournois/${tournament.slug}`);
-}
-
-// Répartit les joueurs sur un nombre fixe de tables selon le classement
-// général actuel (duplicate uniquement) : le 1er du classement va à la
-// table 1, le 2e à la table 2, ..., le N-ième à la table N, puis ça
-// repart à la table 1 pour le (N+1)-ième, etc. Le nombre de tables saisi
-// est mémorisé sur le tournoi pour être réutilisé par défaut la
-// prochaine fois.
-export async function redistributeTablesAction(
-  tournamentId: string,
-  formData: FormData
-) {
-  const session = await requireRole(STAFF_ROLES);
-  const tournament = await prisma.tournament.findUniqueOrThrow({
-    where: { id: tournamentId },
-  });
-  if (!canManageTournament(session, tournament.organizerId)) {
-    throw new Error("Non autorisé.");
-  }
-  if (tournament.type !== "DUPLICATE") {
-    throw new Error("La redistribution des tables n'est disponible qu'en duplicate.");
-  }
-
-  const tableCount = Number(formData.get("tableCount"));
-  if (!Number.isInteger(tableCount) || tableCount <= 0) {
-    throw new Error("Le nombre de tables doit être un entier positif.");
-  }
-
-  const standings = await computeDuplicateStandings(tournamentId);
-
-  await prisma.$transaction([
-    prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { tableCount },
-    }),
-    ...standings.map((row, i) =>
-      prisma.registration.update({
-        where: { tournamentId_playerId: { tournamentId, playerId: row.playerId } },
-        data: { tableNumber: (i % tableCount) + 1 },
-      })
-    ),
-  ]);
-
-  revalidatePath(`/admin/tournois/${tournamentId}`);
-  revalidatePath(`/tournois/${tournament.slug}/participants`);
-  notifyTournamentUpdate(tournamentId);
 }

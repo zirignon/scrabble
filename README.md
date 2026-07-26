@@ -131,12 +131,13 @@ Après `npm run db:seed` :
   tour de la grille de référence, une colonne par joueur) permet de
   saisir le score de chaque joueur à chaque tour, chaque ligne se
   validant indépendamment — le score de la partie est alors recalculé
-  automatiquement à partir des coups. Les joueurs y sont affichés dans
-  un ordre anonymisé propre à la partie (« Joueur 1 », « Joueur 2 »...,
-  mélangé différemment d'une partie à l'autre) pour que l'arbitre ne
-  puisse pas favoriser quelqu'un qu'il reconnaîtrait à sa position
-  habituelle — les vrais noms restent affichés partout ailleurs
-  (fiche de classement, classement public...)
+  automatiquement à partir des coups. Les joueurs y sont affichés sous
+  une étiquette anonymisée (« Joueur 1 », « Joueur 2 »...) basée sur le
+  classement général cumulé avant cette partie — le 1er du classement
+  devient « Joueur 1 », le 2e « Joueur 2 », etc. — pour que l'arbitre
+  ne puisse pas favoriser un joueur qu'il reconnaîtrait ; les vrais
+  noms restent affichés partout ailleurs (fiche de classement,
+  classement public...)
 - Pénalités d'arbitrage sur un coup, en saisie coup par coup :
   avertissement (aucun effet chiffré direct pour les premiers de la
   partie — 5 gratuits en Blitz, 3 dans les autres formules — puis
@@ -180,14 +181,6 @@ Après `npm run db:seed` :
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
-- Redistribution des tables selon le classement général : sur la page de
-  gestion du tournoi, l'organisateur fixe un nombre de tables puis
-  redistribue à tout moment — le 1er du classement va à la table 1, le
-  2e à la table 2, ..., le N-ième à la table N, puis ça repart à la
-  table 1 pour le joueur suivant. Le nombre de tables saisi est
-  mémorisé et réutilisé par défaut à la prochaine redistribution. La
-  table de chaque joueur est visible sur la page de gestion (regroupée
-  par table) et sur la page publique des participants
 - N'importe quel mot peut être saisi librement, sans validation
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
