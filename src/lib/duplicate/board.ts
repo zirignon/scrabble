@@ -234,13 +234,11 @@ export function getFormulaTimerSeconds(formula: string | null | undefined): numb
 }
 
 // Nombre d'avertissements gratuits (sur une même partie) avant que chaque
-// avertissement supplémentaire ne coûte 5 points : 5 en Blitz ou dans une
-// formule originale (Joker, 7 sur 8, 7 et 8), 3 dans les autres formules
-// (règlement FISF §5.9 : "au quatrième (sixième en blitz ou partie
-// originale), il se voit retirer cinq points de pénalité").
+// avertissement supplémentaire ne coûte 5 points : 5 en Blitz uniquement
+// (le 6e coûte 5 points), 3 dans toutes les autres formules, y compris les
+// formules originales (Joker, 7 sur 8, 7 et 8) — le 4e coûte 5 points.
 export function getFreeAvertissementCount(formula: string | null | undefined): number {
-  const sixthFormulas = ["BLITZ", "JOKER", "SEPT_SUR_HUIT", "SEPT_ET_HUIT"];
-  return sixthFormulas.includes(formula ?? "") ? 5 : 3;
+  return formula === "BLITZ" ? 5 : 3;
 }
 
 export interface MoveScoreLike {

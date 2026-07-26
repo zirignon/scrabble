@@ -234,9 +234,10 @@ export default async function GameMovesPage({
           L&apos;avertissement (A) n&apos;a
           pas d&apos;effet chiffré direct, mais au-delà des{" "}
           {freeAvertissements} avertissements
-          gratuits de la partie (5 en Blitz et dans les formules originales
-          Joker/7 sur 8/7 et 8, 3 sinon), chaque avertissement supplémentaire
-          coûte 5 points ; la pénalité (P) retire 5 points immédiatement —
+          gratuits de la partie (5 en Blitz uniquement, 3 dans toutes les
+          autres formules y compris les formules originales), chaque
+          avertissement supplémentaire coûte 5 points ; la pénalité (P)
+          retire 5 points immédiatement —
           sauf si le coup rapporte 4 points ou moins, auquel cas c&apos;est
           obligatoirement un zéro (Z) plutôt qu&apos;une pénalité, pour ne
           jamais aboutir à un score négatif (règlement §5.6) ; le zéro (Z)

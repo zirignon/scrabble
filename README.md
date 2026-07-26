@@ -141,8 +141,8 @@ Après `npm run db:seed` :
 - Pénalités d'arbitrage sur un coup, en saisie coup par coup, conformes
   au règlement FISF du duplicate (janvier 2023) : avertissement (aucun
   effet chiffré direct pour les premiers de la partie — 5 gratuits en
-  Blitz et dans les formules originales Joker/7 sur 8/7 et 8, 3 dans
-  les autres formules, §5.9 — puis chaque avertissement supplémentaire
+  Blitz uniquement, 3 dans toutes les autres formules y compris les
+  formules originales, §5.9 — puis chaque avertissement supplémentaire
   coûte 5 points), pénalité (-5 points immédiats — sauf sur un coup de
   4 points ou moins, où elle est obligatoirement remplacée par un
   zéro pour ne jamais aboutir à un score négatif, §5.6) ou zéro (les
