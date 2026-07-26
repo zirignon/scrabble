@@ -258,19 +258,25 @@ export default async function GameMovesPage({
                 point.
               </p>
             </details>
+
+            <details className="text-xs text-black/50 dark:text-white/50">
+              <summary className="cursor-pointer select-none hover:text-black/70 dark:hover:text-white/70">
+                Aide : scores des joueurs
+              </summary>
+              <p className="mt-1">
+                Les joueurs sont affichés dans un ordre anonymisé propre à cette
+                partie (« Joueur 1 », « Joueur 2 »...), pour que l&apos;arbitre ne
+                puisse pas favoriser quelqu&apos;un qu&apos;il reconnaîtrait à sa
+                position habituelle. Une ligne par tour ; chaque ligne se valide
+                indépendamment.
+              </p>
+            </details>
           </div>
         </div>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Scores des joueurs</h2>
-        <p className="text-sm text-black/60 dark:text-white/60">
-          Les joueurs sont affichés dans un ordre anonymisé propre à cette
-          partie (« Joueur 1 », « Joueur 2 »...), pour que l&apos;arbitre ne
-          puisse pas favoriser quelqu&apos;un qu&apos;il reconnaîtrait à sa
-          position habituelle. Une ligne par tour ; chaque ligne se valide
-          indépendamment.
-        </p>
 
         {players.length === 0 ? (
           <p className="text-sm text-black/50 dark:text-white/50">
