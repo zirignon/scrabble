@@ -118,13 +118,26 @@ Après `npm run db:seed` :
   directe entre les deux joueurs tranche
 
 ### Scrabble duplicate
-- Formule du tournoi (FISF/FFSc), modifiable à tout moment depuis la
-  page des parties : Normale (3 min/coup), Semi-rapide (2 min), Blitz
-  (1 min), Joker, 7 sur 8, 7 et 8 — détermine la durée par défaut du
-  chronomètre des nouvelles parties et, pour 7 et 8, la prime de
-  Scrabble à 8 lettres posées (75 pts, contre 50 pour 7 lettres dans
-  les autres formules). Le duplicate par paires s'obtient en cochant
-  « Tournoi par équipes » avec des équipes de 2 joueurs
+- Formule et rythme du tournoi (FISF/FFSc), deux réglages indépendants
+  modifiables à tout moment depuis la page des parties :
+  - la **formule** détermine les règles de jeu et les primes de
+    Scrabble — Partie normale, Partie joker, Partie 7 sur 8 (avec ou
+    sans joker), Partie 7 et 8 (avec ou sans joker, prime de 75 pts à
+    8 lettres posées contre 50 pour 7 dans les autres formules) ;
+  - le **rythme** détermine la durée par défaut du chronomètre des
+    nouvelles parties — Normal (3 min), Semi-normal (2 min 30),
+    Semi-rapide (2 min), Semi-blitz (1 min 30), Blitz (1 min). Le
+    chronomètre passe visuellement en alerte (couleur, sur la page
+    d'arbitrage comme sur l'affichage grand écran, où une sonnerie se
+    déclenche aussi) à 30 secondes de la fin pour les rythmes
+    Normal/Semi-normal/Semi-rapide, 20 secondes pour Semi-blitz/Blitz,
+    comme le prévoit le règlement (annonce "trente (ou vingt)
+    secondes" avant la fin du temps de jeu). Seul le rythme Blitz
+    bénéficie par ailleurs d'un quota d'avertissements gratuits élargi
+    (5 au lieu de 3, cf. plus bas)
+
+  Le duplicate par paires s'obtient en cochant « Tournoi par équipes »
+  avec des équipes de 2 joueurs
 - Création de parties
 - Saisie des scores par joueur et par partie (mode simple), avec pénalités
 - Saisie détaillée coup par coup : une feuille de partie (une ligne par
@@ -141,9 +154,9 @@ Après `npm run db:seed` :
 - Pénalités d'arbitrage sur un coup, en saisie coup par coup, conformes
   au règlement FISF du duplicate (janvier 2023) : avertissement (aucun
   effet chiffré direct pour les premiers de la partie — 5 gratuits en
-  Blitz uniquement, 3 dans toutes les autres formules y compris les
-  formules originales, §5.9 — puis chaque avertissement supplémentaire
-  coûte 5 points), pénalité (-5 points immédiats — sauf sur un coup de
+  rythme Blitz uniquement, 3 dans tous les autres rythmes, §5.9 — puis
+  chaque avertissement supplémentaire coûte 5 points), pénalité (-5
+  points immédiats — sauf sur un coup de
   4 points ou moins, où elle est obligatoirement remplacée par un
   zéro pour ne jamais aboutir à un score négatif, §5.6) ou zéro (les
   points du coup sont ramenés à 0). La pénalité totale de la partie

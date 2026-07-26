@@ -216,29 +216,48 @@ export interface BingoRule {
 const DEFAULT_BINGO_RULES: BingoRule[] = [{ tileCount: 7, bonus: 50 }];
 
 // Prime de Scrabble selon la formule du tournoi duplicate : les formules
-// standards (normale, semi-rapide, blitz, joker, 7 sur 8) ne primetent que
-// les tirages de 7 lettres posées (+50) ; la formule 7 et 8 ajoute une
-// prime de 75 points pour 8 lettres posées.
+// standards (normale, joker, 7 sur 8, 7 sur 8 joker) ne primetent que les
+// tirages de 7 lettres posées (+50) ; la formule 7 et 8 (avec ou sans
+// joker) ajoute une prime de 75 points pour 8 lettres posées.
 export function getBingoRules(formula: string | null | undefined): BingoRule[] {
-  if (formula === "SEPT_ET_HUIT") {
+  if (formula === "SEPT_ET_HUIT" || formula === "SEPT_ET_HUIT_JOKER") {
     return [{ tileCount: 7, bonus: 50 }, { tileCount: 8, bonus: 75 }];
   }
   return DEFAULT_BINGO_RULES;
 }
 
-// Durée par défaut du chronomètre de partie selon la formule (secondes).
-export function getFormulaTimerSeconds(formula: string | null | undefined): number {
-  if (formula === "SEMI_RAPIDE") return 120;
-  if (formula === "BLITZ") return 60;
-  return 180;
+// Durée par défaut du chronomètre de partie selon le rythme (secondes) :
+// Normal 3' (2'30+0'30), Semi-normal 2'30 (2'00+0'30), Semi-rapide 2'00
+// (1'30+0'30), Semi-blitz 1'30 (1'10+0'20), Blitz 1' (0'40+0'20).
+export function getRythmeTimerSeconds(rythme: string | null | undefined): number {
+  switch (rythme) {
+    case "SEMI_NORMAL":
+      return 150;
+    case "SEMI_RAPIDE":
+      return 120;
+    case "SEMI_BLITZ":
+      return 90;
+    case "BLITZ":
+      return 60;
+    default:
+      return 180;
+  }
+}
+
+// Repère d'alerte avant la fin du temps de jeu, en secondes restantes
+// (règlement FISF §3.3 : l'arbitre annonce "chrono – trente (ou vingt)
+// secondes – terminé") : 30 secondes pour les rythmes Normal/Semi-normal/
+// Semi-rapide, 20 secondes pour Semi-blitz/Blitz.
+export function getRythmeAlertSeconds(rythme: string | null | undefined): number {
+  return rythme === "SEMI_BLITZ" || rythme === "BLITZ" ? 20 : 30;
 }
 
 // Nombre d'avertissements gratuits (sur une même partie) avant que chaque
-// avertissement supplémentaire ne coûte 5 points : 5 en Blitz uniquement
-// (le 6e coûte 5 points), 3 dans toutes les autres formules, y compris les
-// formules originales (Joker, 7 sur 8, 7 et 8) — le 4e coûte 5 points.
-export function getFreeAvertissementCount(formula: string | null | undefined): number {
-  return formula === "BLITZ" ? 5 : 3;
+// avertissement supplémentaire ne coûte 5 points : 5 dans le rythme Blitz
+// uniquement (le 6e coûte 5 points), 3 dans tous les autres rythmes — le
+// 4e coûte 5 points (règlement FISF §5.9).
+export function getFreeAvertissementCount(rythme: string | null | undefined): number {
+  return rythme === "BLITZ" ? 5 : 3;
 }
 
 export interface MoveScoreLike {

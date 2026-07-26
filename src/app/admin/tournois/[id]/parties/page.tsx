@@ -3,33 +3,43 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { addGameAction, saveGameScoresAction } from "@/lib/actions/duplicate";
-import { updateDuplicateFormulaAction } from "@/lib/actions/tournaments";
+import { updateDuplicateSettingsAction } from "@/lib/actions/tournaments";
 
 const formulaLabel: Record<string, string> = {
-  NORMALE: "Normale (3 min par coup)",
-  SEMI_RAPIDE: "Semi-rapide (2 min par coup)",
-  BLITZ: "Blitz (1 min par coup)",
-  JOKER: "Joker (6 lettres + 1 joker)",
-  SEPT_SUR_HUIT: "7 sur 8 (tirage de 8, 7 jouables)",
-  SEPT_ET_HUIT: "7 et 8 (prime de 75 pts à 8 lettres)",
+  NORMALE: "Partie normale",
+  JOKER: "Partie joker",
+  SEPT_SUR_HUIT: "Partie 7 sur 8",
+  SEPT_SUR_HUIT_JOKER: "Partie 7 sur 8 joker",
+  SEPT_ET_HUIT: "Partie 7 et 8",
+  SEPT_ET_HUIT_JOKER: "Partie 7 et 8 joker",
+};
+
+const rythmeLabel: Record<string, string> = {
+  NORMAL: "Normal (3 minutes)",
+  SEMI_NORMAL: "Semi-normal (2 minutes 30)",
+  SEMI_RAPIDE: "Semi-rapide (2 minutes)",
+  SEMI_BLITZ: "Semi-blitz (1 minute 30)",
+  BLITZ: "Blitz (1 minute)",
 };
 
 function FormulaSettingsForm({
   tournamentId,
   duplicateFormula,
+  duplicateRythme,
   canManage,
 }: {
   tournamentId: string;
   duplicateFormula: string | null;
+  duplicateRythme: string | null;
   canManage: boolean;
 }) {
   return (
     <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-      <p className="text-sm font-medium">Formule</p>
+      <p className="text-sm font-medium">Formule et rythme</p>
       {canManage ? (
         <form
-          action={updateDuplicateFormulaAction.bind(null, tournamentId)}
-          className="flex items-end gap-3"
+          action={updateDuplicateSettingsAction.bind(null, tournamentId)}
+          className="flex flex-wrap items-end gap-3"
         >
           <select
             name="duplicateFormula"
@@ -37,6 +47,17 @@ function FormulaSettingsForm({
             className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
           >
             {Object.entries(formulaLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            name="duplicateRythme"
+            defaultValue={duplicateRythme ?? "NORMAL"}
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+          >
+            {Object.entries(rythmeLabel).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -51,12 +72,13 @@ function FormulaSettingsForm({
         </form>
       ) : (
         <p className="text-sm text-black/60 dark:text-white/60">
-          {formulaLabel[duplicateFormula ?? "NORMALE"]}
+          {formulaLabel[duplicateFormula ?? "NORMALE"]} · {rythmeLabel[duplicateRythme ?? "NORMAL"]}
         </p>
       )}
       <p className="text-xs text-black/50 dark:text-white/50">
-        S&apos;applique à la durée par défaut du chronomètre des nouvelles
-        parties et à la prime de Scrabble de la grille de référence.
+        La formule détermine les règles de jeu (tirage, primes de Scrabble)
+        et le rythme la durée par défaut du chronomètre des nouvelles
+        parties.
       </p>
     </div>
   );
@@ -111,6 +133,7 @@ export default async function GamesPage({
       <FormulaSettingsForm
         tournamentId={tournament.id}
         duplicateFormula={tournament.duplicateFormula}
+        duplicateRythme={tournament.duplicateRythme}
         canManage={canManage}
       />
 

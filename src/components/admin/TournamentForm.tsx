@@ -91,16 +91,39 @@ export function TournamentForm() {
             className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent"
             defaultValue="NORMALE"
           >
-            <option value="NORMALE">Normale (3 min par coup)</option>
-            <option value="SEMI_RAPIDE">Semi-rapide (2 min par coup)</option>
-            <option value="BLITZ">Blitz (1 min par coup)</option>
-            <option value="JOKER">Joker (6 lettres + 1 joker)</option>
-            <option value="SEPT_SUR_HUIT">7 sur 8 (tirage de 8, 7 jouables)</option>
-            <option value="SEPT_ET_HUIT">7 et 8 (prime de 75 pts à 8 lettres)</option>
+            <option value="NORMALE">Partie normale</option>
+            <option value="JOKER">Partie joker</option>
+            <option value="SEPT_SUR_HUIT">Partie 7 sur 8</option>
+            <option value="SEPT_SUR_HUIT_JOKER">Partie 7 sur 8 joker</option>
+            <option value="SEPT_ET_HUIT">Partie 7 et 8</option>
+            <option value="SEPT_ET_HUIT_JOKER">Partie 7 et 8 joker</option>
           </select>
           <p className="text-xs text-black/60 dark:text-white/60">
-            Détermine la durée par défaut du chronomètre des parties et,
-            pour 7 et 8, la prime de Scrabble à 8 lettres posées.
+            Détermine les règles de jeu (tirage, primes de Scrabble). Pour
+            7 et 8, prime de 75 pts à 8 lettres posées.
+          </p>
+        </div>
+      )}
+
+      {type === "DUPLICATE" && (
+        <div className="flex flex-col gap-1">
+          <label htmlFor="duplicateRythme" className="text-sm font-medium">
+            Rythme
+          </label>
+          <select
+            id="duplicateRythme"
+            name="duplicateRythme"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent"
+            defaultValue="NORMAL"
+          >
+            <option value="NORMAL">Normal (3 minutes)</option>
+            <option value="SEMI_NORMAL">Semi-normal (2 minutes 30)</option>
+            <option value="SEMI_RAPIDE">Semi-rapide (2 minutes)</option>
+            <option value="SEMI_BLITZ">Semi-blitz (1 minute 30)</option>
+            <option value="BLITZ">Blitz (1 minute)</option>
+          </select>
+          <p className="text-xs text-black/60 dark:text-white/60">
+            Détermine la durée par défaut du chronomètre des parties.
           </p>
         </div>
       )}

@@ -11,7 +11,7 @@ import {
   computeSoloWinners,
   getFreeAvertissementCount,
   getBingoRules,
-  getFormulaTimerSeconds,
+  getRythmeTimerSeconds,
   parseReference,
   buildPlainBoard,
   SOLO_BONUS_MIN_PLAYERS,
@@ -180,7 +180,7 @@ export async function addGameAction(tournamentId: string) {
     data: {
       tournamentId,
       number: (last?.number ?? 0) + 1,
-      timerDurationSeconds: getFormulaTimerSeconds(tournament.duplicateFormula),
+      timerDurationSeconds: getRythmeTimerSeconds(tournament.duplicateRythme),
     },
   });
 
@@ -262,7 +262,7 @@ async function recomputeGameScore(gameId: string, playerId: string) {
 
   const score = moves.reduce((sum, m) => sum + m.points, 0) + soloBonus;
 
-  const freeAvertissements = getFreeAvertissementCount(game.tournament.duplicateFormula);
+  const freeAvertissements = getFreeAvertissementCount(game.tournament.duplicateRythme);
   const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
   const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
   const penalty =

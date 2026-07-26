@@ -14,11 +14,13 @@ export function GameTimerControls({
   game,
   referenceMoves,
   canManage,
+  alertSeconds,
   tournamentId,
 }: {
   game: Game;
   referenceMoves: ReferenceMove[];
   canManage: boolean;
+  alertSeconds: number;
   tournamentId: string;
 }) {
   const runningSince = game.timerRunning && game.timerStartedAt
@@ -75,6 +77,7 @@ export function GameTimerControls({
         <LiveCountdown
           baselineSeconds={game.timerRemainingSeconds ?? game.timerDurationSeconds}
           runningSince={runningSince}
+          alertSeconds={alertSeconds}
           className={game.timerRunning ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : "text-base"}
         />
         {canManage && (

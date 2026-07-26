@@ -53,19 +53,33 @@ enum TournamentDisplayMode {
   CURRENT
 }
 
-// Formules de tournoi duplicate (FISF/FFSc) : la formule détermine la durée
-// par défaut du chronomètre de partie, et pour 7 et 8, la prime de
-// Scrabble applicable à 8 lettres posées en plus de celle à 7. Le jeu du
-// joker (Partie Joker) ne change pas le calcul du score en lui-même : une
-// lettre blanche est simplement signalée par une minuscule dans le mot
-// saisi, quelle que soit la formule.
+// Formule de tournoi duplicate (FISF/FFSc, §3.8) : détermine les règles de
+// jeu propres à la partie (nombre de lettres tirées, primes de Scrabble
+// applicables). Le jeu du joker (Partie Joker) ne change pas le calcul du
+// score en lui-même : une lettre blanche est simplement signalée par une
+// minuscule dans le mot saisi. Indépendante du rythme (voir DuplicateRythme)
+// qui détermine, lui, la durée du chronomètre.
 enum DuplicateFormula {
   NORMALE
-  SEMI_RAPIDE
-  BLITZ
   JOKER
   SEPT_SUR_HUIT
+  SEPT_SUR_HUIT_JOKER
   SEPT_ET_HUIT
+  SEPT_ET_HUIT_JOKER
+}
+
+// Rythme de jeu (FISF/FFSc, §1.3) : détermine la durée par défaut du
+// chronomètre de partie, indépendamment de la formule. Chaque rythme a
+// aussi un repère d'alerte avant la fin du temps (30 ou 20 secondes selon
+// le rythme, cf. l'annonce "trente (ou vingt) secondes" du §3.3) ; seul le
+// rythme Blitz bénéficie par ailleurs d'un quota d'avertissements gratuits
+// élargi (§5.9).
+enum DuplicateRythme {
+  NORMAL
+  SEMI_NORMAL
+  SEMI_RAPIDE
+  SEMI_BLITZ
+  BLITZ
 }
 
 // Pénalité d'arbitrage appliquée à un coup joué (saisie coup par coup) :
@@ -148,6 +162,7 @@ model Tournament {
   isTeamEvent  Boolean           @default(false)
   qualifiersPerPool Int          @default(2)
   duplicateFormula DuplicateFormula?
+  duplicateRythme  DuplicateRythme?
   description  String?
   venue        String?
   startDate    DateTime
