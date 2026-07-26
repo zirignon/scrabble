@@ -127,9 +127,16 @@ Après `npm run db:seed` :
   « Tournoi par équipes » avec des équipes de 2 joueurs
 - Création de parties
 - Saisie des scores par joueur et par partie (mode simple), avec pénalités
-- Saisie détaillée coup par coup (tirage, mot joué, points, top,
-  passe) : le score de la partie est alors recalculé automatiquement
-  à partir des coups
+- Saisie détaillée coup par coup : une feuille de partie (une ligne par
+  tour de la grille de référence, une colonne par joueur) permet de
+  saisir le score de chaque joueur à chaque tour, chaque ligne se
+  validant indépendamment — le score de la partie est alors recalculé
+  automatiquement à partir des coups. Les joueurs y sont affichés dans
+  un ordre anonymisé propre à la partie (« Joueur 1 », « Joueur 2 »...,
+  mélangé différemment d'une partie à l'autre) pour que l'arbitre ne
+  puisse pas favoriser quelqu'un qu'il reconnaîtrait à sa position
+  habituelle — les vrais noms restent affichés partout ailleurs
+  (fiche de classement, classement public...)
 - Pénalités d'arbitrage sur un coup, en saisie coup par coup :
   avertissement (aucun effet chiffré direct pour les premiers de la
   partie — 5 gratuits en Blitz, 3 dans les autres formules — puis
