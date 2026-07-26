@@ -3,30 +3,17 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import {
-  addMoveAction,
   addReferenceMoveAction,
-  deleteMoveAction,
   deleteReferenceMoveAction,
   findReferenceMoveSolutionsAction,
-  updateMoveAction,
+  saveTurnScoresAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
 import { reconstructBoard, formatReference, getFreeAvertissementCount } from "@/lib/duplicate/board";
+import { anonymizePlayersForGame } from "@/lib/duplicate/anonymize";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
 import { GameTimerControls } from "@/components/admin/GameTimerControls";
-
-const penaltyLabel: Record<string, string> = {
-  AVERTISSEMENT: "Avertissement (A)",
-  PENALITE: "Pénalité -5 (P)",
-  ZERO: "Zéro (Z)",
-};
-
-const penaltyShort: Record<string, string> = {
-  AVERTISSEMENT: "A",
-  PENALITE: "P",
-  ZERO: "Z",
-};
 
 export default async function GameMovesPage({
   params,
@@ -72,6 +59,14 @@ export default async function GameMovesPage({
     isPass: move.isPass,
   }));
 
+  // Joueurs affichés dans un ordre anonymisé (propre à cette partie) pour la
+  // saisie des scores, afin que l'arbitre ne favorise pas un joueur qu'il
+  // reconnaîtrait à sa position habituelle.
+  const anonymizedPlayers = anonymizePlayersForGame(game.id, players);
+  const moveByTurnAndPlayer = new Map(
+    game.moves.map((m) => [`${m.turnNumber}:${m.playerId}`, m])
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -84,6 +79,13 @@ export default async function GameMovesPage({
         <h1 className="text-2xl font-semibold mt-1">
           Partie {game.number} — détail coup par coup
         </h1>
+        <Link
+          href={`/tournois/${tournament.slug}/affichage`}
+          target="_blank"
+          className="inline-block mt-2 rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+        >
+          Ouvrir l&apos;affichage grand écran ↗
+        </Link>
         {game.top != null && (
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
             Top de la partie : {game.top}
@@ -190,215 +192,136 @@ export default async function GameMovesPage({
         est recalculée automatiquement à partir de ces marques.
       </p>
 
-      {players.map((player) => {
-        const moves = game.moves.filter((m) => m.playerId === player.id);
-        const result = resultByPlayer.get(player.id);
-        const total = moves.reduce((sum, m) => sum + m.points, 0);
-        const addMoveBound = addMoveAction.bind(null, tournament.id, game.id, player.id);
-        const freeAvertissements = getFreeAvertissementCount(tournament.duplicateFormula);
-        const avertissementCount = moves.filter((m) => m.penaltyType === "AVERTISSEMENT").length;
-        const penaliteCount = moves.filter((m) => m.penaltyType === "PENALITE").length;
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Scores des joueurs</h2>
+        <p className="text-sm text-black/60 dark:text-white/60">
+          Les joueurs sont affichés dans un ordre anonymisé propre à cette
+          partie (« Joueur 1 », « Joueur 2 »...), pour que l&apos;arbitre ne
+          puisse pas favoriser quelqu&apos;un qu&apos;il reconnaîtrait à sa
+          position habituelle. Une ligne par tour ; chaque ligne se valide
+          indépendamment.
+        </p>
 
-        return (
-          <section key={player.id} className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">
-              {player.firstName} {player.lastName}
-              <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
-                Total : {total}
-                {result && result.penalty > 0 ? ` · Pénalité : -${result.penalty}` : ""}
-                {avertissementCount > 0
-                  ? ` · Avertissements : ${avertissementCount} (${freeAvertissements} gratuits)`
-                  : ""}
-                {penaliteCount > 0 ? ` · Pénalités posées : ${penaliteCount}` : ""}
-              </span>
-            </h2>
-
-            <table className="w-full text-sm border-collapse">
+        {players.length === 0 ? (
+          <p className="text-sm text-black/50 dark:text-white/50">
+            Aucun joueur inscrit pour cette partie.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="text-sm border-collapse">
               <thead>
                 <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">Coup</th>
-                  <th className="py-2 pr-4">Tirage</th>
-                  <th className="py-2 pr-4">Mot joué</th>
-                  <th className="py-2 pr-4">Points</th>
-                  <th className="py-2 pr-4">Top</th>
-                  <th className="py-2 pr-4">Passe</th>
-                  <th className="py-2 pr-4">Pénalité</th>
-                  {canManage && <th className="py-2 pr-4"></th>}
+                  <th className="py-2 pr-3">Coup</th>
+                  <th className="py-2 pr-4">Référence</th>
+                  {anonymizedPlayers.map(({ player, label }) => (
+                    <th key={player.id} className="py-2 px-2 text-center">
+                      {label}
+                    </th>
+                  ))}
+                  {canManage && <th className="py-2 pr-2"></th>}
                 </tr>
               </thead>
               <tbody>
-                {moves.map((move) => (
-                  <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
-                    {canManage ? (
-                      <td colSpan={8} className="py-1.5">
-                        <form
-                          action={updateMoveAction.bind(
-                            null,
-                            tournament.id,
-                            game.id,
-                            move.id
-                          )}
-                          className="flex flex-wrap items-center gap-2"
-                        >
-                          <span className="w-10 text-black/60 dark:text-white/60">
-                            #{move.turnNumber}
-                          </span>
-                          <input
-                            type="text"
-                            name="rack"
-                            defaultValue={move.rack ?? ""}
-                            placeholder="Tirage"
-                            className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
-                          />
-                          <input
-                            type="text"
-                            name="word"
-                            defaultValue={move.word ?? ""}
-                            placeholder="Mot joué"
-                            className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent uppercase"
-                          />
-                          <input
-                            type="number"
-                            name="points"
-                            defaultValue={move.points}
-                            className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                          />
-                          <input
-                            type="number"
-                            name="top"
-                            defaultValue={move.top ?? ""}
-                            placeholder="Top"
-                            className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
-                          />
-                          <label className="flex items-center gap-1 text-xs">
-                            <input
-                              type="checkbox"
-                              name="isPass"
-                              defaultChecked={move.isPass}
-                            />
-                            Passe
-                          </label>
-                          <select
-                            name="penaltyType"
-                            defaultValue={move.penaltyType ?? ""}
-                            className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-xs"
-                          >
-                            <option value="">Aucune pénalité</option>
-                            {Object.entries(penaltyLabel).map(([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="submit"
-                            className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-                          >
-                            OK
-                          </button>
-                          <button
-                            type="submit"
-                            formAction={deleteMoveAction.bind(
-                              null,
-                              tournament.id,
-                              game.id,
-                              move.id
-                            )}
-                            className="rounded border border-red-600 text-red-600 px-2 py-1 text-xs"
-                          >
-                            Supprimer
-                          </button>
-                        </form>
+                {game.referenceMoves.map((move) => {
+                  const formId = `turn-${move.turnNumber}`;
+                  return (
+                    <tr key={move.turnNumber} className="border-b border-black/5 dark:border-white/5">
+                      <td className="py-1.5 pr-3 text-black/60 dark:text-white/60">
+                        {move.turnNumber}
                       </td>
-                    ) : (
-                      <>
-                        <td className="py-1.5 pr-4">{move.turnNumber}</td>
-                        <td className="py-1.5 pr-4">{move.rack ?? "—"}</td>
-                        <td className="py-1.5 pr-4">
-                          {move.isPass ? "Passe" : move.word ?? "—"}
+                      <td className="py-1.5 pr-4 whitespace-nowrap">
+                        <span className="font-medium">
+                          {formatReference(move.row, move.col, move.direction)}
+                        </span>{" "}
+                        {move.isPass ? "Passe" : move.word ?? "—"}{" "}
+                        <span className="text-black/50 dark:text-white/50">
+                          ({move.points} pts)
+                        </span>
+                      </td>
+                      {anonymizedPlayers.map(({ player }) => {
+                        const pm = moveByTurnAndPlayer.get(`${move.turnNumber}:${player.id}`);
+                        return (
+                          <td key={player.id} className="py-1 px-2 text-center">
+                            {canManage ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <input
+                                  form={formId}
+                                  type="number"
+                                  name={`score_${player.id}`}
+                                  defaultValue={pm?.points ?? ""}
+                                  placeholder="—"
+                                  className="w-14 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-sm"
+                                />
+                                <select
+                                  form={formId}
+                                  name={`penalty_${player.id}`}
+                                  defaultValue={pm?.penaltyType ?? ""}
+                                  className="w-14 rounded border border-black/10 dark:border-white/20 bg-transparent text-[10px]"
+                                >
+                                  <option value="">—</option>
+                                  <option value="AVERTISSEMENT">A</option>
+                                  <option value="PENALITE">P</option>
+                                  <option value="ZERO">Z</option>
+                                </select>
+                              </div>
+                            ) : (
+                              <span>{pm?.points ?? "—"}</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      {canManage && (
+                        <td className="py-1.5 pr-2">
+                          <form
+                            id={formId}
+                            action={saveTurnScoresAction.bind(null, tournament.id, game.id, move.turnNumber)}
+                          >
+                            <button
+                              type="submit"
+                              className="rounded bg-emerald-700 text-white px-2 py-1 text-xs whitespace-nowrap"
+                            >
+                              Valider
+                            </button>
+                          </form>
                         </td>
-                        <td className="py-1.5 pr-4">{move.points}</td>
-                        <td className="py-1.5 pr-4">{move.top ?? "—"}</td>
-                        <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
-                        <td className="py-1.5 pr-4">
-                          {move.penaltyType ? penaltyShort[move.penaltyType] : "—"}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-                {moves.length === 0 && (
+                      )}
+                    </tr>
+                  );
+                })}
+                {game.referenceMoves.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-2 text-black/50 dark:text-white/50">
-                      Aucun coup saisi.
+                    <td
+                      colSpan={2 + anonymizedPlayers.length + (canManage ? 1 : 0)}
+                      className="py-2 text-black/50 dark:text-white/50"
+                    >
+                      Aucun coup de référence saisi pour l&apos;instant.
                     </td>
                   </tr>
                 )}
               </tbody>
+              {game.referenceMoves.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-black/20 dark:border-white/20 font-semibold">
+                    <td colSpan={2} className="py-2 pr-4">
+                      Total (net)
+                    </td>
+                    {anonymizedPlayers.map(({ player }) => {
+                      const result = resultByPlayer.get(player.id);
+                      const net = result ? result.score - result.penalty : null;
+                      return (
+                        <td key={player.id} className="py-2 px-2 text-center">
+                          {net ?? "—"}
+                        </td>
+                      );
+                    })}
+                    {canManage && <td></td>}
+                  </tr>
+                </tfoot>
+              )}
             </table>
-
-            {canManage && (
-              <form action={addMoveBound} className="flex flex-wrap items-center gap-2">
-                <span className="w-10 text-black/60 dark:text-white/60 text-sm">
-                  #{moves.length + 1}
-                </span>
-                <input
-                  type="text"
-                  name="rack"
-                  placeholder="Tirage"
-                  className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-                />
-                <input
-                  type="text"
-                  name="word"
-                  placeholder="Mot joué"
-                  className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-                />
-                <input
-                  type="number"
-                  name="points"
-                  placeholder="Points"
-                  className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-                />
-                <input
-                  type="number"
-                  name="top"
-                  placeholder="Top"
-                  className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-                />
-                <label className="flex items-center gap-1 text-xs">
-                  <input type="checkbox" name="isPass" />
-                  Passe
-                </label>
-                <select
-                  name="penaltyType"
-                  defaultValue=""
-                  className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-xs"
-                >
-                  <option value="">Aucune pénalité</option>
-                  {Object.entries(penaltyLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
-                >
-                  + Coup
-                </button>
-              </form>
-            )}
-          </section>
-        );
-      })}
-
-      {players.length === 0 && (
-        <p className="text-sm text-black/50 dark:text-white/50">
-          Aucun joueur inscrit pour cette partie.
-        </p>
-      )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

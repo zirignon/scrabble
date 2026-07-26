@@ -375,6 +375,52 @@ export async function deleteMoveAction(
   revalidatePath(`/tournois`);
 }
 
+// Enregistre en une fois le score de chaque joueur pour un tour donné (une
+// ligne de la feuille de partie anonymisée) : une case vide n'est pas
+// touchée (permet de compléter le tour au fur et à mesure sans écraser ce
+// qui est déjà saisi). Le "top" de chaque coup est celui du coup de
+// référence de ce tour, pas ressaisi joueur par joueur.
+export async function saveTurnScoresAction(
+  tournamentId: string,
+  gameId: string,
+  turnNumber: number,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+
+  const [referenceMove, registrations] = await Promise.all([
+    prisma.referenceMove.findUnique({ where: { gameId_turnNumber: { gameId, turnNumber } } }),
+    prisma.registration.findMany({ where: { tournamentId }, select: { playerId: true } }),
+  ]);
+  const top = referenceMove?.points ?? null;
+
+  for (const { playerId } of registrations) {
+    const scoreRaw = formData.get(`score_${playerId}`);
+    if (scoreRaw === null || scoreRaw === "") continue;
+    const points = Number(scoreRaw);
+    if (Number.isNaN(points)) continue;
+
+    const penaltyRaw = formData.get(`penalty_${playerId}`);
+    const penaltyType =
+      typeof penaltyRaw === "string" && movePenaltyValues.includes(penaltyRaw as never)
+        ? (penaltyRaw as (typeof movePenaltyValues)[number])
+        : null;
+
+    await prisma.duplicateMove.upsert({
+      where: { gameId_playerId_turnNumber: { gameId, playerId, turnNumber } },
+      update: { points, top, penaltyType },
+      create: { gameId, playerId, turnNumber, points, top, penaltyType },
+    });
+
+    await recomputeGameScore(gameId, playerId);
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
+  revalidatePath(`/tournois`);
+}
+
 const referenceMoveSchema = z.object({
   reference: z.string().min(2),
   word: z.string().optional(),
