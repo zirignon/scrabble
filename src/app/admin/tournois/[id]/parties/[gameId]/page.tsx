@@ -9,11 +9,34 @@ import {
   saveTurnScoresAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
-import { reconstructBoard, formatReference, getFreeAvertissementCount } from "@/lib/duplicate/board";
+import {
+  reconstructBoard,
+  formatReference,
+  getFreeAvertissementCount,
+  computeAvertissementCosts,
+} from "@/lib/duplicate/board";
 import { anonymizePlayersForGame } from "@/lib/duplicate/anonymize";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
 import { GameTimerControls } from "@/components/admin/GameTimerControls";
+
+// Étiquette + info d'affichage pour la marque de pénalité d'un coup : indique
+// si l'avertissement est encore gratuit (quota du joueur non dépassé) ou s'il
+// coûte 5 points comme la pénalité, afin de calculer le net à afficher sur ce
+// coup précis (le stockage de DuplicateMove.points reste le score brut du
+// mot ; le -5 n'est réellement appliqué qu'au total de la partie).
+function movePenaltyInfo(
+  pm: { points: number; penaltyType: string | null } | undefined,
+  costsFive: boolean
+) {
+  const penaltyType = pm?.penaltyType ?? null;
+  if (!penaltyType) return null;
+  const badgeLabel = penaltyType === "AVERTISSEMENT" ? "A" : penaltyType === "PENALITE" ? "P" : "Z";
+  const isFreeAvertissement = penaltyType === "AVERTISSEMENT" && !costsFive;
+  const netPenalty = penaltyType === "PENALITE" || (penaltyType === "AVERTISSEMENT" && costsFive);
+  const net = pm && netPenalty ? pm.points - 5 : null;
+  return { badgeLabel, isFreeAvertissement, netPenalty, net };
+}
 
 export default async function GameMovesPage({
   params,
@@ -66,6 +89,8 @@ export default async function GameMovesPage({
   const moveByTurnAndPlayer = new Map(
     game.moves.map((m) => [`${m.turnNumber}:${m.playerId}`, m])
   );
+  const freeAvertissements = getFreeAvertissementCount(tournament.duplicateFormula);
+  const avertissementCostMap = computeAvertissementCosts(game.moves, freeAvertissements);
 
   return (
     <div className="flex flex-col gap-8">
@@ -184,12 +209,16 @@ export default async function GameMovesPage({
       <p className="text-xs text-black/50 dark:text-white/50 max-w-3xl">
         Pénalité d&apos;arbitrage sur un coup : l&apos;avertissement (A) n&apos;a
         pas d&apos;effet chiffré direct, mais au-delà des{" "}
-        {getFreeAvertissementCount(tournament.duplicateFormula)} avertissements
+        {freeAvertissements} avertissements
         gratuits de la partie (pour cette formule), chaque avertissement
         supplémentaire coûte 5 points ; la pénalité (P) retire 5 points
         immédiatement ; le zéro (Z) ramène les points du coup à 0. La
         pénalité totale de la partie (colonne Pénalité de la fiche joueur)
-        est recalculée automatiquement à partir de ces marques.
+        est recalculée automatiquement à partir de ces marques ; le badge
+        affiché sur un coup indique la marque appliquée et, le cas échéant,
+        le total net après -5. Pour corriger une pénalité ou un
+        avertissement saisi par erreur, changez simplement la valeur du
+        sélecteur sur le coup concerné et validez à nouveau la ligne.
       </p>
 
       <section className="flex flex-col gap-3">
@@ -240,6 +269,35 @@ export default async function GameMovesPage({
                       </td>
                       {anonymizedPlayers.map(({ player }) => {
                         const pm = moveByTurnAndPlayer.get(`${move.turnNumber}:${player.id}`);
+                        const costsFive =
+                          avertissementCostMap.get(`${move.turnNumber}:${player.id}`) ?? false;
+                        const info = movePenaltyInfo(pm, costsFive);
+                        const badge = info && (
+                          <span
+                            title={
+                              info.badgeLabel === "A"
+                                ? info.isFreeAvertissement
+                                  ? "Avertissement (encore gratuit)"
+                                  : "Avertissement (hors quota gratuit, -5)"
+                                : info.badgeLabel === "P"
+                                ? "Pénalité, -5"
+                                : "Zéro : points ramenés à 0"
+                            }
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                              info.isFreeAvertissement
+                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                                : "bg-red-500/20 text-red-700 dark:text-red-400"
+                            }`}
+                          >
+                            {info.badgeLabel}
+                            {info.isFreeAvertissement ? " libre" : info.netPenalty ? " −5" : ""}
+                          </span>
+                        );
+                        const netLine = info?.netPenalty && (
+                          <span className="text-[10px] text-black/50 dark:text-white/50">
+                            net {info.net}
+                          </span>
+                        );
                         return (
                           <td key={player.id} className="py-1 px-2 text-center">
                             {canManage ? (
@@ -263,9 +321,15 @@ export default async function GameMovesPage({
                                   <option value="PENALITE">P</option>
                                   <option value="ZERO">Z</option>
                                 </select>
+                                {badge}
+                                {netLine}
                               </div>
                             ) : (
-                              <span>{pm?.points ?? "—"}</span>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span>{pm?.points ?? "—"}</span>
+                                {badge}
+                                {netLine}
+                              </div>
                             )}
                           </td>
                         );

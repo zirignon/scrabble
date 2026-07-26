@@ -240,6 +240,32 @@ export function getFreeAvertissementCount(formula: string | null | undefined): n
   return formula === "BLITZ" ? 5 : 3;
 }
 
+export interface MovePenaltyLike {
+  turnNumber: number;
+  playerId: string;
+  penaltyType: string | null;
+}
+
+// Pour chaque coup marqué "avertissement", indique s'il est encore dans le
+// quota gratuit du joueur ou s'il coûte 5 points (au-delà) — en comptant,
+// dans l'ordre des tours, les avertissements déjà posés à CE joueur dans
+// la partie. Clé de la map : "turnNumber:playerId".
+export function computeAvertissementCosts(
+  moves: MovePenaltyLike[],
+  freeCount: number
+): Map<string, boolean> {
+  const costsFive = new Map<string, boolean>();
+  const countByPlayer = new Map<string, number>();
+  const sorted = [...moves].sort((a, b) => a.turnNumber - b.turnNumber);
+  for (const move of sorted) {
+    if (move.penaltyType !== "AVERTISSEMENT") continue;
+    const count = (countByPlayer.get(move.playerId) ?? 0) + 1;
+    countByPlayer.set(move.playerId, count);
+    costsFive.set(`${move.turnNumber}:${move.playerId}`, count > freeCount);
+  }
+  return costsFive;
+}
+
 // Repère, à partir d'une case occupée de la grille, l'ensemble contigu de
 // cases formant un mot dans la direction donnée (perpendiculaire au sens
 // de jeu, pour retrouver les mots secondaires formés par un croisement).

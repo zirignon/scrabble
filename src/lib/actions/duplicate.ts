@@ -397,14 +397,15 @@ export async function saveTurnScoresAction(
   for (const { playerId } of registrations) {
     const scoreRaw = formData.get(`score_${playerId}`);
     if (scoreRaw === null || scoreRaw === "") continue;
-    const points = Number(scoreRaw);
-    if (Number.isNaN(points)) continue;
+    const rawPoints = Number(scoreRaw);
+    if (Number.isNaN(rawPoints)) continue;
 
     const penaltyRaw = formData.get(`penalty_${playerId}`);
     const penaltyType =
       typeof penaltyRaw === "string" && movePenaltyValues.includes(penaltyRaw as never)
         ? (penaltyRaw as (typeof movePenaltyValues)[number])
         : null;
+    const points = penaltyType === "ZERO" ? 0 : rawPoints;
 
     await prisma.duplicateMove.upsert({
       where: { gameId_playerId_turnNumber: { gameId, playerId, turnNumber } },

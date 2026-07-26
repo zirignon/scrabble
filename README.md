@@ -144,7 +144,14 @@ Après `npm run db:seed` :
   points immédiats) ou zéro (les points du coup sont ramenés à 0). La
   pénalité totale de la partie (colonne « Pénalité » de la fiche
   joueur) est recalculée automatiquement à partir de ces marques,
-  comme le score
+  comme le score. Un badge visible apparaît sur le coup concerné dès
+  qu'une marque est appliquée (A, P ou Z), avec le total net après -5
+  affiché juste en dessous quand la pénalité ou l'avertissement
+  (au-delà du quota gratuit) réduit les points de ce coup précis. Pour
+  corriger une marque saisie par erreur, il suffit de changer la
+  valeur du sélecteur sur le coup concerné et de valider à nouveau la
+  ligne : le badge, le net affiché et le quota d'avertissements
+  gratuits des autres coups du joueur se recalculent automatiquement
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères
