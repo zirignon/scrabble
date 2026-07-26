@@ -394,11 +394,27 @@ export async function saveTurnScoresAction(
   ]);
   const top = referenceMove?.points ?? null;
 
+  // Le top d'un coup est le meilleur score possible pour le tirage de ce
+  // tour : aucun score de joueur ne peut donc légitimement le dépasser.
+  // On valide toute la ligne avant la moindre écriture, pour ne jamais
+  // enregistrer partiellement une saisie contenant un score impossible.
+  const entries: {
+    playerId: string;
+    points: number;
+    penaltyType: (typeof movePenaltyValues)[number] | null;
+  }[] = [];
+
   for (const { playerId } of registrations) {
     const scoreRaw = formData.get(`score_${playerId}`);
     if (scoreRaw === null || scoreRaw === "") continue;
     const rawPoints = Number(scoreRaw);
     if (Number.isNaN(rawPoints)) continue;
+
+    if (top !== null && rawPoints > top) {
+      throw new Error(
+        `Score invalide (${rawPoints} pts) : le top de ce coup est de ${top} points, aucun score ne peut le dépasser.`
+      );
+    }
 
     const penaltyRaw = formData.get(`penalty_${playerId}`);
     const penaltyType =
@@ -407,6 +423,10 @@ export async function saveTurnScoresAction(
         : null;
     const points = penaltyType === "ZERO" ? 0 : rawPoints;
 
+    entries.push({ playerId, points, penaltyType });
+  }
+
+  for (const { playerId, points, penaltyType } of entries) {
     await prisma.duplicateMove.upsert({
       where: { gameId_playerId_turnNumber: { gameId, playerId, turnNumber } },
       update: { points, top, penaltyType },

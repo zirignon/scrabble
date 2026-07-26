@@ -151,7 +151,11 @@ Après `npm run db:seed` :
   corriger une marque saisie par erreur, il suffit de changer la
   valeur du sélecteur sur le coup concerné et de valider à nouveau la
   ligne : le badge, le net affiché et le quota d'avertissements
-  gratuits des autres coups du joueur se recalculent automatiquement
+  gratuits des autres coups du joueur se recalculent automatiquement.
+  Un score de joueur ne peut jamais dépasser le top du coup de
+  référence (le meilleur score possible pour le tirage de ce tour) :
+  la saisie le bloque immédiatement dans le navigateur, et le serveur
+  refuse également toute tentative de contournement
 - Grille de référence de l'arbitre (coup officiel joué à chaque tour,
   contre lequel les propositions des joueurs sont comparées) :
   reconstruite et affichée (plateau 15×15 avec cases bonus et repères

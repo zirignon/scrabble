@@ -307,6 +307,8 @@ export default async function GameMovesPage({
                                   type="number"
                                   name={`score_${player.id}`}
                                   defaultValue={pm?.points ?? ""}
+                                  max={move.points}
+                                  title={`Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser.`}
                                   placeholder="—"
                                   className="w-14 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-sm"
                                 />
