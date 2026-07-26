@@ -33,6 +33,8 @@ export default async function AdminPlayersPage() {
             <th className="py-2 pr-4">Club</th>
             <th className="py-2 pr-4">Licence</th>
             <th className="py-2 pr-4">Catégorie</th>
+            <th className="py-2 pr-4">Classification</th>
+            <th className="py-2 pr-4">Nat.</th>
             <th className="py-2 pr-4" />
           </tr>
         </thead>
@@ -45,6 +47,8 @@ export default async function AdminPlayersPage() {
               <td className="py-2 pr-4">{player.club?.name ?? "—"}</td>
               <td className="py-2 pr-4">{player.licenseNumber ?? "—"}</td>
               <td className="py-2 pr-4">{player.category ?? "—"}</td>
+              <td className="py-2 pr-4">{player.classification ?? "—"}</td>
+              <td className="py-2 pr-4">{player.nationality ?? "—"}</td>
               <td className="py-2 pr-4 text-right">
                 <form action={deletePlayerAction.bind(null, player.id)}>
                   <button type="submit" className="text-red-600 hover:underline">
@@ -56,7 +60,7 @@ export default async function AdminPlayersPage() {
           ))}
           {players.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-4 text-black/50 dark:text-white/50">
+              <td colSpan={7} className="py-4 text-black/50 dark:text-white/50">
                 Aucun joueur pour le moment.
               </td>
             </tr>

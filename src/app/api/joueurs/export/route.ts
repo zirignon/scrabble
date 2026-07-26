@@ -11,8 +11,16 @@ export async function GET() {
   });
 
   const csv = toCsv(
-    ["Prénom", "Nom", "Club", "N° licence", "Catégorie"],
-    players.map((p) => [p.firstName, p.lastName, p.club?.name ?? "", p.licenseNumber ?? "", p.category ?? ""])
+    ["Prénom", "Nom", "Club", "N° licence", "Catégorie", "Classification", "Nationalité"],
+    players.map((p) => [
+      p.firstName,
+      p.lastName,
+      p.club?.name ?? "",
+      p.licenseNumber ?? "",
+      p.category ?? "",
+      p.classification ?? "",
+      p.nationality ?? "",
+    ])
   );
 
   return csvResponse("joueurs.csv", csv);

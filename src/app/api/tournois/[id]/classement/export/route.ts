@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeClassicStandings } from "@/lib/classic/standings";
-import { computeDuplicateStandings } from "@/lib/duplicate/standings";
+import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { slugify } from "@/lib/slug";
 
@@ -22,6 +22,10 @@ export async function GET(
       [
         "Rang",
         "Joueur",
+        "Âge",
+        "Club",
+        "Fédé",
+        "Classement",
         "Joués",
         "V",
         "N",
@@ -36,6 +40,10 @@ export async function GET(
       standings.map((row, i) => [
         i + 1,
         `${row.firstName} ${row.lastName}`,
+        row.category ?? "",
+        row.clubName ?? "",
+        row.federation ?? "",
+        row.classification ?? "",
         row.played,
         row.wins,
         row.draws,
@@ -49,16 +57,29 @@ export async function GET(
       ])
     );
   } else {
-    const standings = await computeDuplicateStandings(tournament.id);
+    const { rows: standings, games } = await computeDuplicateStandingsWithGames(tournament.id);
     csv = toCsv(
-      ["Rang", "Joueur", "Parties", "Score total", "Pénalités", "Net"],
+      [
+        "Rang",
+        "Licence",
+        "Joueur",
+        "Classement",
+        "Âge",
+        "Club",
+        "Nat",
+        "Cumul",
+        ...games.map((g) => `P${g.gameNumber}`),
+      ],
       standings.map((row, i) => [
         i + 1,
+        row.licenseNumber ?? "",
         `${row.firstName} ${row.lastName}`,
-        row.gamesPlayed,
-        row.totalScore,
-        row.totalPenalty,
+        row.classification ?? "",
+        row.category ?? "",
+        row.clubName ?? "",
+        row.nationality ?? "",
         row.net,
+        ...games.map((g) => row.perGame[g.gameNumber] ?? ""),
       ])
     );
   }

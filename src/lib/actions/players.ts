@@ -12,6 +12,8 @@ const playerSchema = z.object({
   clubId: z.string().optional(),
   licenseNumber: z.string().optional(),
   category: z.string().optional(),
+  classification: z.string().optional(),
+  nationality: z.string().optional(),
 });
 
 export async function createPlayerAction(
@@ -26,6 +28,8 @@ export async function createPlayerAction(
     clubId: formData.get("clubId") || undefined,
     licenseNumber: formData.get("licenseNumber") || undefined,
     category: formData.get("category") || undefined,
+    classification: formData.get("classification") || undefined,
+    nationality: formData.get("nationality") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };

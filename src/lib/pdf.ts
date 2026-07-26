@@ -44,22 +44,34 @@ export function renderTablePdf(
       acc.push(i === 0 ? startX : acc[i - 1] + columnWidths[i - 1]);
       return acc;
     }, []);
-    const rowHeight = 20;
+    const minRowHeight = 20;
+    const rowPadding = 6;
+
+    // Une cellule peut passer sur plusieurs lignes (nom de club long,
+    // catégorie...) : la hauteur de la ligne s'adapte à la cellule la plus
+    // haute plutôt qu'une hauteur fixe, pour ne jamais chevaucher la ligne
+    // suivante.
+    function measureRowHeight(cells: unknown[], bold: boolean): number {
+      doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(9);
+      const heights = cells.map((cell, i) =>
+        doc.heightOfString(String(cell ?? ""), { width: columnWidths[i] - 6 })
+      );
+      return Math.max(minRowHeight, ...heights) + rowPadding;
+    }
 
     function drawRow(cells: unknown[], y: number, bold: boolean) {
       doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(9).fillColor("#000");
       cells.forEach((cell, i) => {
         doc.text(String(cell ?? ""), columnX[i], y, {
           width: columnWidths[i] - 6,
-          ellipsis: true,
-          lineBreak: false,
         });
       });
     }
 
     let y = doc.y;
+    const headerHeight = measureRowHeight(headers, true);
     drawRow(headers, y, true);
-    y += rowHeight;
+    y += headerHeight;
     doc
       .moveTo(startX, y - 4)
       .lineTo(startX + usableWidth, y - 4)
@@ -67,12 +79,13 @@ export function renderTablePdf(
       .stroke();
 
     for (const row of rows) {
-      if (y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+      const height = measureRowHeight(row, false);
+      if (y + height > doc.page.height - doc.page.margins.bottom) {
         doc.addPage();
         y = doc.page.margins.top;
       }
       drawRow(row, y, false);
-      y += rowHeight;
+      y += height;
     }
 
     doc.end();

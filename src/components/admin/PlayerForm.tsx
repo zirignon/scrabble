@@ -78,6 +78,28 @@ export function PlayerForm({
           className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
         />
       </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="classification" className="text-xs font-medium">
+          Classification
+        </label>
+        <input
+          id="classification"
+          name="classification"
+          placeholder="1A, 2B, A, J..."
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-24"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="nationality" className="text-xs font-medium">
+          Nationalité
+        </label>
+        <input
+          id="nationality"
+          name="nationality"
+          placeholder="CI, FR..."
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-20"
+        />
+      </div>
       <button
         type="submit"
         disabled={pending}

@@ -77,7 +77,7 @@ Après `npm run db:seed` :
   aussi de changer le rôle ou réinitialiser le mot de passe d'un compte
   existant
 - Gestion des clubs (nom, ville, fédération) et des joueurs (licence,
-  catégorie, club)
+  catégorie, classification, nationalité, club)
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
   archivé), et suppression définitive (avec confirmation) qui efface en
@@ -115,7 +115,10 @@ Après `npm run db:seed` :
   départages Buchholz, Buchholz médian, Sonneborn-Berger et score
   cumulé progressif, puis différence de score et total de points ; en
   cas d'égalité parfaite sur tous ces critères, la confrontation
-  directe entre les deux joueurs tranche
+  directe entre les deux joueurs tranche. La page de classement
+  (publique, comme les exports CSV/PDF) affiche aussi l'âge, le club,
+  la fédération et la classification de chaque joueur, dans le format
+  des feuilles de classement officielles
 
 ### Scrabble duplicate
 - Formule et rythme du tournoi (FISF/FFSc), deux réglages indépendants
@@ -201,7 +204,11 @@ Après `npm run db:seed` :
   fait via un sélecteur « Coup » à côté de la grille (un seul coup
   affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
   tous les coups joués, pour ne pas surcharger l'espace
-- Classement cumulé (score total, pénalités, net)
+- Classement cumulé (score total, pénalités, net), avec licence,
+  classification, âge, club et nationalité de chaque joueur, ainsi
+  qu'une colonne par partie jouée (score net) et une ligne de
+  référence donnant le top de chaque partie — public comme dans les
+  exports CSV/PDF, dans le format des feuilles de classement officielles
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
