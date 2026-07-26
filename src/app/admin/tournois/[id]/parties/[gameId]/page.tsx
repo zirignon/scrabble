@@ -84,6 +84,13 @@ export default async function GameMovesPage({
         <h1 className="text-2xl font-semibold mt-1">
           Partie {game.number} — détail coup par coup
         </h1>
+        <Link
+          href={`/tournois/${tournament.slug}/affichage`}
+          target="_blank"
+          className="inline-block mt-2 rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+        >
+          Ouvrir l&apos;affichage grand écran ↗
+        </Link>
         {game.top != null && (
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
             Top de la partie : {game.top}
