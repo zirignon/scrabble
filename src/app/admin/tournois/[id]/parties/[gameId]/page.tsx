@@ -184,42 +184,52 @@ export default async function GameMovesPage({
           </div>
         </div>
 
-        <p className="text-xs text-black/50 dark:text-white/50">
-          Référence : lettre puis chiffre pour un mot horizontal (ex. H4),
-          chiffre puis lettre pour un mot vertical (ex. 4H). Une lettre en
-          minuscule dans le mot joué est une lettre blanche (joker) : elle
-          vaut 0 point, et s&apos;affiche sur la grille sans coefficient.
-          Le score est calculé automatiquement (valeur
-          des lettres, cases bonus, mots croisés, prime de Scrabble selon la
-          formule du tournoi). Dans le tirage, notez une lettre blanche en
-          main avec un point d&apos;interrogation (?) : c&apos;est ainsi
-          qu&apos;elle s&apos;affiche sur l&apos;affichage grand écran. Le
-          tirage est projeté automatiquement dès qu&apos;il est saisi ici, et
-          n&apos;affiche plus que le reliquat (lettres non jouées) une fois
-          le mot renseigné. Le bouton « Solutions » cherche, à partir du
-          tirage saisi et du dictionnaire importé (page Dictionnaire), tous
-          les mots jouables sur la grille actuelle, triés par points ;
-          cliquez sur « Choisir » pour préremplir la référence et le mot.
-          Le sélecteur « Coup » fait apparaître les champs du tour choisi
-          pour le corriger ou le supprimer, sans afficher tout
-          l&apos;historique en même temps.
-        </p>
+        <details className="text-xs text-black/50 dark:text-white/50">
+          <summary className="cursor-pointer select-none hover:text-black/70 dark:hover:text-white/70">
+            Aide : notation des coups et du tirage
+          </summary>
+          <p className="mt-1">
+            Référence : lettre puis chiffre pour un mot horizontal (ex. H4),
+            chiffre puis lettre pour un mot vertical (ex. 4H). Une lettre en
+            minuscule dans le mot joué est une lettre blanche (joker) : elle
+            vaut 0 point, et s&apos;affiche sur la grille sans coefficient.
+            Le score est calculé automatiquement (valeur
+            des lettres, cases bonus, mots croisés, prime de Scrabble selon la
+            formule du tournoi). Dans le tirage, notez une lettre blanche en
+            main avec un point d&apos;interrogation (?) : c&apos;est ainsi
+            qu&apos;elle s&apos;affiche sur l&apos;affichage grand écran. Le
+            tirage est projeté automatiquement dès qu&apos;il est saisi ici, et
+            n&apos;affiche plus que le reliquat (lettres non jouées) une fois
+            le mot renseigné. Le bouton « Solutions » cherche, à partir du
+            tirage saisi et du dictionnaire importé (page Dictionnaire), tous
+            les mots jouables sur la grille actuelle, triés par points ;
+            cliquez sur « Choisir » pour préremplir la référence et le mot.
+            Le sélecteur « Coup » fait apparaître les champs du tour choisi
+            pour le corriger ou le supprimer, sans afficher tout
+            l&apos;historique en même temps.
+          </p>
+        </details>
       </section>
 
-      <p className="text-xs text-black/50 dark:text-white/50 max-w-3xl">
-        Pénalité d&apos;arbitrage sur un coup : l&apos;avertissement (A) n&apos;a
-        pas d&apos;effet chiffré direct, mais au-delà des{" "}
-        {freeAvertissements} avertissements
-        gratuits de la partie (pour cette formule), chaque avertissement
-        supplémentaire coûte 5 points ; la pénalité (P) retire 5 points
-        immédiatement ; le zéro (Z) ramène les points du coup à 0. La
-        pénalité totale de la partie (colonne Pénalité de la fiche joueur)
-        est recalculée automatiquement à partir de ces marques ; le badge
-        affiché sur un coup indique la marque appliquée et, le cas échéant,
-        le total net après -5. Pour corriger une pénalité ou un
-        avertissement saisi par erreur, changez simplement la valeur du
-        sélecteur sur le coup concerné et validez à nouveau la ligne.
-      </p>
+      <details className="text-xs text-black/50 dark:text-white/50 max-w-3xl">
+        <summary className="cursor-pointer select-none hover:text-black/70 dark:hover:text-white/70">
+          Aide : pénalités d&apos;arbitrage
+        </summary>
+        <p className="mt-1">
+          L&apos;avertissement (A) n&apos;a
+          pas d&apos;effet chiffré direct, mais au-delà des{" "}
+          {freeAvertissements} avertissements
+          gratuits de la partie (pour cette formule), chaque avertissement
+          supplémentaire coûte 5 points ; la pénalité (P) retire 5 points
+          immédiatement ; le zéro (Z) ramène les points du coup à 0. La
+          pénalité totale de la partie (colonne Pénalité de la fiche joueur)
+          est recalculée automatiquement à partir de ces marques ; le badge
+          affiché sur un coup indique la marque appliquée et, le cas échéant,
+          le total net après -5. Pour corriger une pénalité ou un
+          avertissement saisi par erreur, changez simplement la valeur du
+          sélecteur sur le coup concerné et validez à nouveau la ligne.
+        </p>
+      </details>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Scores des joueurs</h2>
