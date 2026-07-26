@@ -18,6 +18,7 @@ import {
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
 import { findWordSolutions, type SolverSolution } from "@/lib/duplicate/solver";
+import { parseClock } from "@/lib/timer";
 
 const movePenaltyValues = ["AVERTISSEMENT", "PENALITE", "ZERO"] as const;
 
@@ -38,9 +39,12 @@ export async function setGameTimerDurationAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
-  const minutes = Number(formData.get("minutes"));
-  if (!Number.isFinite(minutes) || minutes <= 0) return;
-  const seconds = Math.round(minutes * 60);
+  const raw = formData.get("duration");
+  if (typeof raw !== "string") return;
+  // Accepte "mm:ss" (ex. "2:30") ou, pour compatibilité, un simple nombre
+  // de minutes (ex. "3", "2.5").
+  const seconds = parseClock(raw);
+  if (seconds === null || seconds <= 0) return;
 
   await prisma.game.update({
     where: { id: gameId },

@@ -238,7 +238,9 @@ Après `npm run db:seed` :
   tant qu'aucun coup n'a été enregistré dessus — tout disparaît
   aussitôt de l'affichage grand écran, le champ de saisie repart
   entièrement vierge (sans resuggérer le même reliquat) et le chrono
-  repart de zéro, en attendant la validation d'un nouveau tirage
+  repart de zéro, en attendant la validation d'un nouveau tirage. La
+  durée du chronomètre se règle au format minutes:secondes (ex.
+  « 2:30 » pour deux minutes trente), ou en simple nombre de minutes
 
 ### Tournois par équipes
 
