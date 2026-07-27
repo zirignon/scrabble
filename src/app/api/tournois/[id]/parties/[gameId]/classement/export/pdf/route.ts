@@ -18,28 +18,51 @@ export async function GET(
     return new Response("Partie introuvable", { status: 404 });
   }
 
-  const rows = await computeGameClassementSheet(gameId);
-  const subtitle = `Partie ${game.number}${game.top != null ? ` — Top : ${game.top}` : ""}`;
+  const { rows, games, cumulTop } = await computeGameClassementSheet(gameId);
+  const showCumul = games.length >= 2;
+  const subtitleParts = [`Partie ${game.number}`];
+  if (showCumul && cumulTop != null) subtitleParts.push(`Cumul des tops : ${cumulTop}`);
+  const subtitle = subtitleParts.join(" — ");
 
   const pdf = await renderTablePdf(
     `Fiche de classement — ${tournament.name}`,
     subtitle,
-    ["Rang", "Nom", "Prénom", "Licence", "Cat.", "Club", "Fédér.", "Score", "Top", "Négatif", "%", "Cumul"],
+    [
+      "Rang",
+      "Nom",
+      "Prénom",
+      "Licence",
+      "Cat.",
+      "Classement",
+      "Club",
+      "Fédér.",
+      "Nat",
+      ...(showCumul ? ["Cumul"] : []),
+      "Négatif",
+      "%",
+      ...games.map((g) => `P${g.gameNumber}`),
+    ],
     rows.map((row, i) => [
       i + 1,
       row.lastName,
       row.firstName,
       row.licenseNumber ?? "—",
       row.category ?? "—",
+      row.classification ?? "—",
       row.clubName ?? "—",
       row.federation ?? "—",
-      row.net,
-      row.top ?? "—",
+      row.nationality ?? "—",
+      ...(showCumul ? [row.cumul] : []),
       row.negatif ?? "—",
       row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—",
-      row.cumul,
+      ...games.map((g) => row.perGame[g.gameNumber] ?? "—"),
     ]),
-    [1, 2, 2, 1.4, 1, 2, 1.4, 1, 1, 1, 1.2, 1],
+    [
+      1, 1.8, 1.8, 1.2, 0.9, 1, 1.8, 1.2, 0.7,
+      ...(showCumul ? [1] : []),
+      1, 1.2,
+      ...games.map(() => 0.9),
+    ],
     { landscape: true }
   );
 

@@ -16,6 +16,7 @@ import {
   getRythmeAlertSeconds,
   computeAvertissementCosts,
   computeSoloWinners,
+  computeGameTop,
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
@@ -108,6 +109,7 @@ export default async function GameMovesPage({
   const soloWinners = computeSoloWinners(game.moves);
   const soloEligible = players.length >= SOLO_BONUS_MIN_PLAYERS;
   const alertSeconds = getRythmeAlertSeconds(tournament.duplicateRythme);
+  const top = computeGameTop(game.referenceMoves, game.top);
 
   return (
     <div className="flex flex-col gap-8">
@@ -128,9 +130,15 @@ export default async function GameMovesPage({
         >
           Ouvrir l&apos;affichage grand écran ↗
         </Link>
-        {game.top != null && (
+        {top != null && (
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-            Top de la partie : {game.top}
+            Top de la partie : {top}
+            {game.referenceMoves.length > 0 && (
+              <span className="text-black/50 dark:text-white/50">
+                {" "}
+                (cumul automatique des tops de chaque coup)
+              </span>
+            )}
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 export interface GameClassementRow {
   playerId: string;
@@ -6,26 +7,39 @@ export interface GameClassementRow {
   lastName: string;
   licenseNumber: string | null;
   category: string | null;
+  classification: string | null;
   clubName: string | null;
   federation: string | null;
-  score: number;
-  penalty: number;
-  net: number;
+  nationality: string | null;
+  // Score net (score - pénalité) par partie, indexé par numéro de partie
+  // (de 1 à la partie courante).
+  perGame: Record<number, number>;
+  // Somme des net des parties 1..N jouées par ce joueur.
   cumul: number;
-  gamesPlayed: number;
-  top: number | null;
   negatif: number | null;
   pourcentage: number | null;
 }
 
-// Fiche de classement d'une partie duplicate : classe les joueurs selon
-// leur performance sur CETTE partie (score net décroissant), tout en
-// affichant leur cumul au tournoi (somme des parties jouées jusqu'à
-// celle-ci incluse) et les informations d'identification habituelles
-// d'une feuille officielle (licence, club, fédération, catégorie).
+export interface GameClassementGameColumn {
+  gameNumber: number;
+  top: number | null;
+}
+
+export interface GameClassementSheet {
+  rows: GameClassementRow[];
+  games: GameClassementGameColumn[];
+  // Somme des tops des parties 1..N (référence commune à la feuille), null
+  // si au moins une de ces parties n'a pas de top renseigné.
+  cumulTop: number | null;
+}
+
+// Fiche de classement d'une partie duplicate : reprend le classement
+// général du tournoi, tronqué aux parties 1 à N (N = numéro de la partie
+// consultée) — une colonne par partie jouée jusque-là, plus le cumul,
+// le négatif et le pourcentage calculés sur ce cumul.
 export async function computeGameClassementSheet(
   gameId: string
-): Promise<GameClassementRow[]> {
+): Promise<GameClassementSheet> {
   const game = await prisma.game.findUniqueOrThrow({
     where: { id: gameId },
     include: {
@@ -35,26 +49,39 @@ export async function computeGameClassementSheet(
     },
   });
 
-  const previousResults = await prisma.duplicateResult.findMany({
+  const priorGames = await prisma.game.findMany({
+    where: { tournamentId: game.tournamentId, number: { lte: game.number } },
+    orderBy: { number: "asc" },
+    select: { number: true, top: true, referenceMoves: { select: { points: true } } },
+  });
+  const games: GameClassementGameColumn[] = priorGames.map((g) => ({
+    gameNumber: g.number,
+    top: computeGameTop(g.referenceMoves, g.top),
+  }));
+  const cumulTop = games.every((g) => g.top !== null)
+    ? games.reduce((sum, g) => sum + (g.top ?? 0), 0)
+    : null;
+
+  const playerIds = game.results.map((r) => r.playerId);
+  const priorResults = await prisma.duplicateResult.findMany({
     where: {
+      playerId: { in: playerIds },
       game: { tournamentId: game.tournamentId, number: { lte: game.number } },
     },
+    select: { playerId: true, score: true, penalty: true, game: { select: { number: true } } },
   });
-
-  const cumulByPlayer = new Map<string, { net: number; gamesPlayed: number }>();
-  for (const result of previousResults) {
-    const entry = cumulByPlayer.get(result.playerId) ?? { net: 0, gamesPlayed: 0 };
-    entry.net += result.score - result.penalty;
-    entry.gamesPlayed += 1;
-    cumulByPlayer.set(result.playerId, entry);
+  const perGameByPlayer = new Map<string, Record<number, number>>();
+  for (const result of priorResults) {
+    const entry = perGameByPlayer.get(result.playerId) ?? {};
+    entry[result.game.number] = result.score - result.penalty;
+    perGameByPlayer.set(result.playerId, entry);
   }
 
   const rows: GameClassementRow[] = game.results.map((result) => {
-    const net = result.score - result.penalty;
-    const cumul = cumulByPlayer.get(result.playerId)?.net ?? net;
-    const gamesPlayed = cumulByPlayer.get(result.playerId)?.gamesPlayed ?? 1;
-    const negatif = game.top != null ? net - game.top : null;
-    const pourcentage = game.top != null && game.top > 0 ? (net / game.top) * 100 : null;
+    const perGame = perGameByPlayer.get(result.playerId) ?? {};
+    const cumul = Object.values(perGame).reduce((sum, v) => sum + v, 0);
+    const negatif = cumulTop != null ? cumul - cumulTop : null;
+    const pourcentage = cumulTop != null && cumulTop > 0 ? (cumul / cumulTop) * 100 : null;
 
     return {
       playerId: result.playerId,
@@ -62,18 +89,16 @@ export async function computeGameClassementSheet(
       lastName: result.player.lastName,
       licenseNumber: result.player.licenseNumber,
       category: result.player.category,
+      classification: result.player.classification,
       clubName: result.player.club?.name ?? null,
       federation: result.player.club?.federation ?? null,
-      score: result.score,
-      penalty: result.penalty,
-      net,
+      nationality: result.player.nationality,
+      perGame,
       cumul,
-      gamesPlayed,
-      top: game.top,
       negatif,
       pourcentage,
     };
   });
 
-  return rows.sort((a, b) => b.net - a.net);
+  return { rows: rows.sort((a, b) => b.cumul - a.cumul), games, cumulTop };
 }

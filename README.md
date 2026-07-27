@@ -204,14 +204,26 @@ Après `npm run db:seed` :
   fait via un sélecteur « Coup » à côté de la grille (un seul coup
   affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
   tous les coups joués, pour ne pas surcharger l'espace
-- Classement cumulé (score total, pénalités, net), avec licence,
-  classification, âge, club et nationalité de chaque joueur, ainsi
-  qu'une colonne par partie jouée (score net) et une ligne de
-  référence donnant le top de chaque partie — public comme dans les
-  exports CSV/PDF, dans le format des feuilles de classement officielles
-- Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
-  club, fédération, score, top, négatif, pourcentage, cumul au
-  tournoi), exportable en CSV/PDF
+- Classement cumulé (rang, licence, nom, prénoms séparés, classification,
+  catégorie, club, nationalité, cumul net, négatif et pourcentage cumulés
+  par rapport au cumul des tops, puis une colonne par partie jouée) et une
+  ligne de référence donnant le top de chaque partie — public comme dans
+  les exports CSV/PDF, dans le format des feuilles de classement
+  officielles
+- Fiche de classement par partie : reprend le classement général tronqué
+  aux parties 1 à N (N = la partie consultée), avec une colonne par
+  partie jouée jusque-là (P1, P2...), le négatif et le pourcentage
+  calculés sur le cumul de ces parties, et une ligne de référence
+  donnant le top de chaque partie ainsi que leur cumul. La colonne Cumul
+  n'apparaît qu'à partir de deux parties jouées, exportable en CSV/PDF
+- Le top d'une partie (utilisé pour le négatif et le pourcentage de la
+  fiche de classement, ainsi que la ligne de référence du classement
+  général) est calculé automatiquement dès qu'au moins un coup de
+  référence est saisi : c'est la somme des tops de chaque coup (le
+  score du mot retenu par l'arbitre sur la grille), qui se cumule
+  coup après coup jusqu'à la fin de la partie — plus besoin de le
+  ressaisir à la main. La saisie manuelle du top ne reste utile qu'en
+  mode simple (scores saisis sans détail coup par coup)
 - N'importe quel mot peut être saisi librement, sans validation
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,

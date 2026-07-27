@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { matchRow, matchCell, scoreCell, Pill } from "@/components/public/StatusPill";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 export default async function TournamentGamesPage({
   params,
@@ -16,7 +17,10 @@ export default async function TournamentGamesPage({
     include: {
       games: {
         orderBy: { number: "asc" },
-        include: { results: { include: { player: true } } },
+        include: {
+          results: { include: { player: true } },
+          referenceMoves: { select: { points: true } },
+        },
       },
     },
   });
@@ -40,43 +44,46 @@ export default async function TournamentGamesPage({
       </div>
 
       <div className="flex flex-col gap-6">
-        {tournament.games.map((game) => (
-          <div key={game.id} className="overflow-x-auto">
-            <h3 className="font-medium mb-2">
-              Partie {game.number}
-              {game.top != null && (
-                <span className="text-xs text-black/50 dark:text-white/50 ml-2">
-                  Top : {game.top}
-                </span>
-              )}
-            </h3>
-            <table className="w-full text-sm border-collapse">
-              <tbody>
-                {game.results.map((result) => {
-                  const net = result.score - result.penalty;
-                  return (
-                    <tr key={result.id} className={matchRow}>
-                      <td className={matchCell}>
-                        {result.player.firstName} {result.player.lastName}
-                      </td>
-                      <td className={scoreCell}>{result.score}</td>
-                      {result.penalty > 0 && (
-                        <td className="py-2 pr-4">
-                          <Pill tone="brick">-{result.penalty} pénalité</Pill>
+        {tournament.games.map((game) => {
+          const top = computeGameTop(game.referenceMoves, game.top);
+          return (
+            <div key={game.id} className="overflow-x-auto">
+              <h3 className="font-medium mb-2">
+                Partie {game.number}
+                {top != null && (
+                  <span className="text-xs text-black/50 dark:text-white/50 ml-2">
+                    Top : {top}
+                  </span>
+                )}
+              </h3>
+              <table className="w-full text-sm border-collapse">
+                <tbody>
+                  {game.results.map((result) => {
+                    const net = result.score - result.penalty;
+                    return (
+                      <tr key={result.id} className={matchRow}>
+                        <td className={matchCell}>
+                          {result.player.firstName} {result.player.lastName}
                         </td>
-                      )}
-                      {game.top != null && (
-                        <td className="py-2 pr-4 text-xs text-black/50 dark:text-white/50">
-                          écart au top : {game.top - net}
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ))}
+                        <td className={scoreCell}>{result.score}</td>
+                        {result.penalty > 0 && (
+                          <td className="py-2 pr-4">
+                            <Pill tone="brick">-{result.penalty} pénalité</Pill>
+                          </td>
+                        )}
+                        {top != null && (
+                          <td className="py-2 pr-4 text-xs text-black/50 dark:text-white/50">
+                            écart au top : {top - net}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
         {tournament.games.length === 0 && (
           <p className="text-sm text-black/50 dark:text-white/50">
             Aucun résultat publié pour le moment.

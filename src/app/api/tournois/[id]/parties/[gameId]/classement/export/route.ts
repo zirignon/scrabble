@@ -18,7 +18,8 @@ export async function GET(
     return new Response("Partie introuvable", { status: 404 });
   }
 
-  const rows = await computeGameClassementSheet(gameId);
+  const { rows, games } = await computeGameClassementSheet(gameId);
+  const showCumul = games.length >= 2;
   const csv = toCsv(
     [
       "Rang",
@@ -26,15 +27,14 @@ export async function GET(
       "Prénom",
       "N° licence",
       "Catégorie",
+      "Classification",
       "Club",
       "Fédération",
-      "Parties",
-      "Score",
-      "Pénalité",
-      "Top",
+      "Nat",
+      ...(showCumul ? ["Cumul"] : []),
       "Négatif",
       "%",
-      "Cumul",
+      ...games.map((g) => `P${g.gameNumber}`),
     ],
     rows.map((row, i) => [
       i + 1,
@@ -42,15 +42,14 @@ export async function GET(
       row.firstName,
       row.licenseNumber ?? "",
       row.category ?? "",
+      row.classification ?? "",
       row.clubName ?? "",
       row.federation ?? "",
-      row.gamesPlayed,
-      row.net,
-      row.penalty,
-      row.top ?? "",
+      row.nationality ?? "",
+      ...(showCumul ? [row.cumul] : []),
       row.negatif ?? "",
       row.pourcentage != null ? row.pourcentage.toFixed(2) : "",
-      row.cumul,
+      ...games.map((g) => row.perGame[g.gameNumber] ?? ""),
     ])
   );
 

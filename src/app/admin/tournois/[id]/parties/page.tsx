@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { addGameAction, saveGameScoresAction } from "@/lib/actions/duplicate";
 import { updateDuplicateSettingsAction } from "@/lib/actions/tournaments";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 const formulaLabel: Record<string, string> = {
   NORMALE: "Partie normale",
@@ -97,7 +98,7 @@ export default async function GamesPage({
     include: {
       games: {
         orderBy: { number: "asc" },
-        include: { results: true },
+        include: { results: true, referenceMoves: { select: { points: true } } },
       },
       registrations: { include: { player: true }, orderBy: { createdAt: "asc" } },
     },
@@ -156,6 +157,8 @@ export default async function GamesPage({
 
       {tournament.games.map((game) => {
         const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
+        const top = computeGameTop(game.referenceMoves, game.top);
+        const topIsAutomatic = game.referenceMoves.length > 0;
         return (
           <section key={game.id} className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">
@@ -187,7 +190,11 @@ export default async function GamesPage({
                 <label htmlFor={`top_${game.id}`} className="font-medium">
                   Top de la partie
                 </label>
-                {canManage ? (
+                {topIsAutomatic ? (
+                  <span title="Calculé automatiquement : somme des tops de chaque coup de référence saisi">
+                    {top} <span className="text-black/50 dark:text-white/50">(auto)</span>
+                  </span>
+                ) : canManage ? (
                   <input
                     id={`top_${game.id}`}
                     type="number"
@@ -245,7 +252,7 @@ export default async function GamesPage({
                         </td>
                         <td className="py-2 pr-4">{net ?? "—"}</td>
                         <td className="py-2 pr-4">
-                          {net !== null && game.top !== null ? game.top - net : "—"}
+                          {net !== null && top !== null ? top - net : "—"}
                         </td>
                       </tr>
                     );

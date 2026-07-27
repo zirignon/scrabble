@@ -46,33 +46,43 @@ export async function GET(
       { landscape: true }
     );
   } else {
-    const { rows: standings, games } = await computeDuplicateStandingsWithGames(tournament.id);
+    const { rows: standings, games, topCumul } = await computeDuplicateStandingsWithGames(tournament.id);
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
       [
         "Rang",
         "Licence",
-        "Joueur",
-        "Classement",
-        "Âge",
+        "Nom",
+        "Prénoms",
+        "Cat.",
+        "Série",
         "Club",
         "Nat",
         "Cumul",
+        "Négatif",
+        "%",
         ...games.map((g) => `P${g.gameNumber}`),
       ],
-      standings.map((row, i) => [
-        i + 1,
-        row.licenseNumber ?? "",
-        `${row.firstName} ${row.lastName}`,
-        row.classification ?? "",
-        row.category ?? "",
-        row.clubName ?? "",
-        row.nationality ?? "",
-        row.net,
-        ...games.map((g) => row.perGame[g.gameNumber] ?? ""),
-      ]),
-      [1, 1.2, 2.4, 1, 0.8, 1.2, 0.8, 1, ...games.map(() => 0.9)],
+      standings.map((row, i) => {
+        const negatif = topCumul != null ? row.net - topCumul : "—";
+        const pourcentage = topCumul != null && topCumul > 0 ? `${((row.net / topCumul) * 100).toFixed(2)} %` : "—";
+        return [
+          i + 1,
+          row.licenseNumber ?? "—",
+          row.lastName,
+          row.firstName,
+          row.classification ?? "—",
+          row.category ?? "—",
+          row.clubName ?? "—",
+          row.nationality ?? "—",
+          row.net,
+          negatif,
+          pourcentage,
+          ...games.map((g) => row.perGame[g.gameNumber] ?? "—"),
+        ];
+      }),
+      [1, 1.2, 1.4, 1.4, 0.8, 0.8, 1.2, 0.8, 1, 1, 1, ...games.map(() => 0.9)],
       { landscape: true }
     );
   }

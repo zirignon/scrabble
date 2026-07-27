@@ -199,12 +199,19 @@ export async function saveGameScoresAction(
 ) {
   await assertCanManage(tournamentId);
 
+  // Le champ "top" n'est présent dans le formulaire qu'en mode simple (sans
+  // coup de référence saisi) : dès qu'il y a des coups de référence, le top
+  // est calculé automatiquement (somme des tops de chaque coup) et le champ
+  // n'est pas affiché, donc son absence ne doit pas écraser la valeur
+  // manuelle éventuellement enregistrée.
   const topRaw = formData.get("top");
-  const top = topRaw ? Number(topRaw) : null;
-  await prisma.game.update({
-    where: { id: gameId },
-    data: { top: top !== null && !Number.isNaN(top) ? top : null },
-  });
+  if (topRaw !== null) {
+    const top = topRaw ? Number(topRaw) : null;
+    await prisma.game.update({
+      where: { id: gameId },
+      data: { top: top !== null && !Number.isNaN(top) ? top : null },
+    });
+  }
 
   const registrations = await prisma.registration.findMany({
     where: { tournamentId },
