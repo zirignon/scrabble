@@ -204,11 +204,12 @@ Après `npm run db:seed` :
   fait via un sélecteur « Coup » à côté de la grille (un seul coup
   affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
   tous les coups joués, pour ne pas surcharger l'espace
-- Classement cumulé (score total, pénalités, net), avec licence,
-  classification, âge, club et nationalité de chaque joueur, ainsi
-  qu'une colonne par partie jouée (score net) et une ligne de
-  référence donnant le top de chaque partie — public comme dans les
-  exports CSV/PDF, dans le format des feuilles de classement officielles
+- Classement cumulé (rang, licence, nom, prénoms séparés, classification,
+  catégorie, club, nationalité, cumul net, négatif et pourcentage cumulés
+  par rapport au cumul des tops, puis une colonne par partie jouée) et une
+  ligne de référence donnant le top de chaque partie — public comme dans
+  les exports CSV/PDF, dans le format des feuilles de classement
+  officielles
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   classification, club, fédération, nationalité, score brut, pénalité,
   net, top, négatif, pourcentage), avec le cumul des tops des parties

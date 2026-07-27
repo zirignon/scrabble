@@ -151,14 +151,17 @@ export default async function TournamentStandingsPage({
                 <tr className={headRow}>
                   <th className={th}>#</th>
                   <th className={th}>Licence</th>
-                  <th className={th}>Joueur</th>
-                  <th className={th}>Classement</th>
-                  <th className={th}>Âge</th>
+                  <th className={th}>Nom</th>
+                  <th className={th}>Prénoms</th>
+                  <th className={th}>Cat.</th>
+                  <th className={th}>Série</th>
                   <th className={th}>Club</th>
                   <th className={th}>Nat</th>
                   <th className={thNum} title="Score net cumulé sur toutes les parties">
                     Cumul
                   </th>
+                  <th className={thNum}>Négatif</th>
+                  <th className={thNum}>%</th>
                   {duplicateStandingsData.games.map((g) => (
                     <th key={g.gameNumber} className={thNum}>
                       P{g.gameNumber}
@@ -169,10 +172,12 @@ export default async function TournamentStandingsPage({
               <tbody>
                 {duplicateStandingsData.games.length > 0 && (
                   <tr className="border-b border-black/10 dark:border-white/10 text-black/50 dark:text-white/50 text-xs">
-                    <td className={td} colSpan={6}>
+                    <td className={td} colSpan={8}>
                       Top
                     </td>
                     <td className={tdNum}>{duplicateStandingsData.topCumul ?? "—"}</td>
+                    <td className={tdNum}>—</td>
+                    <td className={tdNum}>—</td>
                     {duplicateStandingsData.games.map((g) => (
                       <td key={g.gameNumber} className={tdNum}>
                         {g.top ?? "—"}
@@ -180,23 +185,33 @@ export default async function TournamentStandingsPage({
                     ))}
                   </tr>
                 )}
-                {duplicateStandings.map((r, i) => (
-                  <tr key={r.playerId} className={row}>
-                    <td className={td}><Rank value={i + 1} /></td>
-                    <td className={td}>{r.licenseNumber ?? "—"}</td>
-                    <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
-                    <td className={td}>{r.classification ?? "—"}</td>
-                    <td className={td}>{r.category ?? "—"}</td>
-                    <td className={td}>{r.clubName ?? "—"}</td>
-                    <td className={td}>{r.nationality ?? "—"}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.net}</td>
-                    {duplicateStandingsData.games.map((g) => (
-                      <td key={g.gameNumber} className={tdNum}>
-                        {r.perGame[g.gameNumber] ?? "—"}
+                {duplicateStandings.map((r, i) => {
+                  const topCumul = duplicateStandingsData.topCumul;
+                  const negatif = topCumul != null ? r.net - topCumul : null;
+                  const pourcentage = topCumul != null && topCumul > 0 ? (r.net / topCumul) * 100 : null;
+                  return (
+                    <tr key={r.playerId} className={row}>
+                      <td className={td}><Rank value={i + 1} /></td>
+                      <td className={td}>{r.licenseNumber ?? "—"}</td>
+                      <td className={`${td} font-medium`}>{r.lastName}</td>
+                      <td className={`${td} font-medium`}>{r.firstName}</td>
+                      <td className={td}>{r.classification ?? "—"}</td>
+                      <td className={td}>{r.category ?? "—"}</td>
+                      <td className={td}>{r.clubName ?? "—"}</td>
+                      <td className={td}>{r.nationality ?? "—"}</td>
+                      <td className={`${tdNum} font-semibold`}>{r.net}</td>
+                      <td className={tdNum}>{negatif ?? "—"}</td>
+                      <td className={tdNum}>
+                        {pourcentage != null ? `${pourcentage.toFixed(2)} %` : "—"}
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      {duplicateStandingsData.games.map((g) => (
+                        <td key={g.gameNumber} className={tdNum}>
+                          {r.perGame[g.gameNumber] ?? "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
