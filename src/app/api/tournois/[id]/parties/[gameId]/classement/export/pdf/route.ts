@@ -18,11 +18,10 @@ export async function GET(
     return new Response("Partie introuvable", { status: 404 });
   }
 
-  const { rows, cumulTop } = await computeGameClassementSheet(gameId);
-  const top = rows[0]?.top ?? null;
+  const { rows, games, cumulTop } = await computeGameClassementSheet(gameId);
+  const showCumul = games.length >= 2;
   const subtitleParts = [`Partie ${game.number}`];
-  if (top != null) subtitleParts.push(`Top : ${top}`);
-  if (cumulTop != null) subtitleParts.push(`Cumul des tops : ${cumulTop}`);
+  if (showCumul && cumulTop != null) subtitleParts.push(`Cumul des tops : ${cumulTop}`);
   const subtitle = subtitleParts.join(" — ");
 
   const pdf = await renderTablePdf(
@@ -38,12 +37,10 @@ export async function GET(
       "Club",
       "Fédér.",
       "Nat",
-      "Score",
-      "Pén.",
-      "Net",
-      "Top",
+      ...(showCumul ? ["Cumul"] : []),
       "Négatif",
       "%",
+      ...games.map((g) => `P${g.gameNumber}`),
     ],
     rows.map((row, i) => [
       i + 1,
@@ -55,14 +52,17 @@ export async function GET(
       row.clubName ?? "—",
       row.federation ?? "—",
       row.nationality ?? "—",
-      row.score,
-      row.penalty > 0 ? `-${row.penalty}` : "—",
-      row.net,
-      row.top ?? "—",
+      ...(showCumul ? [row.cumul] : []),
       row.negatif ?? "—",
       row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—",
+      ...games.map((g) => row.perGame[g.gameNumber] ?? "—"),
     ]),
-    [1, 1.8, 1.8, 1.2, 0.9, 1, 1.8, 1.2, 0.7, 0.9, 0.8, 0.9, 0.9, 1, 1.2],
+    [
+      1, 1.8, 1.8, 1.2, 0.9, 1, 1.8, 1.2, 0.7,
+      ...(showCumul ? [1] : []),
+      1, 1.2,
+      ...games.map(() => 0.9),
+    ],
     { landscape: true }
   );
 

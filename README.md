@@ -210,10 +210,12 @@ Après `npm run db:seed` :
   ligne de référence donnant le top de chaque partie — public comme dans
   les exports CSV/PDF, dans le format des feuilles de classement
   officielles
-- Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
-  classification, club, fédération, nationalité, score brut, pénalité,
-  net, top, négatif, pourcentage), avec le cumul des tops des parties
-  jouées jusqu'ici affiché en en-tête de la fiche, exportable en CSV/PDF
+- Fiche de classement par partie : reprend le classement général tronqué
+  aux parties 1 à N (N = la partie consultée), avec une colonne par
+  partie jouée jusque-là (P1, P2...), le négatif et le pourcentage
+  calculés sur le cumul de ces parties, et une ligne de référence
+  donnant le top de chaque partie ainsi que leur cumul. La colonne Cumul
+  n'apparaît qu'à partir de deux parties jouées, exportable en CSV/PDF
 - Le top d'une partie (utilisé pour le négatif et le pourcentage de la
   fiche de classement, ainsi que la ligne de référence du classement
   général) est calculé automatiquement dès qu'au moins un coup de

@@ -18,7 +18,10 @@ export default async function GameClassementPage({
   const game = await prisma.game.findUnique({ where: { id: gameId } });
   if (!game || game.tournamentId !== tournament.id) notFound();
 
-  const { rows, cumulTop } = await computeGameClassementSheet(gameId);
+  const { rows, games, cumulTop } = await computeGameClassementSheet(gameId);
+  const showCumul = games.length >= 2;
+  const identityColumns = 9;
+  const colSpan = identityColumns + (showCumul ? 1 : 0) + 2 + games.length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,16 +35,6 @@ export default async function GameClassementPage({
         <h1 className="text-2xl font-semibold mt-1">
           Fiche de classement — {tournament.name}, partie {game.number}
         </h1>
-        {rows[0]?.top != null && (
-          <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-            Top de la partie : {rows[0].top}
-          </p>
-        )}
-        {cumulTop != null && (
-          <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-            Cumul des tops (parties 1 à {game.number}) : {cumulTop}
-          </p>
-        )}
         <div className="flex gap-3 mt-2">
           <a
             href={`/api/tournois/${tournament.id}/parties/${game.id}/classement/export`}
@@ -70,16 +63,32 @@ export default async function GameClassementPage({
             <th className="py-2 pr-4">Club</th>
             <th className="py-2 pr-4">Fédération</th>
             <th className="py-2 pr-4">Nat.</th>
-            <th className="py-2 pr-4">Parties</th>
-            <th className="py-2 pr-4">Score</th>
-            <th className="py-2 pr-4">Pénalité</th>
-            <th className="py-2 pr-4">Net</th>
-            <th className="py-2 pr-4">Top</th>
+            {showCumul && <th className="py-2 pr-4">Cumul</th>}
             <th className="py-2 pr-4">Négatif</th>
             <th className="py-2 pr-4">%</th>
+            {games.map((g) => (
+              <th key={g.gameNumber} className="py-2 pr-4">
+                P{g.gameNumber}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
+          {games.length > 0 && (
+            <tr className="border-b border-black/10 dark:border-white/10 text-black/50 dark:text-white/50 text-xs">
+              <td className="py-2 pr-4" colSpan={identityColumns}>
+                Top
+              </td>
+              {showCumul && <td className="py-2 pr-4">{cumulTop ?? "—"}</td>}
+              <td className="py-2 pr-4">—</td>
+              <td className="py-2 pr-4">—</td>
+              {games.map((g) => (
+                <td key={g.gameNumber} className="py-2 pr-4">
+                  {g.top ?? "—"}
+                </td>
+              ))}
+            </tr>
+          )}
           {rows.map((row, i) => (
             <tr key={row.playerId} className="border-b border-black/5 dark:border-white/5">
               <td className="py-2 pr-4">{i + 1}</td>
@@ -91,26 +100,21 @@ export default async function GameClassementPage({
               <td className="py-2 pr-4">{row.clubName ?? "—"}</td>
               <td className="py-2 pr-4">{row.federation ?? "—"}</td>
               <td className="py-2 pr-4">{row.nationality ?? "—"}</td>
-              <td className="py-2 pr-4">{row.gamesPlayed}</td>
-              <td className="py-2 pr-4 font-medium">{row.score}</td>
-              <td className="py-2 pr-4">
-                {row.penalty > 0 ? (
-                  <span className="text-red-600">-{row.penalty}</span>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="py-2 pr-4">{row.net}</td>
-              <td className="py-2 pr-4">{row.top ?? "—"}</td>
+              {showCumul && <td className="py-2 pr-4 font-medium">{row.cumul}</td>}
               <td className="py-2 pr-4">{row.negatif ?? "—"}</td>
               <td className="py-2 pr-4">
                 {row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—"}
               </td>
+              {games.map((g) => (
+                <td key={g.gameNumber} className="py-2 pr-4 font-medium">
+                  {row.perGame[g.gameNumber] ?? "—"}
+                </td>
+              ))}
             </tr>
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={16} className="py-4 text-black/50 dark:text-white/50">
+              <td colSpan={colSpan} className="py-4 text-black/50 dark:text-white/50">
                 Aucun score saisi pour cette partie.
               </td>
             </tr>
