@@ -8,6 +8,7 @@ import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { tournamentStatusLabel } from "@/lib/labels";
+import { LiveRefresh } from "@/components/LiveRefresh";
 
 // Styles partagés par tous les tableaux de classement de cette page : un
 // filet plus marqué sous l'en-tête, des libellés de colonne discrets en
@@ -69,6 +70,7 @@ export default async function TournamentStandingsPage({
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-10">
+      <LiveRefresh tournamentId={tournament.id} />
       <div>
         <Link
           href={`/tournois/${tournament.slug}`}

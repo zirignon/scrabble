@@ -289,7 +289,11 @@ Après `npm run db:seed` :
   l'écran de projection
 - Mise à jour en temps réel par flux SSE (Server-Sent Events) : dès
   qu'un score, une ronde ou un chrono est modifié côté admin, l'écran
-  se met à jour instantanément, sans sondage périodique
+  se met à jour instantanément, sans sondage périodique. La page
+  publique de classement (`/tournois/[slug]/classement`) réutilise ce
+  même flux comme simple signal de rafraîchissement : elle se
+  recharge silencieusement dès qu'un résultat change, sans que le
+  visiteur ait besoin d'actualiser la page lui-même
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements. Le minuteur de la partie
