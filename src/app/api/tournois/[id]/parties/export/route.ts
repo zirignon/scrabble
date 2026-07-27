@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { slugify } from "@/lib/slug";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 export async function GET(
   _request: NextRequest,
@@ -16,7 +17,10 @@ export async function GET(
     include: {
       games: {
         orderBy: { number: "asc" },
-        include: { results: { include: { player: true } } },
+        include: {
+          results: { include: { player: true } },
+          referenceMoves: { select: { points: true } },
+        },
       },
     },
   });
@@ -27,17 +31,18 @@ export async function GET(
     return new Response("Non autorisé", { status: 403 });
   }
 
-  const rows = tournament.games.flatMap((game) =>
-    game.results.map((result) => [
+  const rows = tournament.games.flatMap((game) => {
+    const top = computeGameTop(game.referenceMoves, game.top);
+    return game.results.map((result) => [
       game.number,
-      game.top ?? "",
+      top ?? "",
       `${result.player.firstName} ${result.player.lastName}`,
       result.score,
       result.penalty,
       result.score - result.penalty,
-      game.top != null ? game.top - (result.score - result.penalty) : "",
-    ])
-  );
+      top != null ? top - (result.score - result.penalty) : "",
+    ]);
+  });
 
   const csv = toCsv(
     ["Partie", "Top", "Joueur", "Score", "Pénalité", "Net", "Écart au top"],

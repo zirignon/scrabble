@@ -212,6 +212,14 @@ Après `npm run db:seed` :
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   classification, club, fédération, nationalité, score, top, négatif,
   pourcentage, cumul au tournoi), exportable en CSV/PDF
+- Le top d'une partie (utilisé pour le négatif et le pourcentage de la
+  fiche de classement, ainsi que la ligne de référence du classement
+  général) est calculé automatiquement dès qu'au moins un coup de
+  référence est saisi : c'est la somme des tops de chaque coup (le
+  score du mot retenu par l'arbitre sur la grille), qui se cumule
+  coup après coup jusqu'à la fin de la partie — plus besoin de le
+  ressaisir à la main. La saisie manuelle du top ne reste utile qu'en
+  mode simple (scores saisis sans détail coup par coup)
 - N'importe quel mot peut être saisi librement, sans validation
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,

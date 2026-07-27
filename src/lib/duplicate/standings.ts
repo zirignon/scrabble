@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 export interface DuplicateStandingRow {
   playerId: string;
@@ -105,7 +106,7 @@ export async function computeDuplicateStandingsWithGames(
     prisma.game.findMany({
       where: { tournamentId },
       orderBy: { number: "asc" },
-      select: { number: true, top: true },
+      select: { number: true, top: true, referenceMoves: { select: { points: true } } },
     }),
     prisma.duplicateResult.findMany({
       where: { game: { tournamentId } },
@@ -127,7 +128,7 @@ export async function computeDuplicateStandingsWithGames(
 
   const gameColumns: DuplicateStandingGameColumn[] = games.map((g) => ({
     gameNumber: g.number,
-    top: g.top,
+    top: computeGameTop(g.referenceMoves, g.top),
   }));
   const topCumul =
     gameColumns.length > 0 && gameColumns.every((g) => g.top !== null)

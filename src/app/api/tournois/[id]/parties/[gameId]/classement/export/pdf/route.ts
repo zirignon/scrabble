@@ -19,7 +19,8 @@ export async function GET(
   }
 
   const rows = await computeGameClassementSheet(gameId);
-  const subtitle = `Partie ${game.number}${game.top != null ? ` — Top : ${game.top}` : ""}`;
+  const top = rows[0]?.top ?? null;
+  const subtitle = `Partie ${game.number}${top != null ? ` — Top : ${top}` : ""}`;
 
   const pdf = await renderTablePdf(
     `Fiche de classement — ${tournament.name}`,

@@ -260,6 +260,26 @@ export function getFreeAvertissementCount(rythme: string | null | undefined): nu
   return rythme === "BLITZ" ? 5 : 3;
 }
 
+export interface ReferenceMoveTopLike {
+  points: number;
+}
+
+// Le top d'une partie duplicate est la somme des tops de chaque coup : en
+// duplicate, le top d'un coup est le score du mot retenu par l'arbitre sur
+// la grille de référence (la meilleure solution pour ce tirage), donc le
+// top de la partie se cumule automatiquement coup après coup au fil des
+// coups de référence saisis, jusqu'à la fin de la partie — pas besoin de le
+// ressaisir à la main. Si aucun coup de référence n'a été saisi (tournoi
+// utilisant uniquement la saisie simple des scores, sans détail coup par
+// coup), on retombe sur la valeur entrée manuellement.
+export function computeGameTop(
+  referenceMoves: ReferenceMoveTopLike[],
+  manualTop: number | null
+): number | null {
+  if (referenceMoves.length === 0) return manualTop;
+  return referenceMoves.reduce((sum, m) => sum + m.points, 0);
+}
+
 export interface MoveScoreLike {
   turnNumber: number;
   playerId: string;

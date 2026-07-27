@@ -32,9 +32,9 @@ export default async function GameClassementPage({
         <h1 className="text-2xl font-semibold mt-1">
           Fiche de classement — {tournament.name}, partie {game.number}
         </h1>
-        {game.top != null && (
+        {rows[0]?.top != null && (
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-            Top de la partie : {game.top}
+            Top de la partie : {rows[0].top}
           </p>
         )}
         <div className="flex gap-3 mt-2">

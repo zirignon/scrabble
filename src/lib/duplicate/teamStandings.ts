@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 export interface DuplicateTeamStandingRow {
   teamId: string;
@@ -30,8 +31,15 @@ export async function computeDuplicateTeamStandings(
   });
   const results = await prisma.duplicateResult.findMany({
     where: { game: { tournamentId } },
-    include: { game: true },
+    include: { game: { include: { referenceMoves: { select: { points: true } } } } },
   });
+  const topByGame = new Map<string, number | null>();
+  function gameTop(game: { id: string; top: number | null; referenceMoves: { points: number }[] }) {
+    if (!topByGame.has(game.id)) {
+      topByGame.set(game.id, computeGameTop(game.referenceMoves, game.top));
+    }
+    return topByGame.get(game.id) ?? null;
+  }
 
   const playerToTeam = new Map<string, string>();
   for (const team of teams) {
@@ -63,8 +71,9 @@ export async function computeDuplicateTeamStandings(
     row.totalScore += result.score;
     row.totalPenalty += result.penalty;
     row.net += net;
-    if (result.game.top != null) {
-      row.totalTop += result.game.top;
+    const top = gameTop(result.game);
+    if (top != null) {
+      row.totalTop += top;
       hasTopByTeam.add(teamId);
     }
     if (!gamesByTeam.has(teamId)) gamesByTeam.set(teamId, new Set());

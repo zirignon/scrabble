@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeGameTop } from "@/lib/duplicate/board";
 
 export interface GameClassementRow {
   playerId: string;
@@ -34,8 +35,10 @@ export async function computeGameClassementSheet(
       results: {
         include: { player: { include: { club: true } } },
       },
+      referenceMoves: { select: { points: true } },
     },
   });
+  const top = computeGameTop(game.referenceMoves, game.top);
 
   const previousResults = await prisma.duplicateResult.findMany({
     where: {
@@ -55,8 +58,8 @@ export async function computeGameClassementSheet(
     const net = result.score - result.penalty;
     const cumul = cumulByPlayer.get(result.playerId)?.net ?? net;
     const gamesPlayed = cumulByPlayer.get(result.playerId)?.gamesPlayed ?? 1;
-    const negatif = game.top != null ? net - game.top : null;
-    const pourcentage = game.top != null && game.top > 0 ? (net / game.top) * 100 : null;
+    const negatif = top != null ? net - top : null;
+    const pourcentage = top != null && top > 0 ? (net / top) * 100 : null;
 
     return {
       playerId: result.playerId,
@@ -73,7 +76,7 @@ export async function computeGameClassementSheet(
       net,
       cumul,
       gamesPlayed,
-      top: game.top,
+      top,
       negatif,
       pourcentage,
     };
