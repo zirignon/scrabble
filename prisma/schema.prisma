@@ -141,6 +141,13 @@ model Player {
   club          Club?   @relation(fields: [clubId], references: [id])
   licenseNumber String?
   category      String?
+  // Niveau/classification du joueur (ex. "1A".."7" en duplicate, "J"/"C"/
+  // "B"/"A" en classique selon les fédérations) : texte libre, le barème
+  // variant d'une fédération à l'autre.
+  classification String?
+  // Code nationalité (ex. "CI", "FR"), tel qu'affiché sur les feuilles de
+  // classement officielles.
+  nationality    String?
 
   createdAt DateTime @default(now())
 

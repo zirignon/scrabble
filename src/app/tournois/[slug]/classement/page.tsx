@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { computeClassicStandings } from "@/lib/classic/standings";
-import { computeDuplicateStandings } from "@/lib/duplicate/standings";
+import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { tournamentStatusLabel } from "@/lib/labels";
+import { LiveRefresh } from "@/components/LiveRefresh";
 
 // Styles partagés par tous les tableaux de classement de cette page : un
 // filet plus marqué sous l'en-tête, des libellés de colonne discrets en
@@ -41,8 +42,11 @@ export default async function TournamentStandingsPage({
 
   const classicStandings =
     tournament.type === "CLASSIC" ? await computeClassicStandings(tournament.id) : [];
-  const duplicateStandings =
-    tournament.type === "DUPLICATE" ? await computeDuplicateStandings(tournament.id) : [];
+  const duplicateStandingsData =
+    tournament.type === "DUPLICATE"
+      ? await computeDuplicateStandingsWithGames(tournament.id)
+      : { rows: [], games: [], topCumul: null };
+  const duplicateStandings = duplicateStandingsData.rows;
   const standingsCount =
     tournament.type === "CLASSIC" ? classicStandings.length : duplicateStandings.length;
 
@@ -66,6 +70,7 @@ export default async function TournamentStandingsPage({
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-10">
+      <LiveRefresh tournamentId={tournament.id} />
       <div>
         <Link
           href={`/tournois/${tournament.slug}`}
@@ -101,6 +106,10 @@ export default async function TournamentStandingsPage({
                 <tr className={headRow}>
                   <th className={th}>#</th>
                   <th className={th}>Joueur</th>
+                  <th className={th}>Âge</th>
+                  <th className={th}>Club</th>
+                  <th className={th}>Fédé</th>
+                  <th className={th}>Classement</th>
                   <th className={thNum}>J</th>
                   <th className={thNum}>V</th>
                   <th className={thNum}>N</th>
@@ -118,6 +127,10 @@ export default async function TournamentStandingsPage({
                   <tr key={r.playerId} className={row}>
                     <td className={td}><Rank value={i + 1} /></td>
                     <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
+                    <td className={td}>{r.category ?? "—"}</td>
+                    <td className={td}>{r.clubName ?? "—"}</td>
+                    <td className={td}>{r.federation ?? "—"}</td>
+                    <td className={td}>{r.classification ?? "—"}</td>
                     <td className={tdNum}>{r.played}</td>
                     <td className={tdNum}>{r.wins}</td>
                     <td className={tdNum}>{r.draws}</td>
@@ -137,22 +150,51 @@ export default async function TournamentStandingsPage({
               <thead>
                 <tr className={headRow}>
                   <th className={th}>#</th>
+                  <th className={th}>Licence</th>
                   <th className={th}>Joueur</th>
-                  <th className={thNum}>Parties</th>
-                  <th className={thNum}>Score total</th>
-                  <th className={thNum}>Pénalités</th>
-                  <th className={thNum}>Net</th>
+                  <th className={th}>Classement</th>
+                  <th className={th}>Âge</th>
+                  <th className={th}>Club</th>
+                  <th className={th}>Nat</th>
+                  <th className={thNum} title="Score net cumulé sur toutes les parties">
+                    Cumul
+                  </th>
+                  {duplicateStandingsData.games.map((g) => (
+                    <th key={g.gameNumber} className={thNum}>
+                      P{g.gameNumber}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
+                {duplicateStandingsData.games.length > 0 && (
+                  <tr className="border-b border-black/10 dark:border-white/10 text-black/50 dark:text-white/50 text-xs">
+                    <td className={td} colSpan={6}>
+                      Top
+                    </td>
+                    <td className={tdNum}>{duplicateStandingsData.topCumul ?? "—"}</td>
+                    {duplicateStandingsData.games.map((g) => (
+                      <td key={g.gameNumber} className={tdNum}>
+                        {g.top ?? "—"}
+                      </td>
+                    ))}
+                  </tr>
+                )}
                 {duplicateStandings.map((r, i) => (
                   <tr key={r.playerId} className={row}>
                     <td className={td}><Rank value={i + 1} /></td>
+                    <td className={td}>{r.licenseNumber ?? "—"}</td>
                     <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
-                    <td className={tdNum}>{r.gamesPlayed}</td>
-                    <td className={tdNum}>{r.totalScore}</td>
-                    <td className={tdNum}>{r.totalPenalty}</td>
+                    <td className={td}>{r.classification ?? "—"}</td>
+                    <td className={td}>{r.category ?? "—"}</td>
+                    <td className={td}>{r.clubName ?? "—"}</td>
+                    <td className={td}>{r.nationality ?? "—"}</td>
                     <td className={`${tdNum} font-semibold`}>{r.net}</td>
+                    {duplicateStandingsData.games.map((g) => (
+                      <td key={g.gameNumber} className={tdNum}>
+                        {r.perGame[g.gameNumber] ?? "—"}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

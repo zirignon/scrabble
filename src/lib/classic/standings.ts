@@ -4,6 +4,10 @@ export interface ClassicStandingRow {
   playerId: string;
   firstName: string;
   lastName: string;
+  category: string | null;
+  classification: string | null;
+  clubName: string | null;
+  federation: string | null;
   played: number;
   wins: number;
   draws: number;
@@ -35,7 +39,15 @@ export interface StandingsMatchLike {
 // score, départages Buchholz et Sonneborn-Berger), factorisé pour être
 // réutilisé aussi bien sur l'ensemble d'un tournoi que sur une poule.
 export function computeStandingsFromMatches(
-  players: Array<{ playerId: string; firstName: string; lastName: string }>,
+  players: Array<{
+    playerId: string;
+    firstName: string;
+    lastName: string;
+    category?: string | null;
+    classification?: string | null;
+    clubName?: string | null;
+    federation?: string | null;
+  }>,
   matches: StandingsMatchLike[]
 ): ClassicStandingRow[] {
   const rows = new Map<string, ClassicStandingRow>();
@@ -45,6 +57,10 @@ export function computeStandingsFromMatches(
         playerId,
         firstName: "?",
         lastName: "",
+        category: null,
+        classification: null,
+        clubName: null,
+        federation: null,
         played: 0,
         wins: 0,
         draws: 0,
@@ -67,6 +83,10 @@ export function computeStandingsFromMatches(
     const row = ensure(player.playerId);
     row.firstName = player.firstName;
     row.lastName = player.lastName;
+    row.category = player.category ?? null;
+    row.classification = player.classification ?? null;
+    row.clubName = player.clubName ?? null;
+    row.federation = player.federation ?? null;
   }
 
   // Enregistre chaque confrontation joueur/adversaire pour calculer les
@@ -218,7 +238,7 @@ export async function computeClassicStandings(
   const [registrations, matches] = await Promise.all([
     prisma.registration.findMany({
       where: { tournamentId },
-      include: { player: true },
+      include: { player: { include: { club: true } } },
     }),
     prisma.match.findMany({
       where: { round: { tournamentId } },
@@ -231,6 +251,10 @@ export async function computeClassicStandings(
       playerId: r.playerId,
       firstName: r.player.firstName,
       lastName: r.player.lastName,
+      category: r.player.category,
+      classification: r.player.classification,
+      clubName: r.player.club?.name ?? null,
+      federation: r.player.club?.federation ?? null,
     })),
     matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );

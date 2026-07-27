@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeClassicStandings } from "@/lib/classic/standings";
-import { computeDuplicateStandings } from "@/lib/duplicate/standings";
+import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
 import { pdfResponse, renderTablePdf } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
 
@@ -23,10 +23,14 @@ export async function GET(
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Bchz", "Bchz méd.", "SB", "Cumul", "Diff"],
+      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Bchz", "Bchz méd.", "SB", "Cumul", "Diff"],
       standings.map((row, i) => [
         i + 1,
         `${row.firstName} ${row.lastName}`,
+        row.category ?? "",
+        row.clubName ?? "",
+        row.federation ?? "",
+        row.classification ?? "",
         row.played,
         row.wins,
         row.draws,
@@ -38,24 +42,38 @@ export async function GET(
         row.cumulativeScore,
         row.diff,
       ]),
-      [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 2.6, 1, 1.4, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       { landscape: true }
     );
   } else {
-    const standings = await computeDuplicateStandings(tournament.id);
+    const { rows: standings, games } = await computeDuplicateStandingsWithGames(tournament.id);
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "Parties", "Score total", "Pénalités", "Net"],
+      [
+        "Rang",
+        "Licence",
+        "Joueur",
+        "Classement",
+        "Âge",
+        "Club",
+        "Nat",
+        "Cumul",
+        ...games.map((g) => `P${g.gameNumber}`),
+      ],
       standings.map((row, i) => [
         i + 1,
+        row.licenseNumber ?? "",
         `${row.firstName} ${row.lastName}`,
-        row.gamesPlayed,
-        row.totalScore,
-        row.totalPenalty,
+        row.classification ?? "",
+        row.category ?? "",
+        row.clubName ?? "",
+        row.nationality ?? "",
         row.net,
+        ...games.map((g) => row.perGame[g.gameNumber] ?? ""),
       ]),
-      [1, 3, 1, 1, 1, 1]
+      [1, 1.2, 2.4, 1, 0.8, 1.2, 0.8, 1, ...games.map(() => 0.9)],
+      { landscape: true }
     );
   }
 

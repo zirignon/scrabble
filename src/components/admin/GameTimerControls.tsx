@@ -8,6 +8,7 @@ import {
 } from "@/lib/actions/duplicate";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import { computeLastReliquat } from "@/lib/duplicate/board";
+import { formatClock } from "@/lib/timer";
 import type { Game, ReferenceMove } from "@prisma/client";
 
 export function GameTimerControls({
@@ -113,10 +114,11 @@ export function GameTimerControls({
             className="flex items-center gap-1"
           >
             <input
-              type="number"
-              name="minutes"
-              placeholder="min"
-              defaultValue={Math.round(game.timerDurationSeconds / 60)}
+              type="text"
+              name="duration"
+              placeholder="mm:ss"
+              title="Durée au format minutes:secondes (ex. 2:30), ou un nombre de minutes (ex. 3)"
+              defaultValue={formatClock(game.timerDurationSeconds)}
               className="w-16 rounded border border-black/10 dark:border-white/20 px-1.5 py-1 bg-transparent text-xs"
             />
             <button

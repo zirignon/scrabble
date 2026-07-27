@@ -77,7 +77,7 @@ Après `npm run db:seed` :
   aussi de changer le rôle ou réinitialiser le mot de passe d'un compte
   existant
 - Gestion des clubs (nom, ville, fédération) et des joueurs (licence,
-  catégorie, club)
+  catégorie, classification, nationalité, club)
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
   archivé), et suppression définitive (avec confirmation) qui efface en
@@ -115,7 +115,10 @@ Après `npm run db:seed` :
   départages Buchholz, Buchholz médian, Sonneborn-Berger et score
   cumulé progressif, puis différence de score et total de points ; en
   cas d'égalité parfaite sur tous ces critères, la confrontation
-  directe entre les deux joueurs tranche
+  directe entre les deux joueurs tranche. La page de classement
+  (publique, comme les exports CSV/PDF) affiche aussi l'âge, le club,
+  la fédération et la classification de chaque joueur, dans le format
+  des feuilles de classement officielles
 
 ### Scrabble duplicate
 - Formule et rythme du tournoi (FISF/FFSc), deux réglages indépendants
@@ -201,7 +204,11 @@ Après `npm run db:seed` :
   fait via un sélecteur « Coup » à côté de la grille (un seul coup
   affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
   tous les coups joués, pour ne pas surcharger l'espace
-- Classement cumulé (score total, pénalités, net)
+- Classement cumulé (score total, pénalités, net), avec licence,
+  classification, âge, club et nationalité de chaque joueur, ainsi
+  qu'une colonne par partie jouée (score net) et une ligne de
+  référence donnant le top de chaque partie — public comme dans les
+  exports CSV/PDF, dans le format des feuilles de classement officielles
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
   club, fédération, score, top, négatif, pourcentage, cumul au
   tournoi), exportable en CSV/PDF
@@ -238,7 +245,9 @@ Après `npm run db:seed` :
   tant qu'aucun coup n'a été enregistré dessus — tout disparaît
   aussitôt de l'affichage grand écran, le champ de saisie repart
   entièrement vierge (sans resuggérer le même reliquat) et le chrono
-  repart de zéro, en attendant la validation d'un nouveau tirage
+  repart de zéro, en attendant la validation d'un nouveau tirage. La
+  durée du chronomètre se règle au format minutes:secondes (ex.
+  « 2:30 » pour deux minutes trente), ou en simple nombre de minutes
 
 ### Tournois par équipes
 
@@ -280,7 +289,11 @@ Après `npm run db:seed` :
   l'écran de projection
 - Mise à jour en temps réel par flux SSE (Server-Sent Events) : dès
   qu'un score, une ronde ou un chrono est modifié côté admin, l'écran
-  se met à jour instantanément, sans sondage périodique
+  se met à jour instantanément, sans sondage périodique. La page
+  publique de classement (`/tournois/[slug]/classement`) réutilise ce
+  même flux comme simple signal de rafraîchissement : elle se
+  recharge silencieusement dès qu'un résultat change, sans que le
+  visiteur ait besoin d'actualiser la page lui-même
 - Affiche les chronomètres en direct (compte à rebours de la partie en
   duplicate, chronomètre d'échecs par match en classique), avec un
   décompte fluide entre deux rafraîchissements. Le minuteur de la partie
