@@ -61,8 +61,10 @@ export default async function GameClassementPage({
             <th className="py-2 pr-4">Prénom</th>
             <th className="py-2 pr-4">N° licence</th>
             <th className="py-2 pr-4">Catégorie</th>
+            <th className="py-2 pr-4">Classification</th>
             <th className="py-2 pr-4">Club</th>
             <th className="py-2 pr-4">Fédération</th>
+            <th className="py-2 pr-4">Nat.</th>
             <th className="py-2 pr-4">Parties</th>
             <th className="py-2 pr-4">Score</th>
             <th className="py-2 pr-4">Top</th>
@@ -79,8 +81,10 @@ export default async function GameClassementPage({
               <td className="py-2 pr-4">{row.firstName}</td>
               <td className="py-2 pr-4">{row.licenseNumber ?? "—"}</td>
               <td className="py-2 pr-4">{row.category ?? "—"}</td>
+              <td className="py-2 pr-4">{row.classification ?? "—"}</td>
               <td className="py-2 pr-4">{row.clubName ?? "—"}</td>
               <td className="py-2 pr-4">{row.federation ?? "—"}</td>
+              <td className="py-2 pr-4">{row.nationality ?? "—"}</td>
               <td className="py-2 pr-4">{row.gamesPlayed}</td>
               <td className="py-2 pr-4 font-medium">
                 {row.net}
@@ -98,7 +102,7 @@ export default async function GameClassementPage({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={13} className="py-4 text-black/50 dark:text-white/50">
+              <td colSpan={15} className="py-4 text-black/50 dark:text-white/50">
                 Aucun score saisi pour cette partie.
               </td>
             </tr>

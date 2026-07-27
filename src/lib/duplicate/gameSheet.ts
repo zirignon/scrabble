@@ -6,8 +6,10 @@ export interface GameClassementRow {
   lastName: string;
   licenseNumber: string | null;
   category: string | null;
+  classification: string | null;
   clubName: string | null;
   federation: string | null;
+  nationality: string | null;
   score: number;
   penalty: number;
   net: number;
@@ -62,8 +64,10 @@ export async function computeGameClassementSheet(
       lastName: result.player.lastName,
       licenseNumber: result.player.licenseNumber,
       category: result.player.category,
+      classification: result.player.classification,
       clubName: result.player.club?.name ?? null,
       federation: result.player.club?.federation ?? null,
+      nationality: result.player.nationality,
       score: result.score,
       penalty: result.penalty,
       net,

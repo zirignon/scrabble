@@ -210,8 +210,8 @@ Après `npm run db:seed` :
   référence donnant le top de chaque partie — public comme dans les
   exports CSV/PDF, dans le format des feuilles de classement officielles
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
-  club, fédération, score, top, négatif, pourcentage, cumul au
-  tournoi), exportable en CSV/PDF
+  classification, club, fédération, nationalité, score, top, négatif,
+  pourcentage, cumul au tournoi), exportable en CSV/PDF
 - N'importe quel mot peut être saisi librement, sans validation
   automatique — comme au jeu réel, c'est à l'adversaire de contester un
   mot en cas de doute. Un dictionnaire (page `/admin/dictionnaire`,
