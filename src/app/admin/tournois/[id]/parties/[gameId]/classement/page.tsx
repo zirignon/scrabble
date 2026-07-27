@@ -18,7 +18,7 @@ export default async function GameClassementPage({
   const game = await prisma.game.findUnique({ where: { id: gameId } });
   if (!game || game.tournamentId !== tournament.id) notFound();
 
-  const rows = await computeGameClassementSheet(gameId);
+  const { rows, cumulTop } = await computeGameClassementSheet(gameId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,6 +35,11 @@ export default async function GameClassementPage({
         {rows[0]?.top != null && (
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
             Top de la partie : {rows[0].top}
+          </p>
+        )}
+        {cumulTop != null && (
+          <p className="text-sm text-black/60 dark:text-white/60 mt-1">
+            Cumul des tops (parties 1 à {game.number}) : {cumulTop}
           </p>
         )}
         <div className="flex gap-3 mt-2">
@@ -67,10 +72,11 @@ export default async function GameClassementPage({
             <th className="py-2 pr-4">Nat.</th>
             <th className="py-2 pr-4">Parties</th>
             <th className="py-2 pr-4">Score</th>
+            <th className="py-2 pr-4">Pénalité</th>
+            <th className="py-2 pr-4">Net</th>
             <th className="py-2 pr-4">Top</th>
             <th className="py-2 pr-4">Négatif</th>
             <th className="py-2 pr-4">%</th>
-            <th className="py-2 pr-4">Cumul</th>
           </tr>
         </thead>
         <tbody>
@@ -86,23 +92,25 @@ export default async function GameClassementPage({
               <td className="py-2 pr-4">{row.federation ?? "—"}</td>
               <td className="py-2 pr-4">{row.nationality ?? "—"}</td>
               <td className="py-2 pr-4">{row.gamesPlayed}</td>
-              <td className="py-2 pr-4 font-medium">
-                {row.net}
-                {row.penalty > 0 && (
-                  <span className="text-xs text-red-600 ml-1">(-{row.penalty} pén.)</span>
+              <td className="py-2 pr-4 font-medium">{row.score}</td>
+              <td className="py-2 pr-4">
+                {row.penalty > 0 ? (
+                  <span className="text-red-600">-{row.penalty}</span>
+                ) : (
+                  "—"
                 )}
               </td>
+              <td className="py-2 pr-4">{row.net}</td>
               <td className="py-2 pr-4">{row.top ?? "—"}</td>
               <td className="py-2 pr-4">{row.negatif ?? "—"}</td>
               <td className="py-2 pr-4">
                 {row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—"}
               </td>
-              <td className="py-2 pr-4">{row.cumul}</td>
             </tr>
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={15} className="py-4 text-black/50 dark:text-white/50">
+              <td colSpan={16} className="py-4 text-black/50 dark:text-white/50">
                 Aucun score saisi pour cette partie.
               </td>
             </tr>

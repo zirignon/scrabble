@@ -18,9 +18,12 @@ export async function GET(
     return new Response("Partie introuvable", { status: 404 });
   }
 
-  const rows = await computeGameClassementSheet(gameId);
+  const { rows, cumulTop } = await computeGameClassementSheet(gameId);
   const top = rows[0]?.top ?? null;
-  const subtitle = `Partie ${game.number}${top != null ? ` — Top : ${top}` : ""}`;
+  const subtitleParts = [`Partie ${game.number}`];
+  if (top != null) subtitleParts.push(`Top : ${top}`);
+  if (cumulTop != null) subtitleParts.push(`Cumul des tops : ${cumulTop}`);
+  const subtitle = subtitleParts.join(" — ");
 
   const pdf = await renderTablePdf(
     `Fiche de classement — ${tournament.name}`,
@@ -36,10 +39,11 @@ export async function GET(
       "Fédér.",
       "Nat",
       "Score",
+      "Pén.",
+      "Net",
       "Top",
       "Négatif",
       "%",
-      "Cumul",
     ],
     rows.map((row, i) => [
       i + 1,
@@ -51,13 +55,14 @@ export async function GET(
       row.clubName ?? "—",
       row.federation ?? "—",
       row.nationality ?? "—",
+      row.score,
+      row.penalty > 0 ? `-${row.penalty}` : "—",
       row.net,
       row.top ?? "—",
       row.negatif ?? "—",
       row.pourcentage != null ? `${row.pourcentage.toFixed(2)} %` : "—",
-      row.cumul,
     ]),
-    [1, 1.8, 1.8, 1.2, 0.9, 1, 1.8, 1.2, 0.7, 1, 1, 1, 1.2, 1],
+    [1, 1.8, 1.8, 1.2, 0.9, 1, 1.8, 1.2, 0.7, 0.9, 0.8, 0.9, 0.9, 1, 1.2],
     { landscape: true }
   );
 

@@ -210,8 +210,9 @@ Après `npm run db:seed` :
   référence donnant le top de chaque partie — public comme dans les
   exports CSV/PDF, dans le format des feuilles de classement officielles
 - Fiche de classement par partie (rang, nom/prénom, licence, catégorie,
-  classification, club, fédération, nationalité, score, top, négatif,
-  pourcentage, cumul au tournoi), exportable en CSV/PDF
+  classification, club, fédération, nationalité, score brut, pénalité,
+  net, top, négatif, pourcentage), avec le cumul des tops des parties
+  jouées jusqu'ici affiché en en-tête de la fiche, exportable en CSV/PDF
 - Le top d'une partie (utilisé pour le négatif et le pourcentage de la
   fiche de classement, ainsi que la ligne de référence du classement
   général) est calculé automatiquement dès qu'au moins un coup de
