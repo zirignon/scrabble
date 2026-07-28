@@ -110,19 +110,6 @@ export function PlayerForm({
       )}
       <div className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="playerId" value={playerId} />
-        <div className="flex flex-col gap-1">
-          <label htmlFor="firstName" className="text-xs font-medium">
-            Prénom
-          </label>
-          <input
-            id="firstName"
-            name="firstName"
-            required
-            autoComplete="off"
-            onChange={triggerSearch}
-            className={inputClass}
-          />
-        </div>
         <div className="flex flex-col gap-1 relative">
           <label htmlFor="lastName" className="text-xs font-medium">
             Nom
@@ -157,6 +144,19 @@ export function PlayerForm({
               ))}
             </ul>
           )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="firstName" className="text-xs font-medium">
+            Prénom
+          </label>
+          <input
+            id="firstName"
+            name="firstName"
+            required
+            autoComplete="off"
+            onChange={triggerSearch}
+            className={inputClass}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="clubId" className="text-xs font-medium">
