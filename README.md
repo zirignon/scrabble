@@ -77,7 +77,9 @@ Après `npm run db:seed` :
   aussi de changer le rôle ou réinitialiser le mot de passe d'un compte
   existant
 - Gestion des clubs (nom, ville, fédération, code court optionnel utilisé
-  par l'import CSV) et des joueurs (licence unique, catégorie, série et
+  par l'import CSV — modifiable en ligne dans la liste `/admin/clubs`,
+  utile pour renommer les clubs créés automatiquement sous leur code brut
+  lors d'un import) et des joueurs (licence unique, catégorie, série et
   Elo duplicate, série/Elo/coefficient classique, nationalité,
   fédération d'affiliation, club)
 - Import CSV de la base fédérale des joueurs (`/admin/joueurs`) : fichier

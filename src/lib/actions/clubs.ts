@@ -42,3 +42,29 @@ export async function deleteClubAction(clubId: string) {
   await prisma.club.delete({ where: { id: clubId } });
   revalidatePath("/admin/clubs");
 }
+
+export async function updateClubAction(
+  clubId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireRole(STAFF_ROLES);
+
+  const parsed = clubSchema.safeParse({
+    name: formData.get("name"),
+    city: formData.get("city") || undefined,
+    federation: formData.get("federation") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  try {
+    await prisma.club.update({ where: { id: clubId }, data: parsed.data });
+  } catch {
+    return { error: "Un club avec ce nom existe déjà." };
+  }
+
+  revalidatePath("/admin/clubs");
+  return {};
+}
