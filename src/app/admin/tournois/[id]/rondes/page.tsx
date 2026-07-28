@@ -27,6 +27,7 @@ import {
   startMatchClockAction,
   updateFinalPhaseSettingsAction,
 } from "@/lib/actions/classic";
+import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Match, Player, Pool, Team } from "@prisma/client";
 
@@ -658,11 +659,16 @@ export default async function RoundsPage({
         }
 
         if (!tournament.isTeamEvent) {
+          const isKnockoutRound =
+            tournament.format === "KNOCKOUT" ||
+            tournament.format === "GROUPS" ||
+            round.isFinalPhase;
           return (
             <section key={round.id} className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold">
                 Ronde {round.number}
-                {(tournament.format === "GROUPS" || round.isFinalPhase) && " — Phase finale"}
+                {isKnockoutRound &&
+                  ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
               </h2>
               <MatchTable
                 matches={round.matches}
@@ -811,11 +817,14 @@ export default async function RoundsPage({
           encounters.get(key)!.matches.push(match);
         }
 
+        const isKnockoutRound =
+          tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
         return (
           <section key={round.id} className="flex flex-col gap-5">
             <h2 className="text-lg font-semibold">
               Ronde {round.number}
-              {(tournament.format === "GROUPS" || round.isFinalPhase) && " — Phase finale"}
+              {isKnockoutRound &&
+                ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
             </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (

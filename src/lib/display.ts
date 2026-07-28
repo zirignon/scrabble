@@ -3,6 +3,7 @@ import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
+import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import {
@@ -256,6 +257,7 @@ function classicTeamColumns(s: {
 async function buildCurrent(tournament: {
   id: string;
   type: string;
+  format: string | null;
   duplicateRythme: string | null;
 }): Promise<DisplayCurrent> {
   if (tournament.type === "CLASSIC") {
@@ -309,9 +311,16 @@ async function buildCurrent(tournament: {
       });
       groupsMap.set(groupName, arr);
     }
+    const isKnockoutRound =
+      tournament.format === "KNOCKOUT" ||
+      (tournament.format === "GROUPS" && !grouped) ||
+      lastRound.isFinalPhase;
+    const label = isKnockoutRound
+      ? getKnockoutStageLabel(countKnockoutEntrants(lastRound.matches))
+      : `Ronde ${lastRound.number}`;
     return {
       kind: "matches",
-      label: `Ronde ${lastRound.number}`,
+      label,
       groups: [...groupsMap.entries()].map(([name, matches]) => ({ name: name || null, matches })),
     };
   }

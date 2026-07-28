@@ -62,3 +62,41 @@ export function pairKnockoutWinners(winners: string[]): Pairing[] {
   }
   return pairings;
 }
+
+export interface KnockoutRoundMatchLike {
+  isBye: boolean;
+  homePlayerId?: string | null;
+  awayPlayerId?: string | null;
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
+}
+
+// Compte les entrants (joueurs ou équipes) d'un tour à élimination directe
+// à partir de ses matchs — en équipes, plusieurs lignes Match partagent la
+// même confrontation (une par échiquier), d'où la déduplication par paire.
+export function countKnockoutEntrants(matches: KnockoutRoundMatchLike[]): number {
+  const seen = new Set<string>();
+  let entrants = 0;
+  for (const m of matches) {
+    const home = m.homeTeamId ?? m.homePlayerId ?? null;
+    const away = m.awayTeamId ?? m.awayPlayerId ?? null;
+    const key = m.isBye ? `bye:${home}` : `${home}:${away}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entrants += m.isBye ? 1 : 2;
+  }
+  return entrants;
+}
+
+// Nom du tour selon le nombre d'entrants, à la manière des tableaux
+// officiels : Finale, Demi-finales, Quarts de finale, Huitièmes de
+// finale...
+export function getKnockoutStageLabel(entrants: number): string {
+  if (entrants <= 2) return "Finale";
+  if (entrants <= 4) return "Demi-finales";
+  if (entrants <= 8) return "Quarts de finale";
+  if (entrants <= 16) return "Huitièmes de finale";
+  if (entrants <= 32) return "Seizièmes de finale";
+  if (entrants <= 64) return "Trente-deuxièmes de finale";
+  return `Tour de ${entrants}`;
+}

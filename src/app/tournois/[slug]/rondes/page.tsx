@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { matchRow, matchCell, scoreCell, MatchStatusPill } from "@/components/public/StatusPill";
+import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
 
 export default async function TournamentRoundsPage({
   params,
@@ -105,11 +106,16 @@ export default async function TournamentRoundsPage({
           }
 
           if (!tournament.isTeamEvent) {
+            const isKnockoutRound =
+              tournament.format === "KNOCKOUT" ||
+              tournament.format === "GROUPS" ||
+              round.isFinalPhase;
             return (
               <div key={round.id} className="overflow-x-auto">
                 <h3 className="font-medium mb-2">
                   Ronde {round.number}
-                  {tournament.format === "GROUPS" && " — Phase finale"}
+                  {isKnockoutRound &&
+                    ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
                 </h3>
                 <table className="w-full text-sm border-collapse">
                   <tbody>
@@ -251,11 +257,14 @@ export default async function TournamentRoundsPage({
             encounters.get(key)!.matches.push(match);
           }
 
+          const isKnockoutRound =
+            tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
           return (
             <div key={round.id} className="flex flex-col gap-4">
               <h3 className="font-medium">
                 Ronde {round.number}
-                {tournament.format === "GROUPS" && " — Phase finale"}
+                {isKnockoutRound &&
+                  ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="overflow-x-auto">
