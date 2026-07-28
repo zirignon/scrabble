@@ -63,7 +63,7 @@ export default async function TournamentGamesPage({
                     return (
                       <tr key={result.id} className={matchRow}>
                         <td className={matchCell}>
-                          {result.player.firstName} {result.player.lastName}
+                          {result.player.lastName} {result.player.firstName}
                         </td>
                         <td className={scoreCell}>{result.score}</td>
                         {result.penalty > 0 && (

@@ -44,12 +44,12 @@ export async function GET(
     round.matches.map((match) => [
       round.number,
       match.table ?? "",
-      match.isBye ? "" : match.homePlayer ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}` : "",
+      match.isBye ? "" : match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : "",
       match.isBye ? "" : match.homeScore ?? "",
       match.isBye ? "" : match.awayScore ?? "",
-      match.isBye ? "" : match.awayPlayer ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}` : "",
+      match.isBye ? "" : match.awayPlayer ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}` : "",
       match.isBye
-        ? `Exempt (${match.homePlayer ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}` : ""})`
+        ? `Exempt (${match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : ""})`
         : statusLabel[match.status],
     ])
   );

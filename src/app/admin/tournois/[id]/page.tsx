@@ -118,7 +118,7 @@ export default async function ManageTournamentPage({
             {tournament.registrations.map((reg) => (
               <tr key={reg.id} className="border-b border-black/5 dark:border-white/5">
                 <td className="py-2 pr-4">
-                  {reg.player.firstName} {reg.player.lastName}
+                  {reg.player.lastName} {reg.player.firstName}
                 </td>
                 <td className="py-2 pr-4">{reg.player.club?.name ?? "—"}</td>
                 <td className="py-2 pr-4">{reg.status}</td>

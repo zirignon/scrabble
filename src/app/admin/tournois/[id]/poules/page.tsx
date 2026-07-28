@@ -322,7 +322,7 @@ export default async function PoolsPage({
               {pool.members.map((member) => (
                 <tr key={member.id} className="border-b border-black/5 dark:border-white/5">
                   <td className="py-2 pr-4">
-                    {member.player.firstName} {member.player.lastName}
+                    {member.player.lastName} {member.player.firstName}
                   </td>
                   {canManage && (
                     <td className="py-2 pr-4 text-right">
@@ -362,7 +362,7 @@ export default async function PoolsPage({
                   <option value="">Sélectionner...</option>
                   {unassignedPlayers.map((player) => (
                     <option key={player.id} value={player.id}>
-                      {player.firstName} {player.lastName}
+                      {player.lastName} {player.firstName}
                     </option>
                   ))}
                 </select>
@@ -387,7 +387,7 @@ export default async function PoolsPage({
       {unassignedPlayers.length > 0 && tournament.pools.length > 0 && (
         <p className="text-sm text-black/50 dark:text-white/50">
           Joueurs inscrits non encore affectés à une poule :{" "}
-          {unassignedPlayers.map((p) => `${p.firstName} ${p.lastName}`).join(", ")}
+          {unassignedPlayers.map((p) => `${p.lastName} ${p.firstName}`).join(", ")}
         </p>
       )}
     </div>

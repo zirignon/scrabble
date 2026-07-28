@@ -78,7 +78,7 @@ export default async function TournamentRoundsPage({
                           <tr key={match.id} className={matchRow}>
                             <td className={matchCell}>
                               {match.homePlayer
-                                ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                                ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
                                 : "—"}
                             </td>
                             <td className={scoreCell}>
@@ -88,7 +88,7 @@ export default async function TournamentRoundsPage({
                             </td>
                             <td className={matchCell}>
                               {match.awayPlayer
-                                ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                                ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
                                 : "—"}
                             </td>
                             <td className={matchCell}>
@@ -117,7 +117,7 @@ export default async function TournamentRoundsPage({
                       <tr key={match.id} className={matchRow}>
                         <td className={matchCell}>
                           {match.homePlayer
-                            ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                            ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
                             : "—"}
                         </td>
                         <td className={scoreCell}>
@@ -127,7 +127,7 @@ export default async function TournamentRoundsPage({
                         </td>
                         <td className={matchCell}>
                           {match.awayPlayer
-                            ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                            ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
                             : "—"}
                         </td>
                         <td className={matchCell}>
@@ -196,7 +196,7 @@ export default async function TournamentRoundsPage({
                               <tr key={match.id} className={matchRow}>
                                 <td className={matchCell}>
                                   {match.homePlayer
-                                    ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                                    ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
                                     : "—"}
                                 </td>
                                 <td className={scoreCell}>
@@ -204,7 +204,7 @@ export default async function TournamentRoundsPage({
                                 </td>
                                 <td className={matchCell}>
                                   {match.awayPlayer
-                                    ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                                    ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
                                     : "—"}
                                 </td>
                                 <td className={matchCell}>
@@ -268,7 +268,7 @@ export default async function TournamentRoundsPage({
                         <tr key={match.id} className={matchRow}>
                           <td className={matchCell}>
                             {match.homePlayer
-                              ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+                              ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
                               : "—"}
                           </td>
                           <td className={scoreCell}>
@@ -276,7 +276,7 @@ export default async function TournamentRoundsPage({
                           </td>
                           <td className={matchCell}>
                             {match.awayPlayer
-                              ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+                              ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
                               : "—"}
                           </td>
                           <td className={matchCell}>

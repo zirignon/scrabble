@@ -120,7 +120,7 @@ async function buildStandings(tournament: {
           name: pool.poolName,
           rows: pool.standings.map((s, i) => ({
             rank: i + 1,
-            name: `${s.firstName} ${s.lastName}`,
+            name: `${s.lastName} ${s.firstName}`,
             columns: classicIndividualColumns(s),
           })),
         })),
@@ -150,7 +150,7 @@ async function buildStandings(tournament: {
           name: null,
           rows: rows.map((s, i) => ({
             rank: i + 1,
-            name: `${s.firstName} ${s.lastName}`,
+            name: `${s.lastName} ${s.firstName}`,
             columns: classicIndividualColumns(s),
           })),
         },
@@ -190,7 +190,7 @@ async function buildStandings(tournament: {
         name: null,
         rows: rows.map((s, i) => ({
           rank: i + 1,
-          name: `${s.firstName} ${s.lastName}`,
+          name: `${s.lastName} ${s.firstName}`,
           columns: [
             { label: "Parties", value: String(s.gamesPlayed) },
             { label: "Score total", value: String(s.totalScore) },
@@ -278,14 +278,14 @@ async function buildCurrent(tournament: {
       const homeName = m.homeTeam
         ? m.homeTeam.name
         : m.homePlayer
-          ? `${m.homePlayer.firstName} ${m.homePlayer.lastName}`
+          ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
           : "?";
       const awayName = m.isBye
         ? null
         : m.awayTeam
           ? m.awayTeam.name
           : m.awayPlayer
-            ? `${m.awayPlayer.firstName} ${m.awayPlayer.lastName}`
+            ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
             : "?";
       const arr = groupsMap.get(groupName) ?? [];
       arr.push({

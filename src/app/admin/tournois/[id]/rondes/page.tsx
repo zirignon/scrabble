@@ -156,7 +156,7 @@ function MatchRow({
         <td className="py-2 pr-4">{match.table ?? "—"}</td>
         <td className="py-2 pr-4">
           {match.homePlayer
-            ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
+            ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
             : "—"}
         </td>
         <td className="py-2 pr-4">
@@ -206,7 +206,7 @@ function MatchRow({
         </td>
         <td className="py-2 pr-4">
           {match.awayPlayer
-            ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
+            ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
             : "—"}
         </td>
         <td className="py-2 pr-4">{statusLabel[match.status]}</td>
@@ -558,7 +558,7 @@ export default async function RoundsPage({
                     <option value="">Domicile...</option>
                     {players.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.firstName} {p.lastName}
+                        {p.lastName} {p.firstName}
                       </option>
                     ))}
                   </select>
@@ -570,7 +570,7 @@ export default async function RoundsPage({
                     <option value="">Extérieur...</option>
                     {players.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.firstName} {p.lastName}
+                        {p.lastName} {p.firstName}
                       </option>
                     ))}
                   </select>

@@ -39,7 +39,7 @@ export async function GET(
       ],
       standings.map((row, i) => [
         i + 1,
-        `${row.firstName} ${row.lastName}`,
+        `${row.lastName} ${row.firstName}`,
         row.category ?? "",
         row.clubName ?? "",
         row.federation ?? "",
