@@ -51,7 +51,16 @@ export async function GET(request: NextRequest) {
       firstName: p.firstName,
       lastName: p.lastName,
       licenseNumber: p.licenseNumber,
+      clubId: p.clubId,
       clubName: p.club?.name ?? null,
+      category: p.category,
+      classification: p.classification,
+      classificationClassic: p.classificationClassic,
+      coefficientClassic: p.coefficientClassic,
+      eloDuplicate: p.eloDuplicate,
+      eloClassic: p.eloClassic,
+      nationality: p.nationality,
+      federation: p.federation,
     })),
   });
 }

@@ -27,11 +27,16 @@ const playerSchema = z.object({
   federation: z.string().optional(),
 });
 
-export async function createPlayerAction(
+// Crée un nouveau joueur, ou met à jour un joueur existant si un
+// `playerId` est fourni (cas d'une suggestion sélectionnée dans
+// l'autocomplétion du formulaire — voir PlayerForm).
+export async function savePlayerAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   await requireRole(STAFF_ROLES);
+
+  const playerId = formData.get("playerId");
 
   const parsed = playerSchema.safeParse({
     firstName: formData.get("firstName"),
@@ -51,7 +56,15 @@ export async function createPlayerAction(
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  await prisma.player.create({ data: parsed.data });
+  try {
+    if (typeof playerId === "string" && playerId) {
+      await prisma.player.update({ where: { id: playerId }, data: parsed.data });
+    } else {
+      await prisma.player.create({ data: parsed.data });
+    }
+  } catch {
+    return { error: "Un joueur avec ce n° de licence existe déjà." };
+  }
 
   revalidatePath("/admin/joueurs");
   return {};

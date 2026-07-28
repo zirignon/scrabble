@@ -92,7 +92,11 @@ Après `npm run db:seed` :
   inconnus sont créés à la volée à partir de leur code (nom à corriger
   ensuite par l'organisateur si besoin). La liste des joueurs et le
   sélecteur d'inscription à un tournoi (recherche par nom ou licence)
-  restent utilisables même avec des dizaines de milliers de fiches
+  restent utilisables même avec des dizaines de milliers de fiches. Le
+  formulaire d'ajout d'un joueur propose aussi une autocomplétion sur le
+  nom : sélectionner une suggestion pré-remplit toute la fiche depuis la
+  base existante et transforme l'enregistrement en mise à jour de ce
+  joueur plutôt qu'en création d'un doublon
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
   archivé), et suppression définitive (avec confirmation) qui efface en
