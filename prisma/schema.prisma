@@ -126,6 +126,10 @@ model User {
 model Club {
   id          String   @id @default(cuid())
   name        String   @unique
+  // Code court du club tel qu'utilisé dans les fichiers d'import fédéraux
+  // (ex. "ISC", "Z00"). Sert de clé pour retrouver/mettre à jour un club
+  // importé sans dépendre de son nom (modifiable ensuite par l'organisateur).
+  code        String?  @unique
   city        String?
   federation  String?
   players     Player[]
@@ -139,15 +143,25 @@ model Player {
   lastName      String
   clubId        String?
   club          Club?   @relation(fields: [clubId], references: [id])
-  licenseNumber String?
+  licenseNumber String? @unique
   category      String?
-  // Niveau/classification du joueur (ex. "1A".."7" en duplicate, "J"/"C"/
-  // "B"/"A" en classique selon les fédérations) : texte libre, le barème
-  // variant d'une fédération à l'autre.
+  // Série duplicate (ex. "1A".."7"), texte libre, le barème variant d'une
+  // fédération à l'autre.
   classification String?
+  // Série classique (ex. "J"/"C"/"B"/"A"), distincte de la série duplicate
+  // ci-dessus : un joueur peut avoir les deux à la fois.
+  classificationClassic String?
+  // Coefficient associé à la série classique (ex. 40, 20, 16...).
+  coefficientClassic     Int?
+  // Indices de classement numériques (type Elo), un par format.
+  eloDuplicate Int?
+  eloClassic   Int?
   // Code nationalité (ex. "CI", "FR"), tel qu'affiché sur les feuilles de
   // classement officielles.
   nationality    String?
+  // Fédération d'affiliation du joueur (ex. "FR", "QC") : peut différer de
+  // celle du club (cas des clubs "hors fédération" ou multi-pays).
+  federation     String?
 
   createdAt DateTime @default(now())
 

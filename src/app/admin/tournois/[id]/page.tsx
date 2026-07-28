@@ -9,6 +9,7 @@ import {
   updateTournamentStatusFormAction,
 } from "@/lib/actions/tournaments";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
+import { PlayerSearchSelect } from "@/components/admin/PlayerSearchSelect";
 
 const statusOptions = [
   ["DRAFT", "Brouillon"],
@@ -40,12 +41,6 @@ export default async function ManageTournamentPage({
   if (!tournament) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
-
-  const registeredIds = new Set(tournament.registrations.map((r) => r.playerId));
-  const availablePlayers = await prisma.player.findMany({
-    where: { id: { notIn: [...registeredIds] } },
-    orderBy: [{ lastName: "asc" }],
-  });
 
   const registerBound = registerPlayerAction.bind(null, tournament.id);
   const statusBound = updateTournamentStatusFormAction.bind(null, tournament.id);
@@ -103,32 +98,11 @@ export default async function ManageTournamentPage({
         <h2 className="text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
 
         {canManage && (
-          <form action={registerBound} className="flex items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="playerId" className="text-xs font-medium">
-                Ajouter un joueur
-              </label>
-              <select
-                id="playerId"
-                name="playerId"
-                required
-                className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm min-w-64"
-              >
-                <option value="">Sélectionner...</option>
-                {availablePlayers.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.firstName} {player.lastName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-            >
-              Inscrire
-            </button>
-          </form>
+          <PlayerSearchSelect
+            key={tournament.registrations.length}
+            tournamentId={tournament.id}
+            action={registerBound}
+          />
         )}
 
         <table className="w-full text-sm border-collapse">

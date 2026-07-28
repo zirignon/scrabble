@@ -11,7 +11,20 @@ export async function GET() {
   });
 
   const csv = toCsv(
-    ["Prénom", "Nom", "Club", "N° licence", "Catégorie", "Classification", "Nationalité"],
+    [
+      "Prénom",
+      "Nom",
+      "Club",
+      "N° licence",
+      "Catégorie",
+      "Série duplicate",
+      "Elo duplicate",
+      "Série classique",
+      "Elo classique",
+      "Coeff. classique",
+      "Nationalité",
+      "Fédération",
+    ],
     players.map((p) => [
       p.firstName,
       p.lastName,
@@ -19,7 +32,12 @@ export async function GET() {
       p.licenseNumber ?? "",
       p.category ?? "",
       p.classification ?? "",
+      p.eloDuplicate ?? "",
+      p.classificationClassic ?? "",
+      p.eloClassic ?? "",
+      p.coefficientClassic ?? "",
       p.nationality ?? "",
+      p.federation ?? "",
     ])
   );
 
