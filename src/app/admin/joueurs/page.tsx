@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { deletePlayerAction } from "@/lib/actions/players";
 import { PlayerForm } from "@/components/admin/PlayerForm";
 import { PlayerImportForm } from "@/components/admin/PlayerImportForm";
+import { PlayerListSearch } from "@/components/admin/PlayerListSearch";
 
 const PAGE_SIZE = 50;
 
@@ -57,25 +58,7 @@ export default async function AdminPlayersPage({
         </div>
       </div>
 
-      <form className="flex items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="q" className="text-xs font-medium">
-            Rechercher (nom ou n° licence)
-          </label>
-          <input
-            id="q"
-            name="q"
-            defaultValue={query}
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm min-w-64"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-md border border-black/10 dark:border-white/20 px-4 py-2 text-sm font-medium"
-        >
-          Rechercher
-        </button>
-      </form>
+      <PlayerListSearch initialQuery={query} />
 
       <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
