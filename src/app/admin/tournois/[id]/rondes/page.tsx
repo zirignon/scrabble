@@ -666,9 +666,9 @@ export default async function RoundsPage({
           return (
             <section key={round.id} className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold">
-                Ronde {round.number}
-                {isKnockoutRound &&
-                  ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
+                {isKnockoutRound
+                  ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                  : `Ronde ${round.number}`}
               </h2>
               <MatchTable
                 matches={round.matches}
@@ -822,9 +822,9 @@ export default async function RoundsPage({
         return (
           <section key={round.id} className="flex flex-col gap-5">
             <h2 className="text-lg font-semibold">
-              Ronde {round.number}
-              {isKnockoutRound &&
-                ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
+              {isKnockoutRound
+                ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                : `Ronde ${round.number}`}
             </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (

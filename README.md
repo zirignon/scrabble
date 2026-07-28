@@ -138,10 +138,12 @@ Après `npm run db:seed` :
   suivant à partir des vainqueurs jusqu'à la finale
 - Les rondes à élimination directe (tableau initial, phase finale des
   poules, phase finale round-robin/suisse) affichent le nom du tour
-  selon le nombre d'entrants plutôt qu'un simple numéro de ronde :
-  Finale (2), Demi-finales (4), Quarts de finale (8), Huitièmes de
-  finale (16), etc. — sur les pages admin et publiques ainsi que sur
-  l'affichage grand écran
+  selon le nombre d'entrants — Finale (2), Demi-finales (4), Quarts de
+  finale (8), Huitièmes de finale (16), etc. — à la place du numéro de
+  ronde, pour ne pas confondre les deux notions : le numéro de ronde
+  reste utilisé pour les rondes de la phase principale (round-robin,
+  suisse, poules), qui n'ont pas ce nom de tour. Sur les pages admin et
+  publiques ainsi que sur l'affichage grand écran
 - Ajout manuel de rondes/matchs pour composer un format sur mesure
 - Chronomètre d'échecs par match (temps propre à chaque camp, alterné
   manuellement par l'arbitre, avec pause/réinitialisation)

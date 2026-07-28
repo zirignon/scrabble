@@ -113,9 +113,9 @@ export default async function TournamentRoundsPage({
             return (
               <div key={round.id} className="overflow-x-auto">
                 <h3 className="font-medium mb-2">
-                  Ronde {round.number}
-                  {isKnockoutRound &&
-                    ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
+                  {isKnockoutRound
+                    ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                    : `Ronde ${round.number}`}
                 </h3>
                 <table className="w-full text-sm border-collapse">
                   <tbody>
@@ -262,9 +262,9 @@ export default async function TournamentRoundsPage({
           return (
             <div key={round.id} className="flex flex-col gap-4">
               <h3 className="font-medium">
-                Ronde {round.number}
-                {isKnockoutRound &&
-                  ` — ${getKnockoutStageLabel(countKnockoutEntrants(round.matches))}`}
+                {isKnockoutRound
+                  ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                  : `Ronde ${round.number}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="overflow-x-auto">
