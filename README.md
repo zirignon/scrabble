@@ -76,8 +76,21 @@ Après `npm run db:seed` :
   la page `/admin/utilisateurs` (nom, email, mot de passe, rôle), qui permet
   aussi de changer le rôle ou réinitialiser le mot de passe d'un compte
   existant
-- Gestion des clubs (nom, ville, fédération) et des joueurs (licence,
-  catégorie, classification, nationalité, club)
+- Gestion des clubs (nom, ville, fédération, code court optionnel utilisé
+  par l'import CSV) et des joueurs (licence unique, catégorie, série et
+  Elo duplicate, série/Elo/coefficient classique, nationalité,
+  fédération d'affiliation, club)
+- Import CSV de la base fédérale des joueurs (`/admin/joueurs`) : fichier
+  sans en-tête, séparé par `;` (Nom;Prénoms;Licence;Elo duplicate;Série
+  duplicate;Club;Catégorie;Nationalité;Fédération;Elo classique;Série
+  classique;Coefficient classique), encodage ISO-8859-1, découpé en blocs
+  côté navigateur pour rester sous la limite de taille de requête d'une
+  fonction serverless. Upsert par n° de licence (clé unique) : les
+  joueurs déjà présents sont mis à jour plutôt que dupliqués ; les clubs
+  inconnus sont créés à la volée à partir de leur code (nom à corriger
+  ensuite par l'organisateur si besoin). La liste des joueurs et le
+  sélecteur d'inscription à un tournoi (recherche par nom ou licence)
+  restent utilisables même avec des dizaines de milliers de fiches
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
   archivé), et suppression définitive (avec confirmation) qui efface en

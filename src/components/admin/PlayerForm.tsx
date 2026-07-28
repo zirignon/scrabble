@@ -80,12 +80,56 @@ export function PlayerForm({
       </div>
       <div className="flex flex-col gap-1">
         <label htmlFor="classification" className="text-xs font-medium">
-          Classification
+          Série duplicate
         </label>
         <input
           id="classification"
           name="classification"
-          placeholder="1A, 2B, A, J..."
+          placeholder="1A, 2B, 7..."
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-24"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="eloDuplicate" className="text-xs font-medium">
+          Elo duplicate
+        </label>
+        <input
+          id="eloDuplicate"
+          name="eloDuplicate"
+          type="number"
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-24"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="classificationClassic" className="text-xs font-medium">
+          Série classique
+        </label>
+        <input
+          id="classificationClassic"
+          name="classificationClassic"
+          placeholder="J, C, B, A..."
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-24"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="eloClassic" className="text-xs font-medium">
+          Elo classique
+        </label>
+        <input
+          id="eloClassic"
+          name="eloClassic"
+          type="number"
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-24"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="coefficientClassic" className="text-xs font-medium">
+          Coeff. classique
+        </label>
+        <input
+          id="coefficientClassic"
+          name="coefficientClassic"
+          type="number"
           className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-24"
         />
       </div>
@@ -97,6 +141,17 @@ export function PlayerForm({
           id="nationality"
           name="nationality"
           placeholder="CI, FR..."
+          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-20"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="federation" className="text-xs font-medium">
+          Fédération
+        </label>
+        <input
+          id="federation"
+          name="federation"
+          placeholder="FR, QC..."
           className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm w-20"
         />
       </div>

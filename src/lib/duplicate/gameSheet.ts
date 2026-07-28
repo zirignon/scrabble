@@ -91,7 +91,7 @@ export async function computeGameClassementSheet(
       category: result.player.category,
       classification: result.player.classification,
       clubName: result.player.club?.name ?? null,
-      federation: result.player.club?.federation ?? null,
+      federation: result.player.federation ?? result.player.club?.federation ?? null,
       nationality: result.player.nationality,
       perGame,
       cumul,

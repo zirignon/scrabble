@@ -252,9 +252,9 @@ export async function computeClassicStandings(
       firstName: r.player.firstName,
       lastName: r.player.lastName,
       category: r.player.category,
-      classification: r.player.classification,
+      classification: r.player.classificationClassic,
       clubName: r.player.club?.name ?? null,
-      federation: r.player.club?.federation ?? null,
+      federation: r.player.federation ?? r.player.club?.federation ?? null,
     })),
     matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );
