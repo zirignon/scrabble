@@ -7,6 +7,7 @@ import {
   addManualRoundAction,
   addMatchAction,
   generateFinalPhaseFromPoolsAction,
+  generateFinalPhaseFromStandingsAction,
   generateKnockoutBracketAction,
   generateNextKnockoutRoundAction,
   generateNextSwissRoundAction,
@@ -15,6 +16,7 @@ import {
   generatePoolsRoundRobinAction,
   generateRoundRobinAction,
   generateTeamFinalPhaseFromPoolsAction,
+  generateTeamFinalPhaseFromStandingsAction,
   generateTeamKnockoutBracketAction,
   generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
@@ -23,6 +25,7 @@ import {
   resetMatchClockAction,
   setMatchClockDurationAction,
   startMatchClockAction,
+  updateFinalPhaseSettingsAction,
 } from "@/lib/actions/classic";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Match, Player, Pool, Team } from "@prisma/client";
@@ -267,6 +270,70 @@ function MatchTable({
   );
 }
 
+function FinalPhaseSettingsForm({
+  tournamentId,
+  finalPhaseEnabled,
+  finalPhaseQualifiers,
+  canManage,
+}: {
+  tournamentId: string;
+  finalPhaseEnabled: boolean;
+  finalPhaseQualifiers: number;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Phase finale (optionnelle)</p>
+      {canManage ? (
+        <form
+          action={updateFinalPhaseSettingsAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="finalPhaseEnabled"
+              defaultChecked={finalPhaseEnabled}
+              className="rounded border-black/20 dark:border-white/30"
+            />
+            Élimination directe après la phase principale
+          </label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="finalPhaseQualifiers" className="text-xs font-medium">
+              Nombre de qualifiés
+            </label>
+            <input
+              id="finalPhaseQualifiers"
+              name="finalPhaseQualifiers"
+              type="number"
+              min={2}
+              defaultValue={finalPhaseQualifiers}
+              className="w-24 rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {finalPhaseEnabled
+            ? `Phase finale activée, ${finalPhaseQualifiers} qualifié(s).`
+            : "Pas de phase finale pour ce tournoi."}
+        </p>
+      )}
+      <p className="text-xs text-black/50 dark:text-white/50">
+        Une fois activée, la phase finale (élimination directe entre les N
+        premiers du classement général) se génère depuis les boutons
+        ci-dessous, une fois la phase principale terminée.
+      </p>
+    </div>
+  );
+}
+
 export default async function RoundsPage({
   params,
 }: {
@@ -312,10 +379,26 @@ export default async function RoundsPage({
   const generateNextTeamKnockoutBound = generateNextTeamKnockoutRoundAction.bind(null, tournament.id);
   const generateFinalPhaseBound = generateFinalPhaseFromPoolsAction.bind(null, tournament.id);
   const generateTeamFinalPhaseBound = generateTeamFinalPhaseFromPoolsAction.bind(null, tournament.id);
+  const generateFinalPhaseFromStandingsBound = generateFinalPhaseFromStandingsAction.bind(
+    null,
+    tournament.id
+  );
+  const generateTeamFinalPhaseFromStandingsBound = generateTeamFinalPhaseFromStandingsAction.bind(
+    null,
+    tournament.id
+  );
   const addRoundBound = addManualRoundAction.bind(null, tournament.id);
 
   const poolMatchesExist = tournament.rounds.some((r) => r.matches.some((m) => m.poolId));
   const finalPhaseExists = tournament.rounds.some((r) => r.matches.some((m) => !m.poolId));
+
+  const mainPhaseRounds = tournament.rounds.filter((r) => !r.isFinalPhase);
+  const mainPhaseComplete =
+    mainPhaseRounds.length > 0 &&
+    mainPhaseRounds.every((r) =>
+      r.matches.every((m) => m.isBye || !m.homePlayerId || !m.awayPlayerId || m.status !== "SCHEDULED")
+    );
+  const finalPhaseFromStandingsExists = tournament.rounds.some((r) => r.isFinalPhase);
 
   return (
     <div className="flex flex-col gap-8">
@@ -338,6 +421,15 @@ export default async function RoundsPage({
           </a>
         )}
       </div>
+
+      {(tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") && (
+        <FinalPhaseSettingsForm
+          tournamentId={tournament.id}
+          finalPhaseEnabled={tournament.finalPhaseEnabled}
+          finalPhaseQualifiers={tournament.finalPhaseQualifiers}
+          canManage={canManage}
+        />
+      )}
 
       {canManage && (
         <div className="flex gap-3">
@@ -436,6 +528,34 @@ export default async function RoundsPage({
               </form>
             )}
           {!tournament.isTeamEvent &&
+            (tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
+            tournament.finalPhaseEnabled &&
+            mainPhaseComplete &&
+            !finalPhaseFromStandingsExists && (
+              <form action={generateFinalPhaseFromStandingsBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer la phase finale
+                </button>
+              </form>
+            )}
+          {tournament.isTeamEvent &&
+            (tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
+            tournament.finalPhaseEnabled &&
+            mainPhaseComplete &&
+            !finalPhaseFromStandingsExists && (
+              <form action={generateTeamFinalPhaseFromStandingsBound}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+                >
+                  Générer la phase finale (équipes)
+                </button>
+              </form>
+            )}
+          {!tournament.isTeamEvent &&
             tournament.format === "KNOCKOUT" &&
             tournament.rounds.length === 0 && (
               <form action={generateKnockoutBound}>
@@ -449,7 +569,9 @@ export default async function RoundsPage({
             )}
           {!tournament.isTeamEvent &&
             ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
-              (tournament.format === "GROUPS" && finalPhaseExists)) && (
+              (tournament.format === "GROUPS" && finalPhaseExists) ||
+              ((tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
+                finalPhaseFromStandingsExists)) && (
               <form action={generateNextKnockoutBound}>
                 <button
                   type="submit"
@@ -473,7 +595,9 @@ export default async function RoundsPage({
             )}
           {tournament.isTeamEvent &&
             ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
-              (tournament.format === "GROUPS" && finalPhaseExists)) && (
+              (tournament.format === "GROUPS" && finalPhaseExists) ||
+              ((tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
+                finalPhaseFromStandingsExists)) && (
               <form action={generateNextTeamKnockoutBound}>
                 <button
                   type="submit"
@@ -538,7 +662,7 @@ export default async function RoundsPage({
             <section key={round.id} className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold">
                 Ronde {round.number}
-                {tournament.format === "GROUPS" && " — Phase finale"}
+                {(tournament.format === "GROUPS" || round.isFinalPhase) && " — Phase finale"}
               </h2>
               <MatchTable
                 matches={round.matches}
@@ -691,7 +815,7 @@ export default async function RoundsPage({
           <section key={round.id} className="flex flex-col gap-5">
             <h2 className="text-lg font-semibold">
               Ronde {round.number}
-              {tournament.format === "GROUPS" && " — Phase finale"}
+              {(tournament.format === "GROUPS" || round.isFinalPhase) && " — Phase finale"}
             </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (

@@ -122,6 +122,11 @@ Après `npm run db:seed` :
   avec gestion des exempts/bye si nombre impair)
 - Génération round par round en système suisse (appariement par score,
   évite les revanches quand possible)
+- Round-robin et suisse : phase finale à élimination directe optionnelle
+  (activable/désactivable par l'organisateur depuis la page des rondes,
+  avec le nombre de qualifiés configurable — au classement général, tous
+  confondus, contrairement aux poules qui qualifient par poule). Se
+  génère une fois la phase principale terminée, individuel comme équipes
 - Poules : chaque poule joue son propre round-robin interne, avec un
   classement calculé séparément par poule ; le nombre de qualifiés par
   poule est configurable par l'organisateur, et une phase finale à
