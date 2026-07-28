@@ -53,7 +53,7 @@ export function PlayerSearchSelect({
         </label>
         <input
           id="player-search"
-          value={selected ? `${selected.firstName} ${selected.lastName}` : query}
+          value={selected ? `${selected.lastName} ${selected.firstName}` : query}
           onChange={(e) => {
             setSelected(null);
             setQuery(e.target.value);
@@ -77,7 +77,7 @@ export function PlayerSearchSelect({
                   }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-black/[.04] dark:hover:bg-white/[.08]"
                 >
-                  {p.firstName} {p.lastName}
+                  {p.lastName} {p.firstName}
                   {p.licenseNumber && (
                     <span className="text-black/50 dark:text-white/50"> · {p.licenseNumber}</span>
                   )}

@@ -99,7 +99,7 @@ export default async function AdminPlayersPage({
           {players.map((player) => (
             <tr key={player.id} className="border-b border-black/5 dark:border-white/5">
               <td className="py-2 pr-4">
-                {player.firstName} {player.lastName}
+                {player.lastName} {player.firstName}
               </td>
               <td className="py-2 pr-4">{player.club?.name ?? "—"}</td>
               <td className="py-2 pr-4">{player.licenseNumber ?? "—"}</td>
