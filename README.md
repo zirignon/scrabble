@@ -90,7 +90,12 @@ Après `npm run db:seed` :
   fonction serverless. Upsert par n° de licence (clé unique) : les
   joueurs déjà présents sont mis à jour plutôt que dupliqués ; les clubs
   inconnus sont créés à la volée à partir de leur code (nom à corriger
-  ensuite par l'organisateur si besoin). La liste des joueurs et le
+  ensuite par l'organisateur si besoin) — si un club du même nom existe
+  déjà sans code associé (créé manuellement, ou par un import précédent
+  ou concurrent), il est réutilisé et complété avec ce code au lieu de
+  faire échouer l'import des joueurs de ce club. Un déclenchement en
+  double de l'import (double sélection du fichier) est bloqué côté
+  navigateur pour éviter ce genre de collision. La liste des joueurs et le
   sélecteur d'inscription à un tournoi (recherche par nom ou licence)
   restent utilisables même avec des dizaines de milliers de fiches. Le
   formulaire d'ajout d'un joueur propose aussi une autocomplétion sur le
