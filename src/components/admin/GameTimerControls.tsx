@@ -54,7 +54,7 @@ export function GameTimerControls({
             />
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-medium transition-colors"
             >
               Valider le tirage
             </button>
@@ -63,7 +63,7 @@ export function GameTimerControls({
             <button
               type="submit"
               title="Efface le reliquat suggéré et le tirage éventuellement validé (erreur de saisie, tirage contesté...), sans jouer de coup, et réinitialise le chrono"
-              className="rounded border border-brick/40 text-brick px-2 py-1 text-xs"
+              className="rounded bg-brick hover:bg-brick/90 text-white px-3 py-1.5 text-xs font-medium transition-colors"
             >
               Rejeter le tirage
             </button>
@@ -88,7 +88,7 @@ export function GameTimerControls({
                 type="submit"
                 disabled={!game.pendingRack}
                 title={!game.pendingRack ? "Validez d'abord le tirage du tour" : undefined}
-                className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs disabled:opacity-40"
+                className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
               >
                 ▶ Démarrer
               </button>
@@ -96,7 +96,7 @@ export function GameTimerControls({
             <form action={pauseGameTimerAction.bind(null, tournamentId, game.id)}>
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-3 py-1.5 text-xs font-medium transition-colors"
             >
               ⏸ Pause
             </button>
@@ -104,7 +104,7 @@ export function GameTimerControls({
           <form action={resetGameTimerAction.bind(null, tournamentId, game.id)}>
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-3 py-1.5 text-xs font-medium transition-colors"
             >
               ↺ Réinitialiser
             </button>
@@ -123,7 +123,7 @@ export function GameTimerControls({
             />
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-3 py-1.5 text-xs font-medium transition-colors"
             >
               Durée
             </button>
