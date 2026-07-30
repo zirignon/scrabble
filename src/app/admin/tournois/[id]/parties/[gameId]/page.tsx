@@ -7,6 +7,7 @@ import {
   deleteReferenceMoveAction,
   findReferenceMoveSolutionsAction,
   saveTurnScoresAction,
+  toggleSoloConfirmationAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
 import {
@@ -32,8 +33,10 @@ import { GameTimerControls } from "@/components/admin/GameTimerControls";
 // reste le score brut du mot ; les ajustements ne sont réellement appliqués
 // qu'au total de la partie). Une pénalité ne peut jamais rendre le net
 // négatif (§5.6) — déjà empêché à la saisie, mais on s'en protège ici aussi.
+// Un solo détecté ne rapporte ses points qu'une fois validé par l'arbitre
+// (DuplicateMove.soloConfirmed) — voir toggleSoloConfirmationAction.
 function moveDisplayInfo(
-  pm: { points: number; penaltyType: string | null } | undefined,
+  pm: { points: number; penaltyType: string | null; soloConfirmed?: boolean } | undefined,
   costsFive: boolean,
   isSolo: boolean,
   soloEligible: boolean
@@ -44,12 +47,13 @@ function moveDisplayInfo(
   const isFreeAvertissement = penaltyType === "AVERTISSEMENT" && !costsFive;
   const penaltyDeduction =
     penaltyType === "PENALITE" || (penaltyType === "AVERTISSEMENT" && costsFive) ? 5 : 0;
-  const soloBonus = isSolo && soloEligible ? SOLO_BONUS_POINTS : 0;
+  const soloConfirmed = Boolean(pm?.soloConfirmed);
+  const soloBonus = isSolo && soloEligible && soloConfirmed ? SOLO_BONUS_POINTS : 0;
   const net =
     pm && (penaltyDeduction > 0 || soloBonus > 0)
       ? Math.max(0, pm.points - penaltyDeduction) + soloBonus
       : null;
-  return { badgeLabel, isFreeAvertissement, isSolo, soloBonus, net };
+  return { badgeLabel, isFreeAvertissement, isSolo, soloConfirmed, soloBonus, net };
 }
 
 export default async function GameMovesPage({
@@ -260,10 +264,12 @@ export default async function GameMovesPage({
                 Bonification solo (règlement §3.5) : le joueur seul à avoir le
                 meilleur score sur un coup donné (avant pénalité) reçoit le badge
                 « Solo ». Si le tournoi compte strictement plus de{" "}
-                {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits, ce solo rapporte{" "}
-                {SOLO_BONUS_POINTS} points de bonification, ajoutés
-                automatiquement au score de la partie ; en dessous ou à ce
-                seuil, le solo est signalé mais ne rapporte aucun point.
+                {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits, l&apos;arbitre doit
+                valider ce solo (bouton « Valider ») pour que les{" "}
+                {SOLO_BONUS_POINTS} points de bonification soient ajoutés au
+                score de la partie — rien n&apos;est crédité automatiquement ;
+                en dessous ou à ce seuil, le solo est signalé mais ne peut pas
+                être validé, il ne rapporte aucun point.
               </p>
             </details>
 
@@ -352,14 +358,42 @@ export default async function GameMovesPage({
                         const soloBadge = info.isSolo && (
                           <span
                             title={
-                              soloEligible
-                                ? "Solo : seul meilleur score du coup, +10 points (règlement §3.5)"
-                                : "Solo : seul meilleur score du coup (pas de bonification, moins de 16 joueurs inscrits)"
+                              !soloEligible
+                                ? "Solo : seul meilleur score du coup (pas de bonification, moins de 16 joueurs inscrits)"
+                                : info.soloConfirmed
+                                ? "Solo validé par l'arbitre : +10 points (règlement §3.5)"
+                                : "Solo détecté : en attente de validation par l'arbitre pour créditer les +10 points"
                             }
-                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-400/25 text-amber-800 dark:text-amber-300"
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                              info.soloConfirmed
+                                ? "bg-moss/15 text-moss dark:bg-moss-light/20 dark:text-moss-light"
+                                : "bg-amber-400/25 text-amber-800 dark:text-amber-300"
+                            }`}
                           >
                             Solo{info.soloBonus > 0 ? " +10" : ""}
                           </span>
+                        );
+                        const soloConfirmForm = canManage && soloEligible && info.isSolo && (
+                          <form
+                            action={toggleSoloConfirmationAction.bind(
+                              null,
+                              tournament.id,
+                              game.id,
+                              player.id,
+                              move.turnNumber
+                            )}
+                          >
+                            <button
+                              type="submit"
+                              className={`text-[10px] font-medium underline ${
+                                info.soloConfirmed
+                                  ? "text-black/50 dark:text-white/50"
+                                  : "text-emerald-700 dark:text-emerald-400"
+                              }`}
+                            >
+                              {info.soloConfirmed ? "Annuler" : "Valider +10"}
+                            </button>
+                          </form>
                         );
                         const netLine = info.net !== null && (
                           <span className="text-[10px] text-black/50 dark:text-white/50">
@@ -393,6 +427,7 @@ export default async function GameMovesPage({
                                 </select>
                                 {penaltyBadge}
                                 {soloBadge}
+                                {soloConfirmForm}
                                 {netLine}
                               </div>
                             ) : (

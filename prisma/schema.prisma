@@ -421,6 +421,11 @@ model DuplicateMove {
   isPass          Boolean  @default(false)
   penaltyType     DuplicateMovePenalty?
 
+  // Un coup "solo" (seul meilleur score du tour) détecté par l'algorithme
+  // ne rapporte ses +10 points (règlement FISF §3.5) qu'après validation
+  // explicite de l'arbitre — voir toggleSoloConfirmationAction.
+  soloConfirmed   Boolean  @default(false)
+
   @@unique([gameId, playerId, turnNumber])
 }
 

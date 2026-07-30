@@ -246,7 +246,9 @@ export async function saveGameScoresAction(
 // certain nombre selon la formule du tournoi, puis chaque avertissement
 // supplémentaire coûte 5 points). Le score inclut aussi la bonification
 // solo (+10 pts par coup où ce joueur est seul à avoir le meilleur score,
-// règlement FISF §3.5), si le tournoi compte au moins 16 joueurs inscrits.
+// règlement FISF §3.5), si le tournoi compte plus de 16 joueurs inscrits ET
+// que l'arbitre a explicitement validé ce solo (soloConfirmed) — voir
+// toggleSoloConfirmationAction.
 async function recomputeGameScore(gameId: string, playerId: string) {
   const game = await prisma.game.findUniqueOrThrow({
     where: { id: gameId },
@@ -255,7 +257,7 @@ async function recomputeGameScore(gameId: string, playerId: string) {
   const [moves, allMoves] = await Promise.all([
     prisma.duplicateMove.findMany({
       where: { gameId, playerId },
-      select: { points: true, penaltyType: true },
+      select: { points: true, penaltyType: true, turnNumber: true, soloConfirmed: true },
     }),
     prisma.duplicateMove.findMany({
       where: { gameId },
@@ -266,8 +268,10 @@ async function recomputeGameScore(gameId: string, playerId: string) {
   let soloBonus = 0;
   if (game.tournament._count.registrations > SOLO_BONUS_MIN_PLAYERS) {
     const soloWinners = computeSoloWinners(allMoves);
-    for (const winnerId of soloWinners.values()) {
-      if (winnerId === playerId) soloBonus += SOLO_BONUS_POINTS;
+    for (const move of moves) {
+      if (soloWinners.get(move.turnNumber) === playerId && move.soloConfirmed) {
+        soloBonus += SOLO_BONUS_POINTS;
+      }
     }
   }
 
@@ -476,6 +480,44 @@ export async function saveTurnScoresAction(
 
     await recomputeGameScore(gameId, playerId);
   }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
+  revalidatePath(`/tournois`);
+}
+
+// Valide ou annule la validation d'un solo détecté par l'algorithme : les
+// +10 points (règlement FISF §3.5) ne sont crédités qu'après confirmation
+// explicite de l'arbitre, jamais automatiquement. On revérifie que ce
+// joueur est bien le solo actuel de ce tour avant de (dé)valider, au cas où
+// les scores auraient changé depuis l'affichage du bouton.
+export async function toggleSoloConfirmationAction(
+  tournamentId: string,
+  gameId: string,
+  playerId: string,
+  turnNumber: number
+) {
+  await assertCanManage(tournamentId);
+
+  const allMoves = await prisma.duplicateMove.findMany({
+    where: { gameId },
+    select: { turnNumber: true, playerId: true, points: true },
+  });
+  const soloWinners = computeSoloWinners(allMoves);
+  if (soloWinners.get(turnNumber) !== playerId) {
+    throw new Error("Ce joueur n'est plus le solo de ce tour.");
+  }
+
+  const move = await prisma.duplicateMove.findUniqueOrThrow({
+    where: { gameId_playerId_turnNumber: { gameId, playerId, turnNumber } },
+  });
+  await prisma.duplicateMove.update({
+    where: { id: move.id },
+    data: { soloConfirmed: !move.soloConfirmed },
+  });
+
+  await recomputeGameScore(gameId, playerId);
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
