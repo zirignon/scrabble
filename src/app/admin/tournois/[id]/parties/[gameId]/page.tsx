@@ -107,7 +107,7 @@ export default async function GameMovesPage({
   const freeAvertissements = getFreeAvertissementCount(tournament.duplicateRythme);
   const avertissementCostMap = computeAvertissementCosts(game.moves, freeAvertissements);
   const soloWinners = computeSoloWinners(game.moves);
-  const soloEligible = players.length >= SOLO_BONUS_MIN_PLAYERS;
+  const soloEligible = players.length > SOLO_BONUS_MIN_PLAYERS;
   const alertSeconds = getRythmeAlertSeconds(tournament.duplicateRythme);
   const top = computeGameTop(game.referenceMoves, game.top);
 
@@ -259,11 +259,11 @@ export default async function GameMovesPage({
               <p className="mt-2">
                 Bonification solo (règlement §3.5) : le joueur seul à avoir le
                 meilleur score sur un coup donné (avant pénalité) reçoit le badge
-                « Solo ». À partir de {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits au
-                tournoi, ce solo rapporte {SOLO_BONUS_POINTS} points de
-                bonification, ajoutés automatiquement au score de la partie ; en
-                dessous de ce seuil, le solo est signalé mais ne rapporte aucun
-                point.
+                « Solo ». Si le tournoi compte strictement plus de{" "}
+                {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits, ce solo rapporte{" "}
+                {SOLO_BONUS_POINTS} points de bonification, ajoutés
+                automatiquement au score de la partie ; en dessous ou à ce
+                seuil, le solo est signalé mais ne rapporte aucun point.
               </p>
             </details>
 

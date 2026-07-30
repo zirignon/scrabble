@@ -264,7 +264,7 @@ async function recomputeGameScore(gameId: string, playerId: string) {
   ]);
 
   let soloBonus = 0;
-  if (game.tournament._count.registrations >= SOLO_BONUS_MIN_PLAYERS) {
+  if (game.tournament._count.registrations > SOLO_BONUS_MIN_PLAYERS) {
     const soloWinners = computeSoloWinners(allMoves);
     for (const winnerId of soloWinners.values()) {
       if (winnerId === playerId) soloBonus += SOLO_BONUS_POINTS;

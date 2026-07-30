@@ -286,8 +286,8 @@ export interface MoveScoreLike {
   points: number;
 }
 
-// Nombre de joueurs inscrits à partir duquel la bonification solo (+10 pts)
-// s'applique (règlement FISF §3.5).
+// Nombre de joueurs inscrits au-delà duquel (strictement) la bonification
+// solo (+10 pts) s'applique (règlement FISF §3.5).
 export const SOLO_BONUS_MIN_PLAYERS = 16;
 export const SOLO_BONUS_POINTS = 10;
 
