@@ -18,6 +18,14 @@ export function NavBarClient({
   // barre de navigation du site.
   if (pathname?.endsWith("/affichage")) return null;
 
+  const navLink = "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors";
+  const navLinkInactive =
+    "text-black/70 dark:text-white/70 hover:bg-navy/10 hover:text-navy dark:hover:bg-navy-light/15 dark:hover:text-navy-light";
+  const navLinkActive = "bg-navy text-white dark:bg-navy-light dark:text-navy";
+
+  const isTournois = pathname === "/tournois" || pathname?.startsWith("/tournois/");
+  const isAdmin = pathname?.startsWith("/admin");
+
   return (
     <header className="border-b border-black/10 dark:border-white/10">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
@@ -25,30 +33,44 @@ export function NavBarClient({
           <Logo size={26} />
           Scrabble Tournois
         </Link>
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/tournois" className="hover:underline">
+        <nav className="flex items-center gap-1.5 text-sm">
+          <Link
+            href="/tournois"
+            className={`${navLink} ${isTournois ? navLinkActive : navLinkInactive}`}
+          >
             Tournois
           </Link>
           {isStaff && (
-            <Link href="/admin" className="hover:underline">
+            <Link
+              href="/admin"
+              className={`${navLink} ${isAdmin ? navLinkActive : navLinkInactive}`}
+            >
               Espace organisateur
             </Link>
           )}
           {session ? (
             <>
-              <span className="text-black/60 dark:text-white/60">{session.name}</span>
+              <span className="ml-1 rounded-full bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/70 px-3 py-1 text-xs font-medium">
+                {session.name}
+              </span>
               <form action={logoutAction}>
-                <button type="submit" className="hover:underline">
+                <button
+                  type="submit"
+                  className={`${navLink} text-black/70 dark:text-white/70 hover:bg-brick/10 hover:text-brick dark:hover:bg-brick-light/15 dark:hover:text-brick-light`}
+                >
                   Déconnexion
                 </button>
               </form>
             </>
           ) : (
             <>
-              <Link href="/login" className="hover:underline">
+              <Link href="/login" className={`${navLink} ${navLinkInactive}`}>
                 Connexion
               </Link>
-              <Link href="/register" className="rounded-md bg-emerald-700 text-white px-3 py-1.5">
+              <Link
+                href="/register"
+                className="rounded-md bg-emerald-700 text-white px-3.5 py-1.5 text-sm font-medium hover:bg-emerald-800 transition-colors"
+              >
                 Créer un compte
               </Link>
             </>
