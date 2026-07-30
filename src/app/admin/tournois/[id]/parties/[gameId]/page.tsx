@@ -261,15 +261,15 @@ export default async function GameMovesPage({
                 concerné et validez à nouveau la ligne.
               </p>
               <p className="mt-2">
-                Bonification solo (règlement §3.5) : le joueur seul à avoir le
-                meilleur score sur un coup donné (avant pénalité) reçoit le badge
-                « Solo ». Si le tournoi compte strictement plus de{" "}
-                {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits, l&apos;arbitre doit
-                valider ce solo (bouton « Valider ») pour que les{" "}
+                Bonification solo (règlement §3.5) : si le tournoi compte
+                strictement plus de {SOLO_BONUS_MIN_PLAYERS} joueurs inscrits,
+                le joueur seul à avoir le meilleur score sur un coup donné
+                (avant pénalité) reçoit le badge « Solo ». L&apos;arbitre doit
+                le valider (bouton « Valider +10 ») pour que les{" "}
                 {SOLO_BONUS_POINTS} points de bonification soient ajoutés au
-                score de la partie — rien n&apos;est crédité automatiquement ;
-                en dessous ou à ce seuil, le solo est signalé mais ne peut pas
-                être validé, il ne rapporte aucun point.
+                score de la partie — rien n&apos;est crédité automatiquement.
+                En dessous ou à ce seuil, la règle ne s&apos;applique pas : le
+                badge n&apos;apparaît pas.
               </p>
             </details>
 
@@ -355,12 +355,10 @@ export default async function GameMovesPage({
                             {info.isFreeAvertissement ? " libre" : info.badgeLabel !== "Z" ? " −5" : ""}
                           </span>
                         );
-                        const soloBadge = info.isSolo && (
+                        const soloBadge = info.isSolo && soloEligible && (
                           <span
                             title={
-                              !soloEligible
-                                ? "Solo : seul meilleur score du coup (pas de bonification, moins de 16 joueurs inscrits)"
-                                : info.soloConfirmed
+                              info.soloConfirmed
                                 ? "Solo validé par l'arbitre : +10 points (règlement §3.5)"
                                 : "Solo détecté : en attente de validation par l'arbitre pour créditer les +10 points"
                             }
