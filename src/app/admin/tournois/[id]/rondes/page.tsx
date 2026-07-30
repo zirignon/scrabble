@@ -28,6 +28,7 @@ import {
   updateFinalPhaseSettingsAction,
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
+import { RoundActionButton } from "@/components/admin/RoundActionButton";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Match, Player, Pool, Team } from "@prisma/client";
 
@@ -433,189 +434,144 @@ export default async function RoundsPage({
       )}
 
       {canManage && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3 items-start">
           {tournament.isTeamEvent &&
             tournament.format === "ROUND_ROBIN" &&
             tournament.rounds.length === 0 && (
-              <form action={generateTeamBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer les rondes par équipes (round-robin)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateTeamBound}
+                label="Générer les rondes par équipes (round-robin)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {!tournament.isTeamEvent &&
             tournament.format === "ROUND_ROBIN" &&
             tournament.rounds.length === 0 && (
-              <form action={generateBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer les rondes (round-robin)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateBound}
+                label="Générer les rondes (round-robin)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {!tournament.isTeamEvent && tournament.format === "SWISS" && (
-            <form action={generateSwissBound}>
-              <button
-                type="submit"
-                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-              >
-                Générer la ronde suisse suivante
-              </button>
-            </form>
+            <RoundActionButton
+              action={generateSwissBound}
+              label="Générer la ronde suisse suivante"
+              className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+            />
           )}
           {tournament.isTeamEvent && tournament.format === "SWISS" && (
-            <form action={generateTeamSwissBound}>
-              <button
-                type="submit"
-                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-              >
-                Générer la ronde suisse suivante (équipes)
-              </button>
-            </form>
+            <RoundActionButton
+              action={generateTeamSwissBound}
+              label="Générer la ronde suisse suivante (équipes)"
+              className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+            />
           )}
           {!tournament.isTeamEvent &&
             tournament.format === "GROUPS" &&
             tournament.rounds.length === 0 && (
-              <form action={generatePoolsBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer les rondes en poules
-                </button>
-              </form>
+              <RoundActionButton
+                action={generatePoolsBound}
+                label="Générer les rondes en poules"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {tournament.isTeamEvent &&
             tournament.format === "GROUPS" &&
             tournament.rounds.length === 0 && (
-              <form action={generateTeamPoolsBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer les rondes en poules (équipes)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateTeamPoolsBound}
+                label="Générer les rondes en poules (équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {!tournament.isTeamEvent &&
             tournament.format === "GROUPS" &&
             poolMatchesExist &&
             !finalPhaseExists && (
-              <form action={generateFinalPhaseBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer la phase finale
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateFinalPhaseBound}
+                label="Générer la phase finale"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {tournament.isTeamEvent &&
             tournament.format === "GROUPS" &&
             poolMatchesExist &&
             !finalPhaseExists && (
-              <form action={generateTeamFinalPhaseBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer la phase finale (équipes)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateTeamFinalPhaseBound}
+                label="Générer la phase finale (équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {!tournament.isTeamEvent &&
             (tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
             tournament.finalPhaseEnabled &&
             mainPhaseComplete &&
             !finalPhaseFromStandingsExists && (
-              <form action={generateFinalPhaseFromStandingsBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer la phase finale
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateFinalPhaseFromStandingsBound}
+                label="Générer la phase finale"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {tournament.isTeamEvent &&
             (tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
             tournament.finalPhaseEnabled &&
             mainPhaseComplete &&
             !finalPhaseFromStandingsExists && (
-              <form action={generateTeamFinalPhaseFromStandingsBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer la phase finale (équipes)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateTeamFinalPhaseFromStandingsBound}
+                label="Générer la phase finale (équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {!tournament.isTeamEvent &&
             tournament.format === "KNOCKOUT" &&
             tournament.rounds.length === 0 && (
-              <form action={generateKnockoutBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer le tableau (élimination directe)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateKnockoutBound}
+                label="Générer le tableau (élimination directe)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {!tournament.isTeamEvent &&
             ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
               (tournament.format === "GROUPS" && finalPhaseExists) ||
               ((tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
                 finalPhaseFromStandingsExists)) && (
-              <form action={generateNextKnockoutBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer le tour suivant
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateNextKnockoutBound}
+                label="Générer le tour suivant"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {tournament.isTeamEvent &&
             tournament.format === "KNOCKOUT" &&
             tournament.rounds.length === 0 && (
-              <form action={generateTeamKnockoutBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer le tableau (élimination directe équipes)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateTeamKnockoutBound}
+                label="Générer le tableau (élimination directe équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
           {tournament.isTeamEvent &&
             ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
               (tournament.format === "GROUPS" && finalPhaseExists) ||
               ((tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
                 finalPhaseFromStandingsExists)) && (
-              <form action={generateNextTeamKnockoutBound}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
-                >
-                  Générer le tour suivant (équipes)
-                </button>
-              </form>
+              <RoundActionButton
+                action={generateNextTeamKnockoutBound}
+                label="Générer le tour suivant (équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
             )}
-          <form action={addRoundBound}>
-            <button
-              type="submit"
-              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-2 text-sm font-medium"
-            >
-              + Ajouter une ronde manuelle
-            </button>
-          </form>
+          <RoundActionButton
+            action={addRoundBound}
+            label="+ Ajouter une ronde manuelle"
+            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-2 text-sm font-medium"
+          />
         </div>
       )}
 
