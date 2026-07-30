@@ -101,7 +101,7 @@ export default async function PoolsPage({
           >
             ← Retour au tournoi
           </Link>
-          <h1 className="text-2xl font-semibold mt-1">
+          <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
             Poules — {tournament.name}
           </h1>
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
@@ -143,7 +143,7 @@ export default async function PoolsPage({
         {tournament.pools.map((pool) => (
           <section key={pool.id} className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
+              <h2 className="font-heading text-lg font-semibold">
                 {pool.name}
                 <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
                   {pool.teams.length} équipe(s)
@@ -255,7 +255,7 @@ export default async function PoolsPage({
         >
           ← Retour au tournoi
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Poules — {tournament.name}
         </h1>
         <p className="text-sm text-black/60 dark:text-white/60 mt-1">
@@ -296,7 +296,7 @@ export default async function PoolsPage({
       {tournament.pools.map((pool) => (
         <section key={pool.id} className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
+            <h2 className="font-heading text-lg font-semibold">
               {pool.name}
               <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
                 {pool.members.length} joueur(s)

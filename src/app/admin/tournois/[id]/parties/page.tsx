@@ -118,7 +118,7 @@ export default async function GamesPage({
         >
           ← Retour au tournoi
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Parties — {tournament.name}
         </h1>
         {canManage && tournament.games.length > 0 && (
@@ -161,7 +161,7 @@ export default async function GamesPage({
         const topIsAutomatic = game.referenceMoves.length > 0;
         return (
           <section key={game.id} className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">
+            <h2 className="font-heading text-lg font-semibold">
               Partie {game.number}
               {game.playedAt && (
                 <span className="text-xs text-black/50 dark:text-white/50 ml-2">

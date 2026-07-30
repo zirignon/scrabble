@@ -48,7 +48,7 @@ export default async function TeamsPage({
         >
           ← Retour au tournoi
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Équipes — {tournament.name}
         </h1>
         {tournament.type === "CLASSIC" && (
@@ -85,7 +85,7 @@ export default async function TeamsPage({
       {tournament.teams.map((team) => (
         <section key={team.id} className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
+            <h2 className="font-heading text-lg font-semibold">
               {team.name}
               <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
                 {team.members.length} joueur(s)

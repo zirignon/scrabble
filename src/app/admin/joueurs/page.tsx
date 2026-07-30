@@ -46,7 +46,7 @@ export default async function AdminPlayersPage({
     <div className="flex flex-col gap-6">
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">Joueurs ({total})</h1>
+          <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light">Joueurs ({total})</h1>
           <a
             href="/api/joueurs/export"
             className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"

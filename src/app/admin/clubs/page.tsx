@@ -41,7 +41,7 @@ export default async function AdminClubsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold mb-4">Clubs ({total})</h1>
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mb-4">Clubs ({total})</h1>
         <ClubForm />
       </div>
 

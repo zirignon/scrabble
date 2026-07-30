@@ -410,7 +410,7 @@ export default async function RoundsPage({
         >
           ← Retour au tournoi
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Rondes — {tournament.name}
         </h1>
         {canManage && tournament.rounds.length > 0 && (
@@ -638,7 +638,7 @@ export default async function RoundsPage({
 
           return (
             <section key={round.id} className="flex flex-col gap-5">
-              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              <h2 className="font-heading text-lg font-semibold">Ronde {round.number}</h2>
               {[...byPool.values()].map(({ pool, matches }) => (
                 <div key={pool.id} className="flex flex-col gap-2">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -665,7 +665,7 @@ export default async function RoundsPage({
             round.isFinalPhase;
           return (
             <section key={round.id} className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">
+              <h2 className="font-heading text-lg font-semibold">
                 {isKnockoutRound
                   ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
                   : `Ronde ${round.number}`}
@@ -760,7 +760,7 @@ export default async function RoundsPage({
 
           return (
             <section key={round.id} className="flex flex-col gap-6">
-              <h2 className="text-lg font-semibold">Ronde {round.number}</h2>
+              <h2 className="font-heading text-lg font-semibold">Ronde {round.number}</h2>
               {[...byPool.values()].map(({ pool, encounters, byes }) => (
                 <div key={pool.id} className="flex flex-col gap-4">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -821,7 +821,7 @@ export default async function RoundsPage({
           tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
         return (
           <section key={round.id} className="flex flex-col gap-5">
-            <h2 className="text-lg font-semibold">
+            <h2 className="font-heading text-lg font-semibold">
               {isKnockoutRound
                 ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
                 : `Ronde ${round.number}`}

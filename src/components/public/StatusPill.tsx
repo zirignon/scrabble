@@ -45,3 +45,18 @@ export function MatchStatusPill({ status, isBye }: { status: string; isBye: bool
   if (status === "CANCELLED") return <Pill tone="muted">Annulé</Pill>;
   return <Pill tone="brick">{matchStatusLabel[status] ?? status}</Pill>;
 }
+
+const registrationStatusLabel: Record<string, string> = {
+  PENDING: "En attente",
+  CONFIRMED: "Confirmé",
+  WAITLIST: "Liste d'attente",
+  CANCELLED: "Annulé",
+};
+
+export function RegistrationStatusPill({ status }: { status: string }) {
+  if (status === "CONFIRMED") return <Pill tone="moss">Confirmé</Pill>;
+  if (status === "PENDING") return <Pill tone="gold">En attente</Pill>;
+  if (status === "WAITLIST") return <Pill tone="gold">Liste d&apos;attente</Pill>;
+  if (status === "CANCELLED") return <Pill tone="muted">Annulé</Pill>;
+  return <Pill tone="muted">{registrationStatusLabel[status] ?? status}</Pill>;
+}

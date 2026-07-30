@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/tournaments";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 import { PlayerSearchSelect } from "@/components/admin/PlayerSearchSelect";
+import { RegistrationStatusPill } from "@/components/public/StatusPill";
 
 const statusOptions = [
   ["DRAFT", "Brouillon"],
@@ -58,7 +59,7 @@ export default async function ManageTournamentPage({
         <p className="text-sm text-black/50 dark:text-white/50">
           {tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"}
         </p>
-        <h1 className="text-2xl font-semibold">{tournament.name}</h1>
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light">{tournament.name}</h1>
         <p className="text-sm text-black/60 dark:text-white/60 mt-1">
           <Link href={`/tournois/${tournament.slug}`} className="underline">
             Voir la page publique
@@ -95,7 +96,7 @@ export default async function ManageTournamentPage({
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
+        <h2 className="font-heading text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
 
         {canManage && (
           <PlayerSearchSelect
@@ -121,7 +122,9 @@ export default async function ManageTournamentPage({
                   {reg.player.lastName} {reg.player.firstName}
                 </td>
                 <td className="py-2 pr-4">{reg.player.club?.name ?? "—"}</td>
-                <td className="py-2 pr-4">{reg.status}</td>
+                <td className="py-2 pr-4">
+                  <RegistrationStatusPill status={reg.status} />
+                </td>
                 <td className="py-2 pr-4 text-right">
                   {canManage && (
                     <form
@@ -155,7 +158,7 @@ export default async function ManageTournamentPage({
         {tournament.isTeamEvent && (
           <Link
             href={`/admin/tournois/${tournament.id}/equipes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
           >
             <p className="font-medium">Gérer les équipes</p>
             <p className="text-xs text-black/60 dark:text-white/60">
@@ -166,7 +169,7 @@ export default async function ManageTournamentPage({
         {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && (
           <Link
             href={`/admin/tournois/${tournament.id}/poules`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
           >
             <p className="font-medium">Gérer les poules</p>
             <p className="text-xs text-black/60 dark:text-white/60">
@@ -177,7 +180,7 @@ export default async function ManageTournamentPage({
         {tournament.type === "CLASSIC" ? (
           <Link
             href={`/admin/tournois/${tournament.id}/rondes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
           >
             <p className="font-medium">Gérer les rondes et résultats</p>
             <p className="text-xs text-black/60 dark:text-white/60">
@@ -187,7 +190,7 @@ export default async function ManageTournamentPage({
         ) : (
           <Link
             href={`/admin/tournois/${tournament.id}/parties`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
           >
             <p className="font-medium">Gérer les parties et scores</p>
             <p className="text-xs text-black/60 dark:text-white/60">
@@ -200,7 +203,7 @@ export default async function ManageTournamentPage({
       {canManage && (
         <section className="flex flex-col gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Affichage grand écran</h2>
+            <h2 className="font-heading text-lg font-semibold">Affichage grand écran</h2>
             <p className="text-sm text-black/60 dark:text-white/60 mt-1">
               {`Par défaut, l'écran de projection alterne automatiquement toutes les 12 secondes entre le classement et ${
                 tournament.type === "CLASSIC" ? "la ronde" : "la partie"

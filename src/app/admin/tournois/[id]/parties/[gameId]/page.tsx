@@ -120,13 +120,13 @@ export default async function GameMovesPage({
         >
           ← Retour aux parties
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Partie {game.number} — détail coup par coup
         </h1>
         <Link
           href={`/tournois/${tournament.slug}/affichage`}
           target="_blank"
-          className="inline-block mt-2 rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+          className="inline-block mt-2 rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
         >
           Ouvrir l&apos;affichage grand écran ↗
         </Link>
@@ -144,7 +144,7 @@ export default async function GameMovesPage({
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Grille de référence (arbitre)</h2>
+        <h2 className="font-heading text-lg font-semibold">Grille de référence (arbitre)</h2>
         <p className="text-sm text-black/60 dark:text-white/60">
           Le coup joué par l&apos;arbitre à chaque tour, contre lequel les
           propositions des joueurs sont comparées. C&apos;est cette grille qui
@@ -284,7 +284,7 @@ export default async function GameMovesPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Scores des joueurs</h2>
+        <h2 className="font-heading text-lg font-semibold">Scores des joueurs</h2>
 
         {players.length === 0 ? (
           <p className="text-sm text-black/50 dark:text-white/50">
