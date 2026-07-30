@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/Logo";
 
 export function NavBarClient({
   session,
@@ -20,8 +21,9 @@ export function NavBarClient({
   return (
     <header className="border-b border-black/10 dark:border-white/10">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-semibold text-lg">
-          🀄 Scrabble Tournois
+        <Link href="/" className="flex items-center gap-2 font-heading font-semibold text-lg">
+          <Logo size={26} />
+          Scrabble Tournois
         </Link>
         <nav className="flex items-center gap-4 text-sm">
           <Link href="/tournois" className="hover:underline">

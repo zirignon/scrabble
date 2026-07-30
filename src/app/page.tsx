@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Logo } from "@/components/Logo";
 
 export default async function Home() {
   const [upcoming, stats] = await Promise.all([
@@ -13,9 +14,38 @@ export default async function Home() {
 
   return (
     <div className="flex flex-col flex-1">
-      <section className="bg-emerald-50 dark:bg-emerald-950/20 border-b border-black/10 dark:border-white/10">
-        <div className="mx-auto max-w-5xl px-4 py-16 flex flex-col gap-4">
-          <h1 className="text-3xl sm:text-4xl font-semibold max-w-2xl">
+      <section className="relative overflow-hidden bg-emerald-50 dark:bg-emerald-950/20 border-b border-black/10 dark:border-white/10">
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full text-navy dark:text-navy-light"
+          aria-hidden="true"
+        >
+          <defs>
+            <pattern
+              id="tile-grid"
+              width="34"
+              height="34"
+              patternUnits="userSpaceOnUse"
+            >
+              <rect
+                x="1"
+                y="1"
+                width="28"
+                height="28"
+                rx="4"
+                fill="none"
+                stroke="currentColor"
+                strokeOpacity="0.08"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#tile-grid)" />
+        </svg>
+        <Logo
+          size={220}
+          className="pointer-events-none absolute -right-10 -top-10 opacity-[0.05] dark:opacity-[0.08] hidden sm:block"
+        />
+        <div className="relative mx-auto max-w-5xl px-4 py-16 flex flex-col gap-4">
+          <h1 className="font-heading text-3xl sm:text-4xl font-semibold max-w-2xl">
             Gérez vos tournois de Scrabble, classique et duplicate
           </h1>
           <p className="max-w-xl text-black/70 dark:text-white/70">
