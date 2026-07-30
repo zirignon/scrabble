@@ -15,18 +15,29 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
   const tournamentId = searchParams.get("tournamentId") ?? undefined;
+  // "team" : cas de l'ajout direct d'un joueur à une équipe — on n'exclut
+  // que les joueurs déjà affectés à une équipe de ce tournoi (l'inscription
+  // se fait automatiquement à l'ajout), pas tous les inscrits.
+  const context = searchParams.get("context");
 
   if (q.length < 2) {
     return NextResponse.json({ players: [] });
   }
 
   const excludePlayerIds = tournamentId
-    ? (
-        await prisma.registration.findMany({
-          where: { tournamentId },
-          select: { playerId: true },
-        })
-      ).map((r) => r.playerId)
+    ? context === "team"
+      ? (
+          await prisma.teamMember.findMany({
+            where: { team: { tournamentId } },
+            select: { playerId: true },
+          })
+        ).map((m) => m.playerId)
+      : (
+          await prisma.registration.findMany({
+            where: { tournamentId },
+            select: { playerId: true },
+          })
+        ).map((r) => r.playerId)
     : [];
 
   const where: Prisma.PlayerWhereInput = {

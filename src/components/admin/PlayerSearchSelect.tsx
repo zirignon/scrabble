@@ -16,9 +16,18 @@ interface PlayerResult {
 export function PlayerSearchSelect({
   tournamentId,
   action,
+  context,
+  label = "Ajouter un joueur (nom ou licence)",
+  submitLabel = "Inscrire",
 }: {
   tournamentId: string;
   action: (formData: FormData) => Promise<void>;
+  // "team" : ajout direct d'un joueur à une équipe — n'exclut que les
+  // joueurs déjà dans une équipe de ce tournoi (voir /api/joueurs/search),
+  // l'inscription au tournoi se fait automatiquement à l'ajout.
+  context?: "team";
+  label?: string;
+  submitLabel?: string;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlayerResult[]>([]);
@@ -34,6 +43,7 @@ export function PlayerSearchSelect({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       const params = new URLSearchParams({ q: query, tournamentId });
+      if (context) params.set("context", context);
       const res = await fetch(`/api/joueurs/search?${params}`);
       if (!res.ok) return;
       const data = await res.json();
@@ -43,13 +53,13 @@ export function PlayerSearchSelect({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, tournamentId, selected]);
+  }, [query, tournamentId, context, selected]);
 
   return (
     <form action={action} className="flex items-end gap-3">
       <div className="flex flex-col gap-1 relative">
         <label htmlFor="player-search" className="text-xs font-medium">
-          Ajouter un joueur (nom ou licence)
+          {label}
         </label>
         <input
           id="player-search"
@@ -95,7 +105,7 @@ export function PlayerSearchSelect({
         disabled={!selected}
         className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
       >
-        Inscrire
+        {submitLabel}
       </button>
     </form>
   );
