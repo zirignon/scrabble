@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireRole, STAFF_ROLES } from "@/lib/guards";
+import { requireRole } from "@/lib/guards";
 import type { ActionState } from "@/lib/actions/auth";
 import { importPlayersCsvChunk, type PlayerImportSummary } from "@/lib/players/import";
 
@@ -34,7 +34,7 @@ export async function savePlayerAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
 
   const playerId = formData.get("playerId");
 
@@ -71,7 +71,7 @@ export async function savePlayerAction(
 }
 
 export async function deletePlayerAction(playerId: string) {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
   await prisma.player.delete({ where: { id: playerId } });
   revalidatePath("/admin/joueurs");
 }
@@ -79,7 +79,7 @@ export async function deletePlayerAction(playerId: string) {
 export async function importPlayersChunkAction(
   text: string
 ): Promise<PlayerImportSummary> {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
   const summary = await importPlayersCsvChunk(text);
   revalidatePath("/admin/joueurs");
   revalidatePath("/admin/clubs");

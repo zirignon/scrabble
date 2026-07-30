@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole, STAFF_ROLES } from "@/lib/guards";
+import { requireRole } from "@/lib/guards";
 import { deletePlayerAction } from "@/lib/actions/players";
 import { PlayerForm } from "@/components/admin/PlayerForm";
 import { PlayerImportForm } from "@/components/admin/PlayerImportForm";
@@ -14,7 +14,7 @@ export default async function AdminPlayersPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
   const { q, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
