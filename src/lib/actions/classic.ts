@@ -28,6 +28,26 @@ async function assertCanManage(tournamentId: string) {
   return tournament;
 }
 
+// Next.js redacte le message des erreurs levées par une Server Action en
+// production (sécurité), ne laissant qu'un message générique côté client —
+// ce qui masque les erreurs de validation volontaires (équipes de tailles
+// différentes, ronde en cours non terminée...) qui sont pourtant sûres à
+// afficher. Ce wrapper capture l'erreur côté serveur et la renvoie comme
+// donnée normale (`{ error }`) plutôt que de la laisser traverser la
+// frontière Server Action, pour qu'elle arrive intacte jusqu'à l'UI.
+function safeRoundAction<Args extends unknown[]>(
+  fn: (...args: Args) => Promise<void>
+): (...args: Args) => Promise<{ error?: string }> {
+  return async (...args: Args) => {
+    try {
+      await fn(...args);
+      return {};
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "Une erreur est survenue." };
+    }
+  };
+}
+
 type TeamWithMembers = {
   id: string;
   members: { playerId: string }[];
@@ -67,7 +87,7 @@ async function createTeamEncounterMatches(
   }
 }
 
-export async function generateRoundRobinAction(tournamentId: string) {
+async function generateRoundRobinActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC") throw new Error("Tournoi non classique.");
   if (tournament.isTeamEvent) {
@@ -108,8 +128,9 @@ export async function generateRoundRobinAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateRoundRobinAction = safeRoundAction(generateRoundRobinActionImpl);
 
-export async function generateTeamRoundRobinAction(tournamentId: string) {
+async function generateTeamRoundRobinActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas un tournoi par équipes classique.");
@@ -173,8 +194,9 @@ export async function generateTeamRoundRobinAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateTeamRoundRobinAction = safeRoundAction(generateTeamRoundRobinActionImpl);
 
-export async function generateNextSwissRoundAction(tournamentId: string) {
+async function generateNextSwissRoundActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "SWISS") {
     throw new Error("Ce tournoi n'est pas en format suisse.");
@@ -239,8 +261,9 @@ export async function generateNextSwissRoundAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateNextSwissRoundAction = safeRoundAction(generateNextSwissRoundActionImpl);
 
-export async function generateNextTeamSwissRoundAction(tournamentId: string) {
+async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent || tournament.format !== "SWISS") {
     throw new Error("Ce tournoi n'est pas un tournoi par équipes en système suisse.");
@@ -334,8 +357,9 @@ export async function generateNextTeamSwissRoundAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateNextTeamSwissRoundAction = safeRoundAction(generateNextTeamSwissRoundActionImpl);
 
-export async function generatePoolsRoundRobinAction(tournamentId: string) {
+async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS") {
     throw new Error("Ce tournoi n'est pas au format poules.");
@@ -392,8 +416,9 @@ export async function generatePoolsRoundRobinAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generatePoolsRoundRobinAction = safeRoundAction(generatePoolsRoundRobinActionImpl);
 
-export async function generateTeamPoolsRoundRobinAction(tournamentId: string) {
+async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS" || !tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas un tournoi par équipes en poules.");
@@ -442,6 +467,7 @@ export async function generateTeamPoolsRoundRobinAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateTeamPoolsRoundRobinAction = safeRoundAction(generateTeamPoolsRoundRobinActionImpl);
 
 // Sélectionne, pour chaque poule, ses N premiers qualifiés (N =
 // tournament.qualifiersPerPool), en intercalant les rangs entre poules
@@ -464,7 +490,7 @@ function selectPoolQualifiers<T extends { standings: { playerId?: string; teamId
   return qualifiers;
 }
 
-export async function generateFinalPhaseFromPoolsAction(tournamentId: string) {
+async function generateFinalPhaseFromPoolsActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS" || tournament.isTeamEvent) {
     throw new Error("Cette action ne s'applique qu'aux tournois individuels en poules.");
@@ -518,8 +544,9 @@ export async function generateFinalPhaseFromPoolsAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateFinalPhaseFromPoolsAction = safeRoundAction(generateFinalPhaseFromPoolsActionImpl);
 
-export async function generateTeamFinalPhaseFromPoolsAction(tournamentId: string) {
+async function generateTeamFinalPhaseFromPoolsActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS" || !tournament.isTeamEvent) {
     throw new Error("Cette action ne s'applique qu'aux tournois par équipes en poules.");
@@ -573,6 +600,7 @@ export async function generateTeamFinalPhaseFromPoolsAction(tournamentId: string
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateTeamFinalPhaseFromPoolsAction = safeRoundAction(generateTeamFinalPhaseFromPoolsActionImpl);
 
 export async function updateFinalPhaseSettingsAction(
   tournamentId: string,
@@ -602,7 +630,7 @@ export async function updateFinalPhaseSettingsAction(
 // Sélectionne les N premiers du classement général (round-robin ou
 // suisse) pour la phase finale à élimination directe optionnelle — pas
 // de notion de poule ici, contrairement à selectPoolQualifiers.
-export async function generateFinalPhaseFromStandingsAction(tournamentId: string) {
+async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (
     tournament.type !== "CLASSIC" ||
@@ -663,8 +691,11 @@ export async function generateFinalPhaseFromStandingsAction(tournamentId: string
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateFinalPhaseFromStandingsAction = safeRoundAction(
+  generateFinalPhaseFromStandingsActionImpl
+);
 
-export async function generateTeamFinalPhaseFromStandingsAction(tournamentId: string) {
+async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (
     tournament.type !== "CLASSIC" ||
@@ -725,8 +756,11 @@ export async function generateTeamFinalPhaseFromStandingsAction(tournamentId: st
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateTeamFinalPhaseFromStandingsAction = safeRoundAction(
+  generateTeamFinalPhaseFromStandingsActionImpl
+);
 
-export async function generateKnockoutBracketAction(tournamentId: string) {
+async function generateKnockoutBracketActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT") {
     throw new Error("Ce tournoi n'est pas au format élimination directe.");
@@ -765,8 +799,9 @@ export async function generateKnockoutBracketAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateKnockoutBracketAction = safeRoundAction(generateKnockoutBracketActionImpl);
 
-export async function generateNextKnockoutRoundAction(tournamentId: string) {
+async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas au format élimination directe.");
@@ -829,8 +864,9 @@ export async function generateNextKnockoutRoundAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateNextKnockoutRoundAction = safeRoundAction(generateNextKnockoutRoundActionImpl);
 
-export async function generateTeamKnockoutBracketAction(tournamentId: string) {
+async function generateTeamKnockoutBracketActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "KNOCKOUT" || !tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas une élimination directe par équipes.");
@@ -864,8 +900,9 @@ export async function generateTeamKnockoutBracketAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateTeamKnockoutBracketAction = safeRoundAction(generateTeamKnockoutBracketActionImpl);
 
-export async function generateNextTeamKnockoutRoundAction(tournamentId: string) {
+async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas une élimination directe par équipes.");
@@ -966,8 +1003,11 @@ export async function generateNextTeamKnockoutRoundAction(tournamentId: string) 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const generateNextTeamKnockoutRoundAction = safeRoundAction(
+  generateNextTeamKnockoutRoundActionImpl
+);
 
-export async function addManualRoundAction(tournamentId: string) {
+async function addManualRoundActionImpl(tournamentId: string) {
   await assertCanManage(tournamentId);
   const last = await prisma.round.findFirst({
     where: { tournamentId },
@@ -979,6 +1019,7 @@ export async function addManualRoundAction(tournamentId: string) {
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
 }
+export const addManualRoundAction = safeRoundAction(addManualRoundActionImpl);
 
 const addMatchSchema = z.object({
   homePlayerId: z.string().min(1),
