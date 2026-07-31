@@ -177,14 +177,14 @@ function MatchRow({
                 type="number"
                 name="homeScore"
                 defaultValue={match.homeScore ?? ""}
-                className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                className="w-16 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
               />
               <span>-</span>
               <input
                 type="number"
                 name="awayScore"
                 defaultValue={match.awayScore ?? ""}
-                className="w-16 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                className="w-16 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
               />
               <select
                 name="status"
