@@ -30,6 +30,30 @@ export function generateKnockoutFirstRound(playerIds: string[]): Pairing[] {
   return pairings;
 }
 
+// Appariement en croix pour la phase finale générée depuis exactement 2
+// poules (A et B), qui garde les deux têtes de poule dans des moitiés de
+// tableau séparées (elles ne peuvent donc se rencontrer qu'en finale) :
+//   QF1 = 1erA vs derB, QF2 = 2eA vs avant-dernier B, ...  (moitié A)
+//   QF3 = 1erB vs derA, QF4 = 2eB vs avant-dernier A, ...  (moitié B)
+// Si le nombre de qualifiés par poule est impair, les deux qualifiés du
+// rang médian (non départagés par le tirage en croix) se rencontrent entre
+// eux en dernier appariement.
+export function crossSeedTwoPools(poolA: string[], poolB: string[]): Pairing[] {
+  const n = Math.min(poolA.length, poolB.length);
+  const half = Math.floor(n / 2);
+  const pairings: Pairing[] = [];
+  for (let k = 0; k < half; k++) {
+    pairings.push({ home: poolA[k], away: poolB[n - 1 - k] });
+  }
+  for (let k = 0; k < half; k++) {
+    pairings.push({ home: poolB[k], away: poolA[n - 1 - k] });
+  }
+  if (n % 2 === 1) {
+    pairings.push({ home: poolA[half], away: poolB[half] });
+  }
+  return pairings;
+}
+
 // Détermine le vainqueur d'un match (ou null si le résultat n'est pas
 // encore tranché : ronde à jouer, égalité non résolue, ou annulé sans
 // vainqueur désigné).

@@ -11,10 +11,12 @@ import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import {
+  crossSeedTwoPools,
   generateKnockoutFirstRound,
   getKnockoutWinner,
   pairKnockoutWinners,
 } from "@/lib/classic/knockout";
+import type { Pairing } from "@/lib/classic/pairing";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
 
 async function assertCanManage(tournamentId: string) {
@@ -62,7 +64,8 @@ async function createTeamEncounterMatches(
   homeTeam: TeamWithMembers,
   awayTeam: TeamWithMembers | null,
   boardCount: number,
-  poolId?: string
+  poolId?: string,
+  isThirdPlace = false
 ) {
   if (!awayTeam) {
     await prisma.match.create({
@@ -82,6 +85,7 @@ async function createTeamEncounterMatches(
         homePlayerId: homeTeam.members[board].playerId,
         awayPlayerId: awayTeam.members[board].playerId,
         status: "SCHEDULED",
+        isThirdPlace,
       },
     });
   }
@@ -490,6 +494,37 @@ function selectPoolQualifiers<T extends { standings: { playerId?: string; teamId
   return qualifiers;
 }
 
+// Construit les appariements du 1er tour de la phase finale de poules. Avec
+// exactement 2 poules de même taille, utilise l'appariement en croix
+// (1erA-derB, 2eA-avant-dernier B, 1erB-derA, ...) qui garde les deux têtes
+// de poule dans des moitiés de tableau séparées — le cas standard à deux
+// poules. Sinon (plus de 2 poules, ou tailles différentes), reprend
+// l'ancien comportement : qualifiés intercalés par rang puis appariés dans
+// l'ordre.
+function buildPoolFinalPhasePairings<T extends { standings: { playerId?: string; teamId?: string }[] }>(
+  pools: T[],
+  qualifiersPerPool: number,
+  idKey: "playerId" | "teamId"
+): Pairing[] {
+  const poolQualifiers = pools.map((pool) =>
+    pool.standings
+      .slice(0, qualifiersPerPool)
+      .map((row) => row[idKey])
+      .filter((id): id is string => Boolean(id))
+  );
+
+  if (
+    poolQualifiers.length === 2 &&
+    poolQualifiers[0].length > 0 &&
+    poolQualifiers[0].length === poolQualifiers[1].length
+  ) {
+    return crossSeedTwoPools(poolQualifiers[0], poolQualifiers[1]);
+  }
+
+  const flatQualifiers = selectPoolQualifiers(pools, qualifiersPerPool, idKey);
+  return generateKnockoutFirstRound(flatQualifiers);
+}
+
 async function generateFinalPhaseFromPoolsActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
   if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS" || tournament.isTeamEvent) {
@@ -513,12 +548,11 @@ async function generateFinalPhaseFromPoolsActionImpl(tournamentId: string) {
   if (finalPhaseMatches > 0) throw new Error("La phase finale a déjà été générée.");
 
   const poolStandings = await computeClassicPoolStandings(tournamentId);
-  const qualifiers = selectPoolQualifiers(poolStandings, tournament.qualifiersPerPool, "playerId");
-  if (qualifiers.length < 2) {
+  const pairings = buildPoolFinalPhasePairings(poolStandings, tournament.qualifiersPerPool, "playerId");
+  if (pairings.length === 0) {
     throw new Error("Pas assez de qualifiés pour générer une phase finale.");
   }
 
-  const pairings = generateKnockoutFirstRound(qualifiers);
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },
@@ -573,6 +607,7 @@ async function generateTeamFinalPhaseFromPoolsActionImpl(tournamentId: string) {
   if (qualifierIds.length < 2) {
     throw new Error("Pas assez d'équipes qualifiées pour générer une phase finale.");
   }
+  const pairings = buildPoolFinalPhasePairings(poolStandings, tournament.qualifiersPerPool, "teamId");
 
   const teams = await prisma.team.findMany({
     where: { id: { in: qualifierIds } },
@@ -582,7 +617,6 @@ async function generateTeamFinalPhaseFromPoolsActionImpl(tournamentId: string) {
   const boardCount = teams[0]?.members.length ?? 0;
   if (boardCount === 0) throw new Error("Chaque équipe qualifiée doit avoir au moins un joueur.");
 
-  const pairings = generateKnockoutFirstRound(qualifierIds);
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },
@@ -622,6 +656,26 @@ export async function updateFinalPhaseSettingsAction(
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: { finalPhaseEnabled, finalPhaseQualifiers },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+// Active/désactive le match pour la 3e place (perdants de demi-finale) —
+// s'applique à tout tableau à élimination directe (KNOCKOUT, phase finale
+// de poules, ou phase finale round-robin/suisse), contrairement à la
+// phase finale optionnelle ci-dessus qui ne concerne que le round-robin et
+// le suisse.
+export async function updateThirdPlaceSettingsAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const thirdPlaceMatchEnabled = formData.get("thirdPlaceMatchEnabled") === "on";
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { thirdPlaceMatchEnabled },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
@@ -828,6 +882,10 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
   }
 
   const winners: string[] = [];
+  // Perdants de ce tour (hors byes, qui n'opposent jamais deux joueurs) —
+  // utilisés uniquement pour générer le match de la 3e place quand ce tour
+  // s'avère être les demi-finales (winners.length === 2 ci-dessous).
+  const losers: string[] = [];
   for (const match of last.matches) {
     const winner = getKnockoutWinner(match);
     if (!winner) {
@@ -836,6 +894,9 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
       );
     }
     winners.push(winner);
+    if (!match.isBye && match.homePlayerId && match.awayPlayerId) {
+      losers.push(winner === match.homePlayerId ? match.awayPlayerId : match.homePlayerId);
+    }
   }
 
   if (winners.length === 1) {
@@ -857,6 +918,23 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
         awayPlayerId: pairing.away,
         isBye: pairing.away === null,
         status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+      },
+    });
+  }
+
+  // Match pour la 3e place, optionnel : ce tour n'est généré que si celui
+  // qu'on vient de terminer était bien les demi-finales (2 vainqueurs, donc
+  // 2 perdants) — jamais après un tour à byes qui ne laisserait qu'un ou
+  // zéro perdant réel.
+  if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
+    await prisma.match.create({
+      data: {
+        roundId: round.id,
+        table: table++,
+        homePlayerId: losers[0],
+        awayPlayerId: losers[1],
+        status: "SCHEDULED",
+        isThirdPlace: true,
       },
     });
   }
@@ -932,6 +1010,10 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
   // d'équipes) pour déterminer le vainqueur de chacune à la majorité
   // d'échiquiers gagnés, dans l'ordre où les confrontations apparaissent.
   const winners: string[] = [];
+  // Perdants de ce tour (hors byes) — voir le commentaire équivalent côté
+  // individuel, utilisés uniquement pour la 3e place si ce tour s'avère
+  // être les demi-finales.
+  const losers: string[] = [];
   const seenKeys = new Set<string>();
 
   for (const match of last.matches) {
@@ -976,6 +1058,7 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
       );
     }
     winners.push(homeBoardsWon > awayBoardsWon ? match.homeTeamId : match.awayTeamId);
+    losers.push(homeBoardsWon > awayBoardsWon ? match.awayTeamId : match.homeTeamId);
   }
 
   if (winners.length === 1) {
@@ -998,6 +1081,15 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
     const homeTeam = teamsById.get(pairing.home)!;
     const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
     await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
+  }
+
+  // Match pour la 3e place, optionnel : voir le commentaire équivalent côté
+  // individuel — uniquement si ce tour est bien les demi-finales (2
+  // vainqueurs et donc 2 perdants réels, aucun bye).
+  if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
+    const loserHomeTeam = teamsById.get(losers[0])!;
+    const loserAwayTeam = teamsById.get(losers[1])!;
+    await createTeamEncounterMatches(round.id, loserHomeTeam, loserAwayTeam, boardCount, undefined, true);
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);

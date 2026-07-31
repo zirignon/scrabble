@@ -166,14 +166,26 @@ export default async function TournamentRoundsPage({
               tournament.format === "KNOCKOUT" ||
               tournament.format === "GROUPS" ||
               round.isFinalPhase;
+            const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
+            const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
             return (
-              <div key={round.id} className="flex flex-col gap-1.5">
-                <h3 className={roundHeading}>
-                  {isKnockoutRound
-                    ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
-                    : `Ronde ${round.number}`}
-                </h3>
-                <MatchTable matches={round.matches} />
+              <div key={round.id} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <h3 className={roundHeading}>
+                    {isKnockoutRound
+                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                      : `Ronde ${round.number}`}
+                  </h3>
+                  <MatchTable matches={mainMatches} />
+                </div>
+                {thirdPlaceMatches.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                      Match pour la 3ᵉ place
+                    </h3>
+                    <MatchTable matches={thirdPlaceMatches} />
+                  </div>
+                )}
               </div>
             );
           }
@@ -243,11 +255,16 @@ export default async function TournamentRoundsPage({
           }
 
           // Tournoi par équipes : regroupe les échiquiers par confrontation.
+          // Le match pour la 3e place (le cas échéant) est exclu de ce
+          // regroupement principal pour ne pas fausser le décompte des
+          // entrants (et donc l'étiquette du tour) et s'affiche à part.
           const encounters = new Map<
             string,
             { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }
           >();
           const byeTeamNames: string[] = [];
+          let thirdPlaceEncounter: { homeTeamName: string; awayTeamName: string; matches: typeof round.matches } | null =
+            null;
 
           for (const match of round.matches) {
             if (match.isBye) {
@@ -255,6 +272,17 @@ export default async function TournamentRoundsPage({
               continue;
             }
             if (!match.homeTeam || !match.awayTeam) continue;
+            if (match.isThirdPlace) {
+              if (!thirdPlaceEncounter) {
+                thirdPlaceEncounter = {
+                  homeTeamName: match.homeTeam.name,
+                  awayTeamName: match.awayTeam.name,
+                  matches: [],
+                };
+              }
+              thirdPlaceEncounter.matches.push(match);
+              continue;
+            }
             const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
             if (!encounters.has(key)) {
               encounters.set(key, {
@@ -272,7 +300,9 @@ export default async function TournamentRoundsPage({
             <div key={round.id} className="flex flex-col gap-4">
               <h3 className={roundHeading}>
                 {isKnockoutRound
-                  ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                  ? getKnockoutStageLabel(
+                      countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                    )
                   : `Ronde ${round.number}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
@@ -288,6 +318,16 @@ export default async function TournamentRoundsPage({
                   {name} : équipe exempte pour cette ronde.
                 </p>
               ))}
+              {thirdPlaceEncounter && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                    Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeamName}{" "}
+                    <span className="text-gold dark:text-gold-light font-normal">vs</span>{" "}
+                    {thirdPlaceEncounter.awayTeamName}
+                  </h3>
+                  <MatchTable matches={thirdPlaceEncounter.matches} forceNotBye />
+                </div>
+              )}
             </div>
           );
         })}

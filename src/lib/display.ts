@@ -280,7 +280,11 @@ async function buildCurrent(tournament: {
     const grouped = lastRound.matches.some((m) => m.poolId);
     const groupsMap = new Map<string, DisplayRoundMatch[]>();
     for (const m of lastRound.matches) {
-      const groupName = grouped ? m.pool?.name ?? "—" : "";
+      const groupName = m.isThirdPlace
+        ? "Match pour la 3ᵉ place"
+        : grouped
+          ? m.pool?.name ?? "—"
+          : "";
       const homeName = m.homeTeam
         ? m.homeTeam.name
         : m.homePlayer
@@ -320,7 +324,7 @@ async function buildCurrent(tournament: {
       (tournament.format === "GROUPS" && !grouped) ||
       lastRound.isFinalPhase;
     const label = isKnockoutRound
-      ? getKnockoutStageLabel(countKnockoutEntrants(lastRound.matches))
+      ? getKnockoutStageLabel(countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace)))
       : `Ronde ${lastRound.number}`;
     return {
       kind: "matches",

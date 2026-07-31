@@ -26,6 +26,7 @@ import {
   setMatchClockDurationAction,
   startMatchClockAction,
   updateFinalPhaseSettingsAction,
+  updateThirdPlaceSettingsAction,
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
 import { RoundActionButton } from "@/components/admin/RoundActionButton";
@@ -340,6 +341,54 @@ function FinalPhaseSettingsForm({
   );
 }
 
+function ThirdPlaceSettingsForm({
+  tournamentId,
+  thirdPlaceMatchEnabled,
+  canManage,
+}: {
+  tournamentId: string;
+  thirdPlaceMatchEnabled: boolean;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Match pour la 3ᵉ place (optionnel)</p>
+      {canManage ? (
+        <form
+          action={updateThirdPlaceSettingsAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="thirdPlaceMatchEnabled"
+              defaultChecked={thirdPlaceMatchEnabled}
+              className="rounded border-black/20 dark:border-white/30"
+            />
+            Opposer les deux perdants de demi-finale
+          </label>
+          <button
+            type="submit"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {thirdPlaceMatchEnabled
+            ? "Match pour la 3e place activé."
+            : "Pas de match pour la 3e place pour ce tournoi."}
+        </p>
+      )}
+      <p className="text-xs text-black/50 dark:text-white/50">
+        Se génère automatiquement, dans la même ronde que la finale, dès que
+        les demi-finales sont terminées.
+      </p>
+    </div>
+  );
+}
+
 export default async function RoundsPage({
   params,
 }: {
@@ -444,6 +493,12 @@ export default async function RoundsPage({
           canManage={canManage}
         />
       )}
+
+      <ThirdPlaceSettingsForm
+        tournamentId={tournament.id}
+        thirdPlaceMatchEnabled={tournament.thirdPlaceMatchEnabled}
+        canManage={canManage}
+      />
 
       {canManage && (
         <div className="flex flex-wrap gap-3 items-start">
@@ -631,18 +686,32 @@ export default async function RoundsPage({
             tournament.format === "KNOCKOUT" ||
             tournament.format === "GROUPS" ||
             round.isFinalPhase;
+          const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
+          const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
           return (
             <section key={round.id} className="flex flex-col gap-3">
               <h2 className="font-heading text-lg font-semibold">
                 {isKnockoutRound
-                  ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                  ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
                   : `Ronde ${round.number}`}
               </h2>
               <MatchTable
-                matches={round.matches}
+                matches={mainMatches}
                 canManage={canManage}
                 tournamentId={tournament.id}
               />
+              {thirdPlaceMatches.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                    Match pour la 3ᵉ place
+                  </h3>
+                  <MatchTable
+                    matches={thirdPlaceMatches}
+                    canManage={canManage}
+                    tournamentId={tournament.id}
+                  />
+                </div>
+              )}
               {canManage && (
                 <form
                   action={addMatchAction.bind(null, tournament.id, round.id)}
@@ -761,12 +830,17 @@ export default async function RoundsPage({
         }
 
         // Tournoi par équipes : regroupe les échiquiers par confrontation
-        // (paire d'équipes) et affiche à part les équipes exemptes.
+        // (paire d'équipes) et affiche à part les équipes exemptes. Le
+        // match pour la 3e place (le cas échéant) est exclu du regroupement
+        // principal pour ne pas fausser le décompte des entrants (et donc
+        // l'étiquette du tour) et s'affiche à part, sous son propre titre.
         const encounters = new Map<
           string,
           { homeTeam: Team; awayTeam: Team; matches: MatchWithRelations[] }
         >();
         const byes: MatchWithRelations[] = [];
+        let thirdPlaceEncounter: { homeTeam: Team; awayTeam: Team; matches: MatchWithRelations[] } | null =
+          null;
 
         for (const match of round.matches) {
           if (match.isBye) {
@@ -774,6 +848,13 @@ export default async function RoundsPage({
             continue;
           }
           if (!match.homeTeam || !match.awayTeam) continue;
+          if (match.isThirdPlace) {
+            if (!thirdPlaceEncounter) {
+              thirdPlaceEncounter = { homeTeam: match.homeTeam, awayTeam: match.awayTeam, matches: [] };
+            }
+            thirdPlaceEncounter.matches.push(match);
+            continue;
+          }
           const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
           if (!encounters.has(key)) {
             encounters.set(key, {
@@ -791,7 +872,9 @@ export default async function RoundsPage({
           <section key={round.id} className="flex flex-col gap-5">
             <h2 className="font-heading text-lg font-semibold">
               {isKnockoutRound
-                ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
+                ? getKnockoutStageLabel(
+                    countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                  )
                 : `Ronde ${round.number}`}
             </h2>
 
@@ -807,6 +890,20 @@ export default async function RoundsPage({
                 />
               </div>
             ))}
+
+            {thirdPlaceEncounter && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                  Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeam.name} vs{" "}
+                  {thirdPlaceEncounter.awayTeam.name}
+                </h3>
+                <MatchTable
+                  matches={thirdPlaceEncounter.matches}
+                  canManage={canManage}
+                  tournamentId={tournament.id}
+                />
+              </div>
+            )}
 
             {byes.map((match) => (
               <p key={match.id} className="text-sm text-black/50 dark:text-white/50">

@@ -188,6 +188,11 @@ model Tournament {
   // qualifiés (au classement général, tous confondus) configurable.
   finalPhaseEnabled     Boolean   @default(false)
   finalPhaseQualifiers  Int       @default(4)
+  // Match de classement pour la 3e place, optionnel, entre les deux
+  // perdants de demi-finale — s'applique à tout tableau à élimination
+  // directe (KNOCKOUT, phase finale de poules, ou phase finale générée
+  // depuis le classement général en round-robin/suisse).
+  thirdPlaceMatchEnabled Boolean  @default(false)
   duplicateFormula DuplicateFormula?
   duplicateRythme  DuplicateRythme?
   description  String?
@@ -320,6 +325,11 @@ model Match {
   awayScore    Int?
   status       MatchStatus @default(SCHEDULED)
   isBye        Boolean     @default(false)
+  // Marque le(s) match(s) de classement pour la 3e place (perdants des deux
+  // demi-finales), généré dans la même ronde que la finale — permet de le
+  // distinguer du match principal pour l'étiquetage du tour (voir
+  // countKnockoutEntrants/getKnockoutStageLabel) et son affichage à part.
+  isThirdPlace Boolean     @default(false)
 
   // Chronomètre d'échecs du match (classique) : chaque camp dispose d'un
   // temps de réflexion propre, alterné manuellement par l'arbitre.
