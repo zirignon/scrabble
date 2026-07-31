@@ -1,9 +1,63 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
-import { matchRow, matchCell, scoreCell, MatchStatusPill } from "@/components/public/StatusPill";
+import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill } from "@/components/public/StatusPill";
 import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
+
+type RoundMatch = Prisma.MatchGetPayload<{
+  include: { homePlayer: true; awayPlayer: true; homeTeam: true; awayTeam: true; pool: true };
+}>;
+
+const roundHeading = "font-heading text-lg font-semibold text-navy dark:text-navy-light";
+const groupHeading = "text-sm font-semibold text-navy dark:text-navy-light";
+
+// Un tableau de confrontations, dans une carte bordée avec un en-tête de
+// colonnes — factorisé car répété pour chaque ronde/poule/confrontation
+// d'équipes de la page. `forceNotBye` : les tables ci-dessous représentent
+// déjà les échiquiers d'une confrontation d'équipes précise (jamais un bye,
+// géré séparément via la liste des équipes exemptes).
+function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; forceNotBye?: boolean }) {
+  return (
+    <div className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className={headRow}>
+            <th className={`${th} pl-4`}>Domicile</th>
+            <th className={`${th} text-center`}>Score</th>
+            <th className={th}>Extérieur</th>
+            <th className={`${th} pr-4`}>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {matches.map((match) => (
+            <tr key={match.id} className={matchRow}>
+              <td className={`${matchCell} pl-4`}>
+                {match.homePlayer
+                  ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+                  : "—"}
+              </td>
+              <td className={`${scoreCell} text-center`}>
+                {match.isBye && !forceNotBye
+                  ? "—"
+                  : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
+              </td>
+              <td className={matchCell}>
+                {match.awayPlayer
+                  ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+                  : "—"}
+              </td>
+              <td className={`${matchCell} pr-4`}>
+                <MatchStatusPill status={match.status} isBye={forceNotBye ? false : match.isBye} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default async function TournamentRoundsPage({
   params,
@@ -69,36 +123,11 @@ export default async function TournamentRoundsPage({
 
             return (
               <div key={round.id} className="flex flex-col gap-4">
-                <h3 className="font-medium">Ronde {round.number}</h3>
+                <h3 className={roundHeading}>Ronde {round.number}</h3>
                 {[...byPool.values()].map(({ poolName, matches }) => (
-                  <div key={poolName} className="overflow-x-auto">
-                    <p className="text-sm font-medium mb-1">{poolName}</p>
-                    <table className="w-full text-sm border-collapse">
-                      <tbody>
-                        {matches.map((match) => (
-                          <tr key={match.id} className={matchRow}>
-                            <td className={matchCell}>
-                              {match.homePlayer
-                                ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                                : "—"}
-                            </td>
-                            <td className={scoreCell}>
-                              {match.isBye
-                                ? "—"
-                                : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                            </td>
-                            <td className={matchCell}>
-                              {match.awayPlayer
-                                ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                                : "—"}
-                            </td>
-                            <td className={matchCell}>
-                              <MatchStatusPill status={match.status} isBye={match.isBye} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div key={poolName} className="flex flex-col gap-1.5">
+                    <p className={groupHeading}>{poolName}</p>
+                    <MatchTable matches={matches} />
                   </div>
                 ))}
               </div>
@@ -111,38 +140,13 @@ export default async function TournamentRoundsPage({
               tournament.format === "GROUPS" ||
               round.isFinalPhase;
             return (
-              <div key={round.id} className="overflow-x-auto">
-                <h3 className="font-medium mb-2">
+              <div key={round.id} className="flex flex-col gap-1.5">
+                <h3 className={roundHeading}>
                   {isKnockoutRound
                     ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
                     : `Ronde ${round.number}`}
                 </h3>
-                <table className="w-full text-sm border-collapse">
-                  <tbody>
-                    {round.matches.map((match) => (
-                      <tr key={match.id} className={matchRow}>
-                        <td className={matchCell}>
-                          {match.homePlayer
-                            ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                            : "—"}
-                        </td>
-                        <td className={scoreCell}>
-                          {match.isBye
-                            ? "—"
-                            : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                        </td>
-                        <td className={matchCell}>
-                          {match.awayPlayer
-                            ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                            : "—"}
-                        </td>
-                        <td className={matchCell}>
-                          <MatchStatusPill status={match.status} isBye={match.isBye} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <MatchTable matches={round.matches} />
               </div>
             );
           }
@@ -187,39 +191,16 @@ export default async function TournamentRoundsPage({
 
             return (
               <div key={round.id} className="flex flex-col gap-5">
-                <h3 className="font-medium">Ronde {round.number}</h3>
+                <h3 className={roundHeading}>Ronde {round.number}</h3>
                 {[...byPool.values()].map(({ poolName, encounters, byeTeamNames }) => (
                   <div key={poolName} className="flex flex-col gap-3">
-                    <p className="text-sm font-semibold">{poolName}</p>
+                    <p className={groupHeading}>{poolName}</p>
                     {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
-                      <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 overflow-x-auto">
-                        <p className="text-sm font-medium mb-1">
-                          {homeTeamName} vs {awayTeamName}
+                      <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 flex flex-col gap-1.5">
+                        <p className="text-sm font-medium text-black/70 dark:text-white/70">
+                          {homeTeamName} <span className="text-black/40 dark:text-white/40">vs</span> {awayTeamName}
                         </p>
-                        <table className="w-full text-sm border-collapse">
-                          <tbody>
-                            {matches.map((match) => (
-                              <tr key={match.id} className={matchRow}>
-                                <td className={matchCell}>
-                                  {match.homePlayer
-                                    ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                                    : "—"}
-                                </td>
-                                <td className={scoreCell}>
-                                  {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                                </td>
-                                <td className={matchCell}>
-                                  {match.awayPlayer
-                                    ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                                    : "—"}
-                                </td>
-                                <td className={matchCell}>
-                                  <MatchStatusPill status={match.status} isBye={false} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <MatchTable matches={matches} forceNotBye />
                       </div>
                     ))}
                     {byeTeamNames.map((name) => (
@@ -261,40 +242,17 @@ export default async function TournamentRoundsPage({
             tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
           return (
             <div key={round.id} className="flex flex-col gap-4">
-              <h3 className="font-medium">
+              <h3 className={roundHeading}>
                 {isKnockoutRound
                   ? getKnockoutStageLabel(countKnockoutEntrants(round.matches))
                   : `Ronde ${round.number}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
-                <div key={`${homeTeamName}:${awayTeamName}`} className="overflow-x-auto">
-                  <p className="text-sm font-medium mb-1">
-                    {homeTeamName} vs {awayTeamName}
+                <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">
+                  <p className="text-sm font-medium text-black/70 dark:text-white/70">
+                    {homeTeamName} <span className="text-black/40 dark:text-white/40">vs</span> {awayTeamName}
                   </p>
-                  <table className="w-full text-sm border-collapse">
-                    <tbody>
-                      {matches.map((match) => (
-                        <tr key={match.id} className={matchRow}>
-                          <td className={matchCell}>
-                            {match.homePlayer
-                              ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                              : "—"}
-                          </td>
-                          <td className={scoreCell}>
-                            {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                          </td>
-                          <td className={matchCell}>
-                            {match.awayPlayer
-                              ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                              : "—"}
-                          </td>
-                          <td className={matchCell}>
-                            <MatchStatusPill status={match.status} isBye={false} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <MatchTable matches={matches} forceNotBye />
                 </div>
               ))}
               {byeTeamNames.map((name) => (
