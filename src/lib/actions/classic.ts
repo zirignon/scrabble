@@ -911,7 +911,20 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
     throw new Error("Le tournoi est terminé : la finale a déjà été jouée.");
   }
 
-  const pairings = pairKnockoutWinners(winners);
+  // Cas particulier des quarts vers les demi-finales quand la phase finale
+  // vient d'exactement 2 poules (tirage en croix, voir crossSeedTwoPools) :
+  // regrouper les vainqueurs consécutifs (QF1+QF2, QF3+QF4) ferait se
+  // rencontrer les deux têtes de poule d'une même poule (1erA-2eA) en
+  // demi-finale. On regroupe donc QF1+QF4 et QF2+QF3, qui garantit que les
+  // deux poules ne peuvent se recroiser qu'en finale.
+  const poolCount =
+    tournament.format === "GROUPS" ? await prisma.pool.count({ where: { tournamentId } }) : 0;
+  const orderedWinners =
+    poolCount === 2 && winners.length === 4
+      ? [winners[0], winners[3], winners[1], winners[2]]
+      : winners;
+
+  const pairings = pairKnockoutWinners(orderedWinners);
   const round = await prisma.round.create({
     data: { tournamentId, number: last.number + 1, isFinalPhase: last.isFinalPhase },
   });
@@ -1080,7 +1093,17 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
   const boardCount = teams[0].members.length;
 
-  const pairings = pairKnockoutWinners(winners);
+  // Voir le commentaire équivalent côté individuel : on regroupe QF1+QF4 et
+  // QF2+QF3 (au lieu de QF1+QF2 et QF3+QF4) pour la transition quarts vers
+  // demi-finales d'une phase finale issue d'exactement 2 poules.
+  const poolCount =
+    tournament.format === "GROUPS" ? await prisma.pool.count({ where: { tournamentId } }) : 0;
+  const orderedWinners =
+    poolCount === 2 && winners.length === 4
+      ? [winners[0], winners[3], winners[1], winners[2]]
+      : winners;
+
+  const pairings = pairKnockoutWinners(orderedWinners);
   const round = await prisma.round.create({
     data: { tournamentId, number: last.number + 1, isFinalPhase: last.isFinalPhase },
   });
