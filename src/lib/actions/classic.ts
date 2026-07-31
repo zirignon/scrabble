@@ -15,6 +15,7 @@ import {
   generateKnockoutFirstRound,
   getKnockoutWinner,
   pairKnockoutWinners,
+  standardBracketSeeding,
 } from "@/lib/classic/knockout";
 import type { Pairing } from "@/lib/classic/pairing";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
@@ -494,13 +495,16 @@ function selectPoolQualifiers<T extends { standings: { playerId?: string; teamId
   return qualifiers;
 }
 
-// Construit les appariements du 1er tour de la phase finale de poules. Avec
-// exactement 2 poules de même taille, utilise l'appariement en croix
-// (1erA-derB, 2eA-avant-dernier B, 1erB-derA, ...) qui garde les deux têtes
-// de poule dans des moitiés de tableau séparées — le cas standard à deux
-// poules. Sinon (plus de 2 poules, ou tailles différentes), reprend
-// l'ancien comportement : qualifiés intercalés par rang puis appariés dans
-// l'ordre.
+// Construit les appariements du 1er tour de la phase finale de poules.
+// - Une seule poule (tous les qualifiés viennent du même classement) :
+//   tirage au sort standard (1er-dernier, 4e-5e, 2e-avant-dernier, ...) qui
+//   garde les deux premiers du classement dans des moitiés de tableau
+//   séparées.
+// - Exactement 2 poules de même taille : appariement en croix
+//   (1erA-derB, 2eA-avant-dernier B, 1erB-derA, ...), même principe mais
+//   entre les deux poules plutôt qu'au sein d'un seul classement.
+// - Sinon (plus de 2 poules, ou tailles différentes) : reprend l'ancien
+//   comportement, qualifiés intercalés par rang puis appariés dans l'ordre.
 function buildPoolFinalPhasePairings<T extends { standings: { playerId?: string; teamId?: string }[] }>(
   pools: T[],
   qualifiersPerPool: number,
@@ -512,6 +516,10 @@ function buildPoolFinalPhasePairings<T extends { standings: { playerId?: string;
       .map((row) => row[idKey])
       .filter((id): id is string => Boolean(id))
   );
+
+  if (poolQualifiers.length === 1) {
+    return standardBracketSeeding(poolQualifiers[0]);
+  }
 
   if (
     poolQualifiers.length === 2 &&
@@ -719,7 +727,7 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
     throw new Error("Pas assez de joueurs classés pour générer une phase finale.");
   }
 
-  const pairings = generateKnockoutFirstRound(qualifiers);
+  const pairings = standardBracketSeeding(qualifiers);
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },
@@ -792,7 +800,7 @@ async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: strin
   const boardCount = teams[0]?.members.length ?? 0;
   if (boardCount === 0) throw new Error("Chaque équipe qualifiée doit avoir au moins un joueur.");
 
-  const pairings = generateKnockoutFirstRound(qualifierIds);
+  const pairings = standardBracketSeeding(qualifierIds);
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },

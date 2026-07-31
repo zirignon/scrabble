@@ -54,6 +54,46 @@ export function crossSeedTwoPools(poolA: string[], poolB: string[]): Pairing[] {
   return pairings;
 }
 
+// Ordre de tirage au sort standard d'un tableau à élimination directe pour
+// un classement unique (une seule poule, ou classement général) : place
+// récursivement le seed n+1-k en face du seed k, de sorte que les deux
+// premiers du classement ne puissent se rencontrer qu'en finale, les 4
+// premiers qu'à partir des demi-finales, etc (méthode utilisée par la
+// plupart des tirages au sort sportifs). Pour 8 qualifiés, donne l'ordre
+// 1,8,4,5,2,7,3,6, soit les quarts 1-8, 4-5, 2-7, 3-6.
+function bracketSeedOrder(size: number): number[] {
+  if (size === 1) return [1];
+  const prev = bracketSeedOrder(size / 2);
+  const order: number[] = [];
+  for (const seed of prev) {
+    order.push(seed, size + 1 - seed);
+  }
+  return order;
+}
+
+// Appariement du 1er tour à partir d'un classement unique déjà trié (1er en
+// tête), via le tirage au sort standard ci-dessus. Complète au prochain
+// multiple de 2 avec des exempts (bye) pour les moins bien classés, comme
+// generateKnockoutFirstRound.
+export function standardBracketSeeding(rankedIds: string[]): Pairing[] {
+  const ids: (string | null)[] = [...rankedIds];
+  let size = 1;
+  while (size < ids.length) size *= 2;
+  while (ids.length < size) ids.push(null);
+
+  const seeded = bracketSeedOrder(size).map((seedNumber) => ids[seedNumber - 1]);
+
+  const pairings: Pairing[] = [];
+  for (let i = 0; i < seeded.length; i += 2) {
+    const home = seeded[i];
+    const away = seeded[i + 1];
+    if (home === null && away === null) continue;
+    if (home === null) pairings.push({ home: away as string, away: null });
+    else pairings.push({ home, away });
+  }
+  return pairings;
+}
+
 // Détermine le vainqueur d'un match (ou null si le résultat n'est pas
 // encore tranché : ronde à jouer, égalité non résolue, ou annulé sans
 // vainqueur désigné).
