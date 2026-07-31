@@ -9,18 +9,21 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { LiveRefresh } from "@/components/LiveRefresh";
+import { PoolBadge } from "@/components/public/StatusPill";
 
 // Styles partagés par tous les tableaux de classement de cette page : un
 // filet plus marqué sous l'en-tête, des libellés de colonne discrets en
-// petites capitales, et les colonnes chiffrées alignées à droite en
-// tabular-nums pour que les scores s'alignent proprement.
+// petites capitales, un léger zébrage pour guider l'œil, et les colonnes
+// chiffrées alignées à droite en tabular-nums pour que les scores
+// s'alignent proprement.
 const headRow = "text-left border-b-2 border-navy/20 dark:border-navy-light/30";
 const th = "py-2.5 pr-4 text-xs font-semibold uppercase tracking-wide text-black/45 dark:text-white/50";
 const thNum = `${th} text-right`;
-const row = "border-b border-black/5 dark:border-white/5 hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
+const row = "border-b border-black/5 dark:border-white/5 even:bg-navy/[0.02] dark:even:bg-navy-light/[0.03] hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
 const td = "py-2.5 pr-4";
 const tdNum = `${td} text-right tabular-nums`;
 const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
+const sectionHeading = "font-heading text-xl font-semibold text-navy dark:text-navy-light";
 
 function Rank({ value }: { value: number }) {
   return (
@@ -89,7 +92,7 @@ export default async function TournamentStandingsPage({
       {!(tournament.type === "CLASSIC" && tournament.format === "GROUPS") && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-heading text-xl font-semibold">Classement</h2>
+            <h2 className={sectionHeading}>Classement</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
@@ -226,11 +229,11 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent && (
         <section>
-          <h2 className="font-heading text-xl font-semibold mb-3">Classement par poule</h2>
+          <h2 className={`${sectionHeading} mb-3`}>Classement par poule</h2>
           <div className="flex flex-col gap-6">
             {poolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
-                <h3 className="text-sm font-semibold text-navy dark:text-navy-light mb-2">{poolName}</h3>
+                <div className="mb-2"><PoolBadge name={poolName} /></div>
                 <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -282,11 +285,11 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && tournament.isTeamEvent && (
         <section>
-          <h2 className="font-heading text-xl font-semibold mb-3">Classement par poule (équipes)</h2>
+          <h2 className={`${sectionHeading} mb-3`}>Classement par poule (équipes)</h2>
           <div className="flex flex-col gap-6">
             {teamPoolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
-                <h3 className="text-sm font-semibold text-navy dark:text-navy-light mb-2">{poolName}</h3>
+                <div className="mb-2"><PoolBadge name={poolName} /></div>
                 <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -335,7 +338,7 @@ export default async function TournamentStandingsPage({
       {tournament.isTeamEvent && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-heading text-xl font-semibold">Classement par équipes</h2>
+            <h2 className={sectionHeading}>Classement par équipes</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
                 Exporter en CSV

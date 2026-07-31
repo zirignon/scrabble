@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
-import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill } from "@/components/public/StatusPill";
+import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill, PoolBadge } from "@/components/public/StatusPill";
 import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
 
 type RoundMatch = Prisma.MatchGetPayload<{
@@ -11,7 +11,6 @@ type RoundMatch = Prisma.MatchGetPayload<{
 }>;
 
 const roundHeading = "font-heading text-lg font-semibold text-navy dark:text-navy-light";
-const groupHeading = "text-sm font-semibold text-navy dark:text-navy-light";
 
 // Un tableau de confrontations, dans une carte bordée avec un en-tête de
 // colonnes — factorisé car répété pour chaque ronde/poule/confrontation
@@ -36,28 +35,45 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
           </tr>
         </thead>
         <tbody>
-          {matches.map((match) => (
-            <tr key={match.id} className={matchRow}>
-              <td className={`${matchCell} pl-4 truncate`}>
-                {match.homePlayer
-                  ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                  : "—"}
-              </td>
-              <td className={`${scoreCell} text-center`}>
-                {match.isBye && !forceNotBye
-                  ? "—"
-                  : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-              </td>
-              <td className={`${matchCell} truncate`}>
-                {match.awayPlayer
-                  ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                  : "—"}
-              </td>
-              <td className={`${matchCell} pr-4`}>
-                <MatchStatusPill status={match.status} isBye={forceNotBye ? false : match.isBye} />
-              </td>
-            </tr>
-          ))}
+          {matches.map((match) => {
+            const isBye = match.isBye && !forceNotBye;
+            const homeWins =
+              !isBye && match.homeScore != null && match.awayScore != null && match.homeScore > match.awayScore;
+            const awayWins =
+              !isBye && match.homeScore != null && match.awayScore != null && match.awayScore > match.homeScore;
+            return (
+              <tr key={match.id} className={matchRow}>
+                <td className={`${matchCell} pl-4 truncate`}>
+                  {match.homePlayer
+                    ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+                    : "—"}
+                </td>
+                <td className={`${scoreCell} text-center`}>
+                  {isBye ? (
+                    "—"
+                  ) : (
+                    <>
+                      <span className={homeWins ? "text-moss dark:text-moss-light" : ""}>
+                        {match.homeScore ?? "-"}
+                      </span>
+                      {" - "}
+                      <span className={awayWins ? "text-moss dark:text-moss-light" : ""}>
+                        {match.awayScore ?? "-"}
+                      </span>
+                    </>
+                  )}
+                </td>
+                <td className={`${matchCell} truncate`}>
+                  {match.awayPlayer
+                    ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+                    : "—"}
+                </td>
+                <td className={`${matchCell} pr-4`}>
+                  <MatchStatusPill status={match.status} isBye={forceNotBye ? false : match.isBye} />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -131,7 +147,7 @@ export default async function TournamentRoundsPage({
                 <h3 className={roundHeading}>Ronde {round.number}</h3>
                 {[...byPool.values()].map(({ poolName, matches }) => (
                   <div key={poolName} className="flex flex-col gap-1.5">
-                    <p className={groupHeading}>{poolName}</p>
+                    <PoolBadge name={poolName} />
                     <MatchTable matches={matches} />
                   </div>
                 ))}
@@ -199,11 +215,12 @@ export default async function TournamentRoundsPage({
                 <h3 className={roundHeading}>Ronde {round.number}</h3>
                 {[...byPool.values()].map(({ poolName, encounters, byeTeamNames }) => (
                   <div key={poolName} className="flex flex-col gap-3">
-                    <p className={groupHeading}>{poolName}</p>
+                    <PoolBadge name={poolName} />
                     {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                       <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 flex flex-col gap-1.5">
-                        <p className="text-sm font-medium text-black/70 dark:text-white/70">
-                          {homeTeamName} <span className="text-black/40 dark:text-white/40">vs</span> {awayTeamName}
+                        <p className="text-sm font-semibold text-black/80 dark:text-white/80">
+                          {homeTeamName}{" "}
+                          <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
                         </p>
                         <MatchTable matches={matches} forceNotBye />
                       </div>
@@ -254,8 +271,8 @@ export default async function TournamentRoundsPage({
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">
-                  <p className="text-sm font-medium text-black/70 dark:text-white/70">
-                    {homeTeamName} <span className="text-black/40 dark:text-white/40">vs</span> {awayTeamName}
+                  <p className="text-sm font-semibold text-black/80 dark:text-white/80">
+                    {homeTeamName} <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
                   </p>
                   <MatchTable matches={matches} forceNotBye />
                 </div>
