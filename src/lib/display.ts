@@ -267,7 +267,11 @@ async function buildCurrent(tournament: {
       include: {
         matches: {
           include: { homePlayer: true, awayPlayer: true, homeTeam: true, awayTeam: true, pool: true },
-          orderBy: { table: "asc" },
+          // id (ordre de création) plutôt que table, qui repart de 1 à
+          // chaque confrontation d'équipes et n'est donc pas une clé de tri
+          // stable (l'ordre des égalités peut changer après une mise à jour
+          // de score) — voir le commentaire équivalent sur les pages rondes.
+          orderBy: { id: "asc" },
         },
       },
     });

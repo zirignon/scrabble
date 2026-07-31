@@ -362,7 +362,15 @@ export default async function RoundsPage({
               awayTeam: true,
               pool: true,
             },
-            orderBy: { table: "asc" },
+            // Trié par id (ordre de création) plutôt que par table : en
+            // tournoi par équipes, le numéro de table repart de 1 à chaque
+            // confrontation (un par échiquier), donc plusieurs matchs
+            // partagent le même numéro. Sans clé de tri stable pour
+            // départager ces égalités, Postgres peut renvoyer les lignes
+            // dans un ordre différent après une simple mise à jour de score
+            // (MVCC), donnant l'impression que les tableaux changent de
+            // place. L'id est monotone et ne change jamais.
+            orderBy: { id: "asc" },
           },
         },
       },

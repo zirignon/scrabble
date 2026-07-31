@@ -101,6 +101,12 @@ export default async function TournamentRoundsPage({
               awayTeam: true,
               pool: true,
             },
+            // Trié par id (ordre de création), stable dans le temps — voir
+            // le commentaire équivalent côté admin : sans clé de tri, ou en
+            // triant par un numéro de table qui repart de 1 à chaque
+            // confrontation d'équipes, l'ordre des lignes n'est pas garanti
+            // stable après une mise à jour de score.
+            orderBy: { id: "asc" },
           },
         },
       },

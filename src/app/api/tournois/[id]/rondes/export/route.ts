@@ -27,7 +27,11 @@ export async function GET(
         include: {
           matches: {
             include: { homePlayer: true, awayPlayer: true },
-            orderBy: { table: "asc" },
+            // id (ordre de création) plutôt que table — voir le commentaire
+            // équivalent sur les pages rondes : le numéro de table repart de
+            // 1 à chaque confrontation d'équipes, donc ce n'est pas une clé
+            // de tri stable.
+            orderBy: { id: "asc" },
           },
         },
       },
