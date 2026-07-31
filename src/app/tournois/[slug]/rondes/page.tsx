@@ -18,22 +18,27 @@ const groupHeading = "text-sm font-semibold text-navy dark:text-navy-light";
 // d'équipes de la page. `forceNotBye` : les tables ci-dessous représentent
 // déjà les échiquiers d'une confrontation d'équipes précise (jamais un bye,
 // géré séparément via la liste des équipes exemptes).
+//
+// table-fixed avec des largeurs de colonne explicites (identiques d'une
+// carte à l'autre) : chaque confrontation ayant sa propre table
+// indépendante, un table-layout auto laisserait chacune caler ses colonnes
+// sur son propre contenu, décalant le "Score" d'une carte à l'autre.
 function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; forceNotBye?: boolean }) {
   return (
     <div className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
-      <table className="w-full text-sm border-collapse">
+      <table className="w-full text-sm border-collapse table-fixed">
         <thead>
           <tr className={headRow}>
-            <th className={`${th} pl-4`}>Domicile</th>
-            <th className={`${th} text-center`}>Score</th>
-            <th className={th}>Extérieur</th>
-            <th className={`${th} pr-4`}>Statut</th>
+            <th className={`${th} w-[34%] pl-4`}>Domicile</th>
+            <th className={`${th} w-[20%] text-center`}>Score</th>
+            <th className={`${th} w-[34%]`}>Extérieur</th>
+            <th className={`${th} w-[12%] pr-4`}>Statut</th>
           </tr>
         </thead>
         <tbody>
           {matches.map((match) => (
             <tr key={match.id} className={matchRow}>
-              <td className={`${matchCell} pl-4`}>
+              <td className={`${matchCell} pl-4 truncate`}>
                 {match.homePlayer
                   ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
                   : "—"}
@@ -43,7 +48,7 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
                   ? "—"
                   : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
               </td>
-              <td className={matchCell}>
+              <td className={`${matchCell} truncate`}>
                 {match.awayPlayer
                   ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
                   : "—"}
