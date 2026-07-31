@@ -159,7 +159,7 @@ function MatchRow({
     <Fragment>
       <tr className="border-b border-black/5 dark:border-white/5">
         <td className="py-2 pr-4">{match.table ?? "—"}</td>
-        <td className="py-2 pr-4">
+        <td className="py-2 pr-4 truncate">
           {match.homePlayer
             ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
             : "—"}
@@ -170,7 +170,7 @@ function MatchRow({
           ) : canManage ? (
             <form
               action={recordMatchResultAction.bind(null, tournamentId, match.id)}
-              className="flex items-center gap-1"
+              className="flex flex-wrap items-center gap-1"
             >
               <input
                 type="number"
@@ -209,12 +209,12 @@ function MatchRow({
             </span>
           )}
         </td>
-        <td className="py-2 pr-4">
+        <td className="py-2 pl-3 pr-4 truncate">
           {match.awayPlayer
             ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
             : "—"}
         </td>
-        <td className="py-2 pr-4">{statusLabel[match.status]}</td>
+        <td className="py-2 pl-3 pr-4 truncate">{statusLabel[match.status]}</td>
       </tr>
       {!match.isBye && (
         <tr className="border-b border-black/5 dark:border-white/5">
@@ -231,6 +231,10 @@ function MatchRow({
   );
 }
 
+// table-fixed avec des largeurs de colonne explicites (identiques d'une
+// carte à l'autre) : chaque poule/confrontation ayant sa propre table
+// indépendante, un table-layout auto laisserait chacune caler ses colonnes
+// sur son propre contenu, décalant les colonnes d'une carte à l'autre.
 function MatchTable({
   matches,
   canManage,
@@ -241,14 +245,14 @@ function MatchTable({
   tournamentId: string;
 }) {
   return (
-    <table className="w-full text-sm border-collapse">
+    <table className="w-full text-sm border-collapse table-fixed">
       <thead>
         <tr className="text-left border-b border-black/10 dark:border-white/10">
-          <th className="py-2 pr-4">Table</th>
-          <th className="py-2 pr-4">Domicile</th>
-          <th className="py-2 pr-4">Score</th>
-          <th className="py-2 pr-4">Extérieur</th>
-          <th className="py-2 pr-4">Statut</th>
+          <th className="py-2 pr-4 w-[6%]">Table</th>
+          <th className="py-2 pr-4 w-[19%]">Domicile</th>
+          <th className="py-2 pr-4 w-[38%]">Score</th>
+          <th className="py-2 pl-3 pr-4 w-[21%]">Extérieur</th>
+          <th className="py-2 pl-3 pr-4 w-[16%]">Statut</th>
         </tr>
       </thead>
       <tbody>
