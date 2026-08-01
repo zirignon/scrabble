@@ -61,11 +61,22 @@ type TeamWithMembers = {
 // unique match marqué "bye" si l'équipe est exempte pour cette ronde.
 // Factorisé car utilisé par le round-robin, le suisse et l'élimination
 // directe par équipes.
+// Numéros de table alloués en continu sur toute la ronde (1, 2, 3...),
+// partagés entre toutes les confrontations (et toutes les poules) qui s'y
+// jouent en parallèle — mêmes tables physiques, même tournoi.
+type TableCounter = { next: () => number };
+
+function createTableCounter(start = 1): TableCounter {
+  let n = start;
+  return { next: () => n++ };
+}
+
 async function createTeamEncounterMatches(
   roundId: string,
   homeTeam: TeamWithMembers,
   awayTeam: TeamWithMembers | null,
   boardCount: number,
+  tableCounter: TableCounter,
   poolId?: string,
   isThirdPlace = false
 ) {
@@ -81,7 +92,7 @@ async function createTeamEncounterMatches(
       data: {
         roundId,
         poolId,
-        table: board + 1,
+        table: tableCounter.next(),
         homeTeamId: homeTeam.id,
         awayTeamId: awayTeam.id,
         homePlayerId: homeTeam.members[board].playerId,
@@ -151,10 +162,11 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
       });
       const teamsById = new Map(teams.map((t) => [t.id, t]));
       const boardCount = teams[0]?.members.length ?? 0;
+      const tableCounter = createTableCounter();
       for (const pairing of nextPairings) {
         const homeTeam = teamsById.get(pairing.home)!;
         const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-        await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount);
+        await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount, tableCounter);
       }
     } else {
       let table = 1;
@@ -204,8 +216,10 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
   }
 
   // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
-  // remise à 1 à chaque poule — même tournoi, mêmes tables physiques.
+  // remise à 1 à chaque poule (ni, en équipes, à chaque confrontation) —
+  // même tournoi, mêmes tables physiques.
   let table = 1;
+  const tableCounter = createTableCounter();
   for (const pool of poolsWithPending) {
     const schedule = pool.pendingRoundRobinSchedule as PendingSchedule;
     const [nextPairings, ...rest] = schedule;
@@ -218,7 +232,7 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
       for (const pairing of nextPairings) {
         const homeTeam = teamsById!.get(pairing.home)!;
         const awayTeam = pairing.away ? teamsById!.get(pairing.away)! : null;
-        await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount, pool.id);
+        await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount, tableCounter, pool.id);
       }
     } else {
       for (const pairing of nextPairings) {
@@ -319,10 +333,11 @@ async function generateTeamRoundRobinActionImpl(tournamentId: string) {
   // Ronde 1 matérialisée tout de suite, le reste révélé automatiquement au
   // fur et à mesure — voir maybeAdvanceRoundRobin.
   const round1 = await prisma.round.create({ data: { tournamentId, number: 1 } });
+  const tableCounter = createTableCounter();
   for (const pairing of teamRounds[0]) {
     const homeTeam = teamsById.get(pairing.home)!;
     const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round1.id, homeTeam, awayTeam, boardCount);
+    await createTeamEncounterMatches(round1.id, homeTeam, awayTeam, boardCount, tableCounter);
   }
 
   const pending = schedulePending(teamRounds.slice(1));
@@ -606,13 +621,16 @@ async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
   // Seule la ronde 1 est matérialisée tout de suite, le reste révélé
   // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin.
   const round1 = await getOrCreateRound(1);
+  // Numérotation de table continue sur toute la ronde, partagée entre les
+  // poules — voir le commentaire équivalent côté individuel.
+  const tableCounter = createTableCounter();
   for (const pool of pools) {
     const teamsById = new Map(pool.teams.map((t) => [t.id, t]));
     const teamRounds = generateRoundRobinRounds(pool.teams.map((t) => t.id));
     for (const pairing of teamRounds[0]) {
       const homeTeam = teamsById.get(pairing.home)!;
       const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-      await createTeamEncounterMatches(round1.id, homeTeam, awayTeam, boardCount, pool.id);
+      await createTeamEncounterMatches(round1.id, homeTeam, awayTeam, boardCount, tableCounter, pool.id);
     }
 
     const pending = schedulePending(teamRounds.slice(1));
@@ -788,10 +806,11 @@ async function generateTeamFinalPhaseFromPoolsActionImpl(tournamentId: string) {
     data: { tournamentId, number: (last?.number ?? 0) + 1 },
   });
 
+  const tableCounter = createTableCounter();
   for (const pairing of pairings) {
     const homeTeam = teamsById.get(pairing.home)!;
     const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
+    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
@@ -964,10 +983,11 @@ async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: strin
     data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true },
   });
 
+  const tableCounter = createTableCounter();
   for (const pairing of pairings) {
     const homeTeam = teamsById.get(pairing.home)!;
     const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
+    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
@@ -1145,10 +1165,11 @@ async function generateTeamKnockoutBracketActionImpl(tournamentId: string) {
   const pairings = generateKnockoutFirstRound(teams.map((t) => t.id));
   const round = await prisma.round.create({ data: { tournamentId, number: 1 } });
 
+  const tableCounter = createTableCounter();
   for (const pairing of pairings) {
     const homeTeam = teamsById.get(pairing.home)!;
     const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
+    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
@@ -1263,19 +1284,21 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
     data: { tournamentId, number: last.number + 1, isFinalPhase: last.isFinalPhase },
   });
 
+  const tableCounter = createTableCounter();
   for (const pairing of pairings) {
     const homeTeam = teamsById.get(pairing.home)!;
     const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount);
+    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
   }
 
   // Match pour la 3e place, optionnel : voir le commentaire équivalent côté
   // individuel — uniquement si ce tour est bien les demi-finales (2
-  // vainqueurs et donc 2 perdants réels, aucun bye).
+  // vainqueurs et donc 2 perdants réels, aucun bye). Numérotation de table
+  // qui continue celle du tableau principal plutôt que de repartir de 1.
   if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
     const loserHomeTeam = teamsById.get(losers[0])!;
     const loserAwayTeam = teamsById.get(losers[1])!;
-    await createTeamEncounterMatches(round.id, loserHomeTeam, loserAwayTeam, boardCount, undefined, true);
+    await createTeamEncounterMatches(round.id, loserHomeTeam, loserAwayTeam, boardCount, tableCounter, undefined, true);
   }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
