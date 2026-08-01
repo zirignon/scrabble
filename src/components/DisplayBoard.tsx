@@ -239,23 +239,23 @@ function CurrentView({ data }: { data: DisplayData }) {
           {group.name && (
             <h2 className="text-3xl font-semibold mb-3 text-emerald-800">{group.name}</h2>
           )}
-          <table className="w-full text-2xl border-collapse">
+          <table className="w-full text-2xl border-collapse table-fixed">
             <thead>
-              <tr className="text-left text-black/50 text-xl border-b border-black/20">
-                <th className="py-2 pr-4">Table</th>
-                <th className="py-2 pr-4">Domicile</th>
-                <th className="py-2 pr-4 text-right">⏱</th>
-                <th className="py-2 pr-4 text-right">Score</th>
-                <th className="py-2 pr-4">Extérieur</th>
-                <th className="py-2 pr-4">⏱</th>
+              <tr className="text-left text-black/50 text-lg border-b border-black/20">
+                <th className="py-2 pr-4 w-[9%]">Table</th>
+                <th className="py-2 pr-4 w-[30%]">Domicile</th>
+                <th className="py-2 pr-4 w-[6%] text-right">⏱</th>
+                <th className="py-2 pr-4 w-[15%] text-right">Score</th>
+                <th className="py-2 pr-4 w-[30%]">Extérieur</th>
+                <th className="py-2 pr-4 w-[10%]">⏱</th>
               </tr>
             </thead>
             <tbody>
               {group.matches.map((m, mi) => (
-                <tr key={mi} className="border-b border-black/10">
-                  <td className="py-2 pr-4">{m.table ?? "—"}</td>
-                  <td className="py-2 pr-4">{m.home}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
+                <tr key={mi} className="border-b border-black/10 align-middle">
+                  <td className="py-3 pr-2 tabular-nums">{m.table ?? "—"}</td>
+                  <td className="py-3 pr-4 text-xl leading-tight break-words">{m.home}</td>
+                  <td className="py-3 pr-2 text-right tabular-nums text-lg whitespace-nowrap">
                     {m.clock ? (
                       <LiveCountdown
                         baselineSeconds={m.clock.homeRemainingSeconds}
@@ -266,11 +266,11 @@ function CurrentView({ data }: { data: DisplayData }) {
                       "—"
                     )}
                   </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
+                  <td className="py-3 pr-4 text-right tabular-nums whitespace-nowrap">
                     {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
                   </td>
-                  <td className="py-2 pr-4">{m.away ?? ""}</td>
-                  <td className="py-2 pr-4 tabular-nums">
+                  <td className="py-3 pr-4 text-xl leading-tight break-words">{m.away ?? ""}</td>
+                  <td className="py-3 pr-2 tabular-nums text-lg whitespace-nowrap">
                     {m.clock ? (
                       <LiveCountdown
                         baselineSeconds={m.clock.awayRemainingSeconds}
