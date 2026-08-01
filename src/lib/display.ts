@@ -278,25 +278,45 @@ async function buildCurrent(tournament: {
     if (!lastRound) return { kind: "matches", label: "Aucune ronde", groups: [] };
 
     const grouped = lastRound.matches.some((m) => m.poolId);
+    // En équipes, chaque ligne Match ne représente qu'un échiquier d'une
+    // confrontation (une équipe contre une autre) : plutôt que de répéter
+    // le nom des deux équipes sur chaque ligne, on regroupe les échiquiers
+    // d'une même confrontation sous un même titre et on affiche les noms
+    // des deux joueurs qui s'affrontent sur cet échiquier.
+    const isTeamRound = lastRound.matches.some((m) => m.homeTeamId);
     const groupsMap = new Map<string, DisplayRoundMatch[]>();
     for (const m of lastRound.matches) {
+      const poolPrefix = grouped && m.pool ? `${m.pool.name} — ` : "";
       const groupName = m.isThirdPlace
         ? "Match pour la 3ᵉ place"
-        : grouped
-          ? m.pool?.name ?? "—"
-          : "";
-      const homeName = m.homeTeam
-        ? m.homeTeam.name
-        : m.homePlayer
-          ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
-          : "?";
+        : isTeamRound
+          ? `${poolPrefix}${m.homeTeam?.name ?? "?"}${
+              m.isBye ? " (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
+            }`
+          : grouped
+            ? m.pool?.name ?? "—"
+            : "";
+      const homeName =
+        isTeamRound && !m.isBye
+          ? m.homePlayer
+            ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
+            : "?"
+          : m.homeTeam
+            ? m.homeTeam.name
+            : m.homePlayer
+              ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
+              : "?";
       const awayName = m.isBye
         ? null
-        : m.awayTeam
-          ? m.awayTeam.name
-          : m.awayPlayer
+        : isTeamRound
+          ? m.awayPlayer
             ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
-            : "?";
+            : "?"
+          : m.awayTeam
+            ? m.awayTeam.name
+            : m.awayPlayer
+              ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
+              : "?";
       const arr = groupsMap.get(groupName) ?? [];
       arr.push({
         table: m.table,
