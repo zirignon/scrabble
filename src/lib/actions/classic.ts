@@ -203,6 +203,9 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
     boardCount = teams[0]?.members.length ?? 0;
   }
 
+  // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
+  // remise à 1 à chaque poule — même tournoi, mêmes tables physiques.
+  let table = 1;
   for (const pool of poolsWithPending) {
     const schedule = pool.pendingRoundRobinSchedule as PendingSchedule;
     const [nextPairings, ...rest] = schedule;
@@ -218,7 +221,6 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
         await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount, pool.id);
       }
     } else {
-      let table = 1;
       for (const pairing of nextPairings) {
         await prisma.match.create({
           data: {
@@ -535,9 +537,11 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
   // Seule la ronde 1 est matérialisée tout de suite, le reste révélé
   // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin.
   const round1 = await getOrCreateRound(1);
+  // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
+  // remise à 1 à chaque poule — même tournoi, mêmes tables physiques.
+  let table = 1;
   for (const pool of pools) {
     const poolRounds = generateRoundRobinRounds(pool.members.map((m) => m.playerId));
-    let table = 1;
     for (const pairing of poolRounds[0]) {
       await prisma.match.create({
         data: {
