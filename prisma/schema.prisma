@@ -193,6 +193,14 @@ model Tournament {
   // directe (KNOCKOUT, phase finale de poules, ou phase finale générée
   // depuis le classement général en round-robin/suisse).
   thirdPlaceMatchEnabled Boolean  @default(false)
+  // Rondes de round-robin (format ROUND_ROBIN, hors poules) pas encore
+  // matérialisées en base — révélées une par une au fur et à mesure que la
+  // ronde en cours se termine, pour que l'affichage public suive la partie
+  // réellement en train de se jouer plutôt que de sauter direct à la
+  // dernière ronde du calendrier. Tableau de rondes (chacune un tableau
+  // d'appariements {home, away}), dans l'ordre où elles doivent être
+  // révélées ; null/vide une fois tout le calendrier matérialisé.
+  pendingRoundRobinSchedule Json?
   duplicateFormula DuplicateFormula?
   duplicateRythme  DuplicateRythme?
   description  String?
@@ -273,6 +281,11 @@ model Pool {
   members PoolMember[]
   teams   Team[]
   matches Match[]
+
+  // Voir le commentaire équivalent sur Tournament.pendingRoundRobinSchedule
+  // — chaque poule joue son propre round-robin interne, donc son propre
+  // calendrier en attente.
+  pendingRoundRobinSchedule Json?
 
   @@unique([tournamentId, name])
 }
