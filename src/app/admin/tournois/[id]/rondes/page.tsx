@@ -475,14 +475,24 @@ export default async function RoundsPage({
         <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Rondes — {tournament.name}
         </h1>
-        {canManage && tournament.rounds.length > 0 && (
-          <a
-            href={`/api/tournois/${tournament.id}/rondes/export`}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+          <Link
+            href={`/tournois/${tournament.slug}/affichage`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-sm text-emerald-700 dark:text-emerald-400 underline"
           >
-            Exporter les rondes en CSV
-          </a>
-        )}
+            Ouvrir l&apos;écran public ↗
+          </Link>
+          {canManage && tournament.rounds.length > 0 && (
+            <a
+              href={`/api/tournois/${tournament.id}/rondes/export`}
+              className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+            >
+              Exporter les rondes en CSV
+            </a>
+          )}
+        </div>
       </div>
 
       {(tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") && (
