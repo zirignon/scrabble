@@ -486,10 +486,10 @@ export default async function RoundsPage({
           </Link>
           {canManage && tournament.rounds.length > 0 && (
             <a
-              href={`/api/tournois/${tournament.id}/rondes/export`}
+              href={`/api/tournois/${tournament.id}/rondes/export/pdf`}
               className="text-sm text-emerald-700 dark:text-emerald-400 underline"
             >
-              Exporter les rondes en CSV
+              Exporter les rondes en PDF
             </a>
           )}
         </div>

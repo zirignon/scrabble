@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
-import { csvResponse, toCsv } from "@/lib/csv";
+import { pdfResponse, renderTablePdf } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
 
 const statusLabel: Record<string, string> = {
@@ -49,8 +49,8 @@ export async function GET(
       round.number,
       match.table ?? "",
       match.isBye ? "" : match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : "",
-      match.isBye ? "" : match.homeScore ?? "",
-      match.isBye ? "" : match.awayScore ?? "",
+      match.isBye ? "" : (match.homeScore ?? ""),
+      match.isBye ? "" : (match.awayScore ?? ""),
       match.isBye ? "" : match.awayPlayer ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}` : "",
       match.isBye
         ? `Exempt (${match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : ""})`
@@ -58,10 +58,16 @@ export async function GET(
     ])
   );
 
-  const csv = toCsv(
+  const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;
+
+  const pdf = await renderTablePdf(
+    `Rondes — ${tournament.name}`,
+    subtitle,
     ["Ronde", "Table", "Domicile", "Score dom.", "Score ext.", "Extérieur", "Statut"],
-    rows
+    rows,
+    [0.7, 0.7, 1.8, 1, 1, 1.8, 1.4],
+    { landscape: true }
   );
 
-  return csvResponse(`rondes-${slugify(tournament.name)}.csv`, csv);
+  return pdfResponse(`rondes-${slugify(tournament.name)}.pdf`, pdf);
 }
