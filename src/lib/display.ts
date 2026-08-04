@@ -36,14 +36,6 @@ export interface DisplayStandingGroup {
   rows: DisplayStandingRow[];
 }
 
-export interface DisplayMatchClock {
-  initialSeconds: number;
-  homeRemainingSeconds: number;
-  awayRemainingSeconds: number;
-  runningSide: "HOME" | "AWAY" | null;
-  startedAt: string | null;
-}
-
 export interface DisplayRoundMatch {
   table: number | null;
   home: string;
@@ -52,7 +44,6 @@ export interface DisplayRoundMatch {
   awayScore: number | null;
   status: string;
   isBye: boolean;
-  clock: DisplayMatchClock | null;
 }
 
 export interface DisplayRoundGroup {
@@ -336,26 +327,6 @@ async function buildCurrent(tournament: {
         awayScore: rightScore,
         status: matchStatusLabel[m.status] ?? m.status,
         isBye: m.isBye,
-        clock:
-          m.clockInitialSeconds == null
-            ? null
-            : {
-                initialSeconds: m.clockInitialSeconds,
-                homeRemainingSeconds:
-                  (swapForDisplay ? m.awayClockRemainingSeconds : m.homeClockRemainingSeconds) ??
-                  m.clockInitialSeconds,
-                awayRemainingSeconds:
-                  (swapForDisplay ? m.homeClockRemainingSeconds : m.awayClockRemainingSeconds) ??
-                  m.clockInitialSeconds,
-                runningSide: (swapForDisplay
-                  ? m.clockRunningSide === "HOME"
-                    ? "AWAY"
-                    : m.clockRunningSide === "AWAY"
-                      ? "HOME"
-                      : null
-                  : m.clockRunningSide) as "HOME" | "AWAY" | null,
-                startedAt: m.clockStartedAt ? m.clockStartedAt.toISOString() : null,
-              },
       });
       groupsMap.set(groupName, arr);
     }
