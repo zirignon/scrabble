@@ -172,14 +172,14 @@ function MatchRow({
             ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
             : "—"}
         </td>
-        <td className="py-2 pr-4">
+        <td className="py-2 pr-4 text-center">
           {match.isBye ? (
             <span className="text-black/50 dark:text-white/50">—</span>
           ) : canManage ? (
             <form
               id={formId}
               action={recordMatchResultAction.bind(null, tournamentId, match.id)}
-              className="flex flex-nowrap items-center gap-1"
+              className="flex flex-nowrap items-center justify-center gap-1"
             >
               <input
                 type="number"
