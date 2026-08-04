@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeClassicStandings } from "@/lib/classic/standings";
+import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
-import { pdfResponse, renderTablePdf } from "@/lib/pdf";
+import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
 
 export async function GET(
@@ -18,7 +19,39 @@ export async function GET(
   const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;
 
   let pdf: Buffer;
-  if (tournament.type === "CLASSIC") {
+  if (tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent) {
+    // Poules : chaque poule joue son propre round-robin interne, donc son
+    // classement n'a de sens que par poule (contrairement au classement
+    // général qui mélangerait des joueurs ne s'étant jamais affrontés) —
+    // voir la page classement publique, qui affiche déjà un tableau par
+    // poule plutôt qu'un classement général unique dans ce cas.
+    const pools = await computeClassicPoolStandings(tournament.id);
+    const sections: PdfSection[] = pools.map((pool) => ({
+      heading: `Poule ${pool.poolName}`,
+      headers: ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Bchz", "Bchz méd.", "SB", "Cumul", "Diff"],
+      rows: pool.standings.map((row, i) => [
+        i + 1,
+        `${row.lastName} ${row.firstName}`,
+        row.played,
+        row.wins,
+        row.draws,
+        row.losses,
+        row.matchPoints,
+        row.buchholz,
+        row.buchholzMedian,
+        row.sonnebornBerger,
+        row.cumulativeScore,
+        row.diff,
+      ]),
+      columnWeights: [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    }));
+    pdf = await renderMultiTablePdf(
+      `Classement par poule — ${tournament.name}`,
+      subtitle,
+      sections,
+      { landscape: true }
+    );
+  } else if (tournament.type === "CLASSIC") {
     const standings = await computeClassicStandings(tournament.id);
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,

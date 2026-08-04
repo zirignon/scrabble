@@ -229,7 +229,12 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent && (
         <section>
-          <h2 className={`${sectionHeading} mb-3`}>Classement par poule</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement par poule</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
           <div className="flex flex-col gap-6">
             {poolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
@@ -285,7 +290,12 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && tournament.isTeamEvent && (
         <section>
-          <h2 className={`${sectionHeading} mb-3`}>Classement par poule (équipes)</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement par poule (équipes)</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
           <div className="flex flex-col gap-6">
             {teamPoolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
