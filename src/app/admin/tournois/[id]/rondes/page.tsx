@@ -503,6 +503,14 @@ export default async function RoundsPage({
           >
             Ouvrir l&apos;écran public ↗
           </Link>
+          <Link
+            href={`/tournois/${tournament.slug}/classement`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Voir le classement ↗
+          </Link>
           {canManage && tournament.rounds.length > 0 && (
             <a
               href={`/api/tournois/${tournament.id}/rondes/export/pdf`}
