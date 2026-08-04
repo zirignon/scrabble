@@ -1386,12 +1386,23 @@ export async function recordMatchResultAction(
   });
   if (!parsed.success) return;
 
+  // Si les deux scores sont renseignés mais que le statut est resté sur "À
+  // jouer" (valeur par défaut du menu déroulant, facilement oubliée quand
+  // on ne fait que saisir un score), on considère le match joué plutôt que
+  // d'exiger une action séparée sur le menu — sans quoi le score se
+  // sauvegarde silencieusement mais le statut ne bouge pas, ce qui donne
+  // l'impression que le bouton OK n'a rien fait.
+  const status =
+    parsed.data.status === "SCHEDULED" && parsed.data.homeScore && parsed.data.awayScore
+      ? "PLAYED"
+      : parsed.data.status;
+
   const match = await prisma.match.update({
     where: { id: matchId },
     data: {
       homeScore: parsed.data.homeScore ? Number(parsed.data.homeScore) : null,
       awayScore: parsed.data.awayScore ? Number(parsed.data.awayScore) : null,
-      status: parsed.data.status,
+      status,
     },
   });
   await maybeAdvanceRoundRobin(tournamentId, match.roundId);
