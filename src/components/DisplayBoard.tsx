@@ -243,7 +243,7 @@ function CurrentView({ data }: { data: DisplayData }) {
               <tr className="text-left text-black/50 text-lg border-b border-black/20">
                 <th className="py-2 pr-4 w-[9%]">Table</th>
                 <th className="py-2 pr-4 w-[33%]">Domicile</th>
-                <th className="py-2 pr-4 w-[25%] text-right">Score</th>
+                <th className="py-2 pr-4 w-[25%] text-center">Score</th>
                 <th className="py-2 pr-4 w-[33%]">Extérieur</th>
               </tr>
             </thead>
@@ -252,7 +252,7 @@ function CurrentView({ data }: { data: DisplayData }) {
                 <tr key={mi} className="border-b border-black/10 align-middle">
                   <td className="py-3 pr-2 tabular-nums">{m.table ?? "—"}</td>
                   <td className="py-3 pr-4 text-xl leading-tight break-words">{m.home}</td>
-                  <td className="py-3 pr-4 text-right tabular-nums text-xl whitespace-nowrap overflow-hidden">
+                  <td className="py-3 pr-4 text-center tabular-nums text-xl whitespace-nowrap overflow-hidden">
                     {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
                   </td>
                   <td className="py-3 pr-4 text-xl leading-tight break-words">{m.away ?? ""}</td>
