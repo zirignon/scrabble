@@ -99,6 +99,11 @@ async function createTeamEncounterMatches(
         awayPlayerId: awayTeam.members[board].playerId,
         status: "SCHEDULED",
         isThirdPlace,
+        // Alterne qui débute d'un échiquier à l'autre au sein de la même
+        // confrontation (échiquier 1 : domicile débute, échiquier 2 :
+        // extérieur débute, etc.) pour équilibrer les débuts de partie
+        // entre les deux équipes.
+        homeStarts: board % 2 === 0,
       },
     });
   }

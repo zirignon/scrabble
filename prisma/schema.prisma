@@ -343,6 +343,16 @@ model Match {
   // distinguer du match principal pour l'étiquetage du tour (voir
   // countKnockoutEntrants/getKnockoutStageLabel) et son affichage à part.
   isThirdPlace Boolean     @default(false)
+  // Par équipes uniquement : indique si c'est le joueur "domicile" (colonne
+  // de gauche) qui débute la partie sur cet échiquier, ou son adversaire
+  // "extérieur" — alterné à chaque échiquier au sein d'une même
+  // confrontation (voir createTeamEncounterMatches) pour équilibrer les
+  // débuts de partie entre les deux équipes, sans jamais toucher
+  // homeTeamId/awayTeamId (qui doivent rester stables sur toute la
+  // confrontation pour le calcul du classement par équipes). N'affecte que
+  // l'ordre d'affichage ; toujours vrai (non pertinent) hors tournoi par
+  // équipes.
+  homeStarts   Boolean     @default(true)
 
   // Chronomètre d'échecs du match (classique) : chaque camp dispose d'un
   // temps de réflexion propre, alterné manuellement par l'arbitre.

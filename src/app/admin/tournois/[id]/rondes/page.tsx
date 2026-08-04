@@ -163,15 +163,49 @@ function MatchRow({
   // placer le nom de l'adversaire (Extérieur) avant eux dans l'ordre des
   // colonnes tout en gardant une seule soumission.
   const formId = `match-form-${match.id}`;
+  // Par équipes, homeStarts alterne d'un échiquier à l'autre au sein d'une
+  // même confrontation (voir createTeamEncounterMatches) pour équilibrer
+  // qui débute la partie ; le joueur qui débute est toujours affiché à
+  // gauche (colonne Domicile), quel que soit homeTeamId/awayTeamId réel —
+  // ces derniers restent inchangés pour ne pas casser le calcul du
+  // classement par équipes, qui en dépend.
+  const homeScoreInput = (
+    <input
+      type="number"
+      name="homeScore"
+      defaultValue={match.homeScore ?? ""}
+      className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+    />
+  );
+  const awayScoreInput = (
+    <input
+      type="number"
+      name="awayScore"
+      defaultValue={match.awayScore ?? ""}
+      className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+    />
+  );
+  const leftName = match.homeStarts
+    ? match.homePlayer
+      ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+      : "—"
+    : match.awayPlayer
+      ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+      : "—";
+  const rightName = match.homeStarts
+    ? match.awayPlayer
+      ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+      : "—"
+    : match.homePlayer
+      ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+      : "—";
+  const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
+  const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
   return (
     <Fragment>
       <tr className="border-b border-black/5 dark:border-white/5">
         <td className="py-2 pr-4">{match.table ?? "—"}</td>
-        <td className="py-2 pr-4 truncate">
-          {match.homePlayer
-            ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-            : "—"}
-        </td>
+        <td className="py-2 pr-4 truncate">{leftName}</td>
         <td className="py-2 pr-4 text-center">
           {match.isBye ? (
             <span className="text-black/50 dark:text-white/50">—</span>
@@ -181,31 +215,17 @@ function MatchRow({
               action={recordMatchResultAction.bind(null, tournamentId, match.id)}
               className="flex flex-nowrap items-center justify-center gap-1"
             >
-              <input
-                type="number"
-                name="homeScore"
-                defaultValue={match.homeScore ?? ""}
-                className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-              />
+              {match.homeStarts ? homeScoreInput : awayScoreInput}
               <span>-</span>
-              <input
-                type="number"
-                name="awayScore"
-                defaultValue={match.awayScore ?? ""}
-                className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-              />
+              {match.homeStarts ? awayScoreInput : homeScoreInput}
             </form>
           ) : (
             <span>
-              {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
+              {leftScore ?? "-"} - {rightScore ?? "-"}
             </span>
           )}
         </td>
-        <td className="py-2 pl-3 pr-4 truncate">
-          {match.awayPlayer
-            ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-            : "—"}
-        </td>
+        <td className="py-2 pl-3 pr-4 truncate">{rightName}</td>
         <td className="py-2 pl-3 pr-4">
           {match.isBye ? (
             <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>

@@ -37,37 +37,50 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
         <tbody>
           {matches.map((match) => {
             const isBye = match.isBye && !forceNotBye;
-            const homeWins =
-              !isBye && match.homeScore != null && match.awayScore != null && match.homeScore > match.awayScore;
-            const awayWins =
-              !isBye && match.homeScore != null && match.awayScore != null && match.awayScore > match.homeScore;
+            // Par équipes, homeStarts alterne d'un échiquier à l'autre au
+            // sein d'une même confrontation (voir createTeamEncounterMatches)
+            // pour équilibrer qui débute la partie ; le joueur qui débute
+            // est toujours affiché à gauche, sans toucher homeTeamId/
+            // awayTeamId (utilisés pour le classement par équipes).
+            const leftName = match.homeStarts
+              ? match.homePlayer
+                ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+                : "—"
+              : match.awayPlayer
+                ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+                : "—";
+            const rightName = match.homeStarts
+              ? match.awayPlayer
+                ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+                : "—"
+              : match.homePlayer
+                ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+                : "—";
+            const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
+            const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
+            const leftWins =
+              !isBye && leftScore != null && rightScore != null && leftScore > rightScore;
+            const rightWins =
+              !isBye && leftScore != null && rightScore != null && rightScore > leftScore;
             return (
               <tr key={match.id} className={matchRow}>
-                <td className={`${matchCell} pl-4 truncate`}>
-                  {match.homePlayer
-                    ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                    : "—"}
-                </td>
+                <td className={`${matchCell} pl-4 truncate`}>{leftName}</td>
                 <td className={`${scoreCell} text-center`}>
                   {isBye ? (
                     "—"
                   ) : (
                     <>
-                      <span className={homeWins ? "text-moss dark:text-moss-light" : ""}>
-                        {match.homeScore ?? "-"}
+                      <span className={leftWins ? "text-moss dark:text-moss-light" : ""}>
+                        {leftScore ?? "-"}
                       </span>
                       {" - "}
-                      <span className={awayWins ? "text-moss dark:text-moss-light" : ""}>
-                        {match.awayScore ?? "-"}
+                      <span className={rightWins ? "text-moss dark:text-moss-light" : ""}>
+                        {rightScore ?? "-"}
                       </span>
                     </>
                   )}
                 </td>
-                <td className={`${matchCell} truncate`}>
-                  {match.awayPlayer
-                    ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                    : "—"}
-                </td>
+                <td className={`${matchCell} truncate`}>{rightName}</td>
                 <td className={`${matchCell} pr-4`}>
                   <MatchStatusPill status={match.status} isBye={forceNotBye ? false : match.isBye} />
                 </td>

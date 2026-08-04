@@ -45,17 +45,27 @@ export async function GET(
   }
 
   const rows = tournament.rounds.flatMap((round) =>
-    round.matches.map((match) => [
-      round.number,
-      match.table ?? "",
-      match.isBye ? "" : match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : "",
-      match.isBye ? "" : (match.homeScore ?? ""),
-      match.isBye ? "" : (match.awayScore ?? ""),
-      match.isBye ? "" : match.awayPlayer ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}` : "",
-      match.isBye
-        ? `Exempt (${match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : ""})`
-        : statusLabel[match.status],
-    ])
+    round.matches.map((match) => {
+      // Par équipes, homeStarts alterne d'un échiquier à l'autre pour
+      // équilibrer qui débute la partie ; le joueur qui débute est
+      // toujours listé en "Domicile" — voir le commentaire équivalent sur
+      // les pages rondes.
+      const homeName = match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : "";
+      const awayName = match.awayPlayer ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}` : "";
+      const leftName = match.homeStarts ? homeName : awayName;
+      const rightName = match.homeStarts ? awayName : homeName;
+      const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
+      const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
+      return [
+        round.number,
+        match.table ?? "",
+        match.isBye ? "" : leftName,
+        match.isBye ? "" : (leftScore ?? ""),
+        match.isBye ? "" : (rightScore ?? ""),
+        match.isBye ? "" : rightName,
+        match.isBye ? `Exempt (${homeName})` : statusLabel[match.status],
+      ];
+    })
   );
 
   const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;

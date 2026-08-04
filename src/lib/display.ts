@@ -296,7 +296,7 @@ async function buildCurrent(tournament: {
           : grouped
             ? m.pool?.name ?? "—"
             : "";
-      const homeName =
+      const rawHomeName =
         isTeamRound && !m.isBye
           ? m.homePlayer
             ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
@@ -306,7 +306,7 @@ async function buildCurrent(tournament: {
             : m.homePlayer
               ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
               : "?";
-      const awayName = m.isBye
+      const rawAwayName = m.isBye
         ? null
         : isTeamRound
           ? m.awayPlayer
@@ -317,13 +317,23 @@ async function buildCurrent(tournament: {
             : m.awayPlayer
               ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
               : "?";
+      // Par équipes, homeStarts alterne d'un échiquier à l'autre au sein
+      // d'une même confrontation pour équilibrer qui débute la partie ; le
+      // joueur qui débute est toujours affiché à gauche, sans toucher
+      // homeTeamId/awayTeamId (utilisés pour le classement par équipes).
+      const swapForDisplay = isTeamRound && !m.isBye && !m.homeStarts;
+      // rawAwayName n'est null que pour un bye, exclu de swapForDisplay.
+      const leftName = swapForDisplay ? (rawAwayName as string) : rawHomeName;
+      const rightName = swapForDisplay ? rawHomeName : rawAwayName;
+      const leftScore = swapForDisplay ? m.awayScore : m.homeScore;
+      const rightScore = swapForDisplay ? m.homeScore : m.awayScore;
       const arr = groupsMap.get(groupName) ?? [];
       arr.push({
         table: m.table,
-        home: homeName,
-        away: awayName,
-        homeScore: m.homeScore,
-        awayScore: m.awayScore,
+        home: leftName,
+        away: rightName,
+        homeScore: leftScore,
+        awayScore: rightScore,
         status: matchStatusLabel[m.status] ?? m.status,
         isBye: m.isBye,
         clock:
@@ -331,9 +341,19 @@ async function buildCurrent(tournament: {
             ? null
             : {
                 initialSeconds: m.clockInitialSeconds,
-                homeRemainingSeconds: m.homeClockRemainingSeconds ?? m.clockInitialSeconds,
-                awayRemainingSeconds: m.awayClockRemainingSeconds ?? m.clockInitialSeconds,
-                runningSide: m.clockRunningSide as "HOME" | "AWAY" | null,
+                homeRemainingSeconds:
+                  (swapForDisplay ? m.awayClockRemainingSeconds : m.homeClockRemainingSeconds) ??
+                  m.clockInitialSeconds,
+                awayRemainingSeconds:
+                  (swapForDisplay ? m.homeClockRemainingSeconds : m.awayClockRemainingSeconds) ??
+                  m.clockInitialSeconds,
+                runningSide: (swapForDisplay
+                  ? m.clockRunningSide === "HOME"
+                    ? "AWAY"
+                    : m.clockRunningSide === "AWAY"
+                      ? "HOME"
+                      : null
+                  : m.clockRunningSide) as "HOME" | "AWAY" | null,
                 startedAt: m.clockStartedAt ? m.clockStartedAt.toISOString() : null,
               },
       });

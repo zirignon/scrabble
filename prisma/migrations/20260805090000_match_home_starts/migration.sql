@@ -1,0 +1,1 @@
+ALTER TABLE "Match" ADD COLUMN "homeStarts" BOOLEAN NOT NULL DEFAULT true;
