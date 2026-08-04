@@ -156,6 +156,13 @@ function MatchRow({
   canManage: boolean;
   tournamentId: string;
 }) {
+  // Le formulaire de saisie du score n'entoure que les deux champs de score
+  // (colonne "Score", entre Domicile et Extérieur) ; le statut et le bouton
+  // OK vivent dans une cellule séparée, plus loin, mais y sont rattachés via
+  // l'attribut form= plutôt que par imbrication DOM — ce qui permet de
+  // placer le nom de l'adversaire (Extérieur) avant eux dans l'ordre des
+  // colonnes tout en gardant une seule soumission.
+  const formId = `match-form-${match.id}`;
   return (
     <Fragment>
       <tr className="border-b border-black/5 dark:border-white/5">
@@ -167,42 +174,26 @@ function MatchRow({
         </td>
         <td className="py-2 pr-4">
           {match.isBye ? (
-            <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
+            <span className="text-black/50 dark:text-white/50">—</span>
           ) : canManage ? (
             <form
+              id={formId}
               action={recordMatchResultAction.bind(null, tournamentId, match.id)}
-              className="flex flex-wrap items-center gap-1"
+              className="flex flex-nowrap items-center gap-1"
             >
               <input
                 type="number"
                 name="homeScore"
                 defaultValue={match.homeScore ?? ""}
-                className="w-16 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+                className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
               />
               <span>-</span>
               <input
                 type="number"
                 name="awayScore"
                 defaultValue={match.awayScore ?? ""}
-                className="w-16 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+                className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
               />
-              <select
-                name="status"
-                defaultValue={match.status}
-                className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
-              >
-                {Object.entries(statusLabel).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-              >
-                OK
-              </button>
             </form>
           ) : (
             <span>
@@ -215,7 +206,35 @@ function MatchRow({
             ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
             : "—"}
         </td>
-        <td className="py-2 pl-3 pr-4 truncate">{statusLabel[match.status]}</td>
+        <td className="py-2 pl-3 pr-4">
+          {match.isBye ? (
+            <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
+          ) : canManage ? (
+            <div className="flex flex-wrap items-center gap-1">
+              <select
+                form={formId}
+                name="status"
+                defaultValue={match.status}
+                className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
+              >
+                {Object.entries(statusLabel).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                form={formId}
+                type="submit"
+                className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
+              >
+                OK
+              </button>
+            </div>
+          ) : (
+            <span>{statusLabel[match.status]}</span>
+          )}
+        </td>
       </tr>
       {!match.isBye && (
         <tr className="border-b border-black/5 dark:border-white/5">
@@ -250,10 +269,10 @@ function MatchTable({
       <thead>
         <tr className="text-left border-b border-black/10 dark:border-white/10">
           <th className="py-2 pr-4 w-[6%]">Table</th>
-          <th className="py-2 pr-4 w-[19%]">Domicile</th>
-          <th className="py-2 pr-4 w-[38%]">Score</th>
-          <th className="py-2 pl-3 pr-4 w-[21%]">Extérieur</th>
-          <th className="py-2 pl-3 pr-4 w-[16%]">Statut</th>
+          <th className="py-2 pr-4 w-[18%]">Domicile</th>
+          <th className="py-2 pr-4 w-[20%]">Score</th>
+          <th className="py-2 pl-3 pr-4 w-[18%]">Extérieur</th>
+          <th className="py-2 pl-3 pr-4 w-[38%]">Statut</th>
         </tr>
       </thead>
       <tbody>
