@@ -32,6 +32,19 @@ export interface PdfSection {
   columnWeights?: number[];
 }
 
+// Palette reprise du site (voir --color-* dans globals.css), pour que les
+// exports PDF s'accordent avec l'habillage web plutôt que de rester en noir
+// et blanc administratif.
+const PDF_COLORS = {
+  navy: "#2b3a67",
+  gold: "#9c7124",
+  text: "#1c1f2a",
+  muted: "#5b5f6f",
+  headerText: "#ffffff",
+  zebra: "#eef0f7",
+  rule: "#d8ceb3",
+};
+
 // Comme renderTablePdf, mais pour plusieurs tableaux à la suite dans le même
 // document (un par poule, par exemple), chacun précédé d'un sous-titre
 // optionnel — utile pour un classement par poules plutôt qu'un unique
@@ -53,16 +66,24 @@ export function renderMultiTablePdf(
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.font("Helvetica-Bold").fontSize(16).text(title);
-    if (subtitle) {
-      doc.font("Helvetica").fontSize(10).fillColor("#555").text(subtitle);
-    }
-    doc.moveDown(1);
-
     const startX = doc.page.margins.left;
     const usableWidth =
       doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const minRowHeight = 20;
+
+    doc.font("Helvetica-Bold").fontSize(18).fillColor(PDF_COLORS.navy).text(title);
+    if (subtitle) {
+      doc.font("Helvetica").fontSize(10).fillColor(PDF_COLORS.muted).text(subtitle);
+    }
+    doc.moveDown(0.6);
+    doc
+      .moveTo(startX, doc.y)
+      .lineTo(startX + usableWidth, doc.y)
+      .lineWidth(2)
+      .strokeColor(PDF_COLORS.gold)
+      .stroke();
+    doc.moveDown(0.8);
+
+    const minRowHeight = 22;
     const rowPadding = 6;
 
     let y = doc.y;
@@ -88,10 +109,19 @@ export function renderMultiTablePdf(
         return Math.max(minRowHeight, ...heights) + rowPadding;
       }
 
-      function drawRow(cells: unknown[], rowY: number, bold: boolean) {
-        doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(9).fillColor("#000");
+      function drawRow(cells: unknown[], rowY: number, height: number, style: "header" | "shaded" | "plain") {
+        if (style === "header") {
+          doc.rect(startX, rowY, usableWidth, height).fill(PDF_COLORS.navy);
+        } else if (style === "shaded") {
+          doc.rect(startX, rowY, usableWidth, height).fill(PDF_COLORS.zebra);
+        }
+        const textY = rowY + rowPadding / 2;
+        doc
+          .font(style === "header" ? "Helvetica-Bold" : "Helvetica")
+          .fontSize(9)
+          .fillColor(style === "header" ? PDF_COLORS.headerText : PDF_COLORS.text);
         cells.forEach((cell, i) => {
-          doc.text(String(cell ?? ""), columnX[i], rowY, {
+          doc.text(String(cell ?? ""), columnX[i] + 3, textY, {
             width: columnWidths[i] - 6,
           });
         });
@@ -104,7 +134,8 @@ export function renderMultiTablePdf(
           doc.addPage();
           y = doc.page.margins.top;
         }
-        doc.font("Helvetica-Bold").fontSize(12).fillColor("#000").text(section.heading, startX, y);
+        doc.rect(startX, y + 2, 4, 12).fill(PDF_COLORS.gold);
+        doc.font("Helvetica-Bold").fontSize(12).fillColor(PDF_COLORS.navy).text(section.heading, startX + 10, y);
         y += 20;
       }
 
@@ -113,23 +144,25 @@ export function renderMultiTablePdf(
         doc.addPage();
         y = doc.page.margins.top;
       }
-      drawRow(section.headers, y, true);
+      drawRow(section.headers, y, headerHeight, "header");
       y += headerHeight;
-      doc
-        .moveTo(startX, y - 4)
-        .lineTo(startX + usableWidth, y - 4)
-        .strokeColor("#ccc")
-        .stroke();
 
-      for (const row of section.rows) {
+      section.rows.forEach((row, rowIndex) => {
         const height = measureRowHeight(row, false);
         if (y + height > doc.page.height - doc.page.margins.bottom) {
           doc.addPage();
           y = doc.page.margins.top;
         }
-        drawRow(row, y, false);
+        drawRow(row, y, height, rowIndex % 2 === 0 ? "plain" : "shaded");
         y += height;
-      }
+      });
+
+      doc
+        .moveTo(startX, y)
+        .lineTo(startX + usableWidth, y)
+        .lineWidth(1)
+        .strokeColor(PDF_COLORS.rule)
+        .stroke();
     }
 
     doc.end();
