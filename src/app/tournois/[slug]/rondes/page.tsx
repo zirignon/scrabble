@@ -4,13 +4,46 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill, PoolBadge } from "@/components/public/StatusPill";
-import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
+import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
 
 type RoundMatch = Prisma.MatchGetPayload<{
   include: { homePlayer: true; awayPlayer: true; homeTeam: true; awayTeam: true; pool: true };
 }>;
 
 const roundHeading = "font-heading text-lg font-semibold text-navy dark:text-navy-light";
+
+// Affiche le vainqueur d'une confrontation d'équipes (à la majorité
+// d'échiquiers gagnés) dès que tous ses échiquiers sont décidés.
+function EncounterWinnerLabel({
+  matches,
+  homeTeamName,
+  awayTeamName,
+}: {
+  matches: RoundMatch[];
+  homeTeamName: string;
+  awayTeamName: string;
+}) {
+  const result = getTeamEncounterResult(matches);
+  if (!result) return null;
+  const { homeBoardsWon, awayBoardsWon } = result;
+  if (homeBoardsWon === awayBoardsWon) {
+    return (
+      <span className="text-xs font-semibold text-black/50 dark:text-white/50">
+        Égalité ({homeBoardsWon}-{awayBoardsWon})
+      </span>
+    );
+  }
+  const winnerName = homeBoardsWon > awayBoardsWon ? homeTeamName : awayTeamName;
+  const score =
+    homeBoardsWon > awayBoardsWon
+      ? `${homeBoardsWon}-${awayBoardsWon}`
+      : `${awayBoardsWon}-${homeBoardsWon}`;
+  return (
+    <span className="text-xs font-semibold text-moss dark:text-moss-light">
+      Vainqueur : {winnerName} ({score})
+    </span>
+  );
+}
 
 // Un tableau de confrontations, dans une carte bordée avec un en-tête de
 // colonnes — factorisé car répété pour chaque ronde/poule/confrontation
@@ -249,9 +282,16 @@ export default async function TournamentRoundsPage({
                     <PoolBadge name={poolName} />
                     {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                       <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 flex flex-col gap-1.5">
-                        <p className="text-sm font-semibold text-black/80 dark:text-white/80">
-                          {homeTeamName}{" "}
-                          <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
+                        <p className="text-sm font-semibold text-black/80 dark:text-white/80 flex flex-wrap items-center gap-2">
+                          <span>
+                            {homeTeamName}{" "}
+                            <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
+                          </span>
+                          <EncounterWinnerLabel
+                            matches={matches}
+                            homeTeamName={homeTeamName}
+                            awayTeamName={awayTeamName}
+                          />
                         </p>
                         <MatchTable matches={matches} forceNotBye />
                       </div>
@@ -320,8 +360,15 @@ export default async function TournamentRoundsPage({
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">
-                  <p className="text-sm font-semibold text-black/80 dark:text-white/80">
-                    {homeTeamName} <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
+                  <p className="text-sm font-semibold text-black/80 dark:text-white/80 flex flex-wrap items-center gap-2">
+                    <span>
+                      {homeTeamName} <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
+                    </span>
+                    <EncounterWinnerLabel
+                      matches={matches}
+                      homeTeamName={homeTeamName}
+                      awayTeamName={awayTeamName}
+                    />
                   </p>
                   <MatchTable matches={matches} forceNotBye />
                 </div>
@@ -333,10 +380,17 @@ export default async function TournamentRoundsPage({
               ))}
               {thirdPlaceEncounter && (
                 <div className="flex flex-col gap-1.5">
-                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
-                    Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeamName}{" "}
-                    <span className="text-gold dark:text-gold-light font-normal">vs</span>{" "}
-                    {thirdPlaceEncounter.awayTeamName}
+                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light flex flex-wrap items-center gap-2">
+                    <span>
+                      Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeamName}{" "}
+                      <span className="text-gold dark:text-gold-light font-normal">vs</span>{" "}
+                      {thirdPlaceEncounter.awayTeamName}
+                    </span>
+                    <EncounterWinnerLabel
+                      matches={thirdPlaceEncounter.matches}
+                      homeTeamName={thirdPlaceEncounter.homeTeamName}
+                      awayTeamName={thirdPlaceEncounter.awayTeamName}
+                    />
                   </h3>
                   <MatchTable matches={thirdPlaceEncounter.matches} forceNotBye />
                 </div>

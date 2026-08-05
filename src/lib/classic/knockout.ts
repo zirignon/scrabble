@@ -111,6 +111,38 @@ export function getKnockoutWinner(match: KnockoutMatchLike): string | null {
   return null;
 }
 
+export interface TeamEncounterBoardLike {
+  status: string;
+  homeScore: number | null;
+  awayScore: number | null;
+}
+
+// Résultat d'une confrontation d'équipes (majorité d'échiquiers gagnés,
+// comme pour la progression du tableau à élimination directe) à partir de
+// ses échiquiers — null tant qu'un échiquier reste à jouer. Réutilisé par
+// les pages rondes (admin et publique) pour afficher le vainqueur dès que
+// la confrontation est terminée, sans attendre que l'arbitre le calcule à
+// la main.
+export function getTeamEncounterResult(
+  boards: TeamEncounterBoardLike[]
+): { homeBoardsWon: number; awayBoardsWon: number } | null {
+  if (boards.length === 0 || boards.some((b) => b.status === "SCHEDULED")) return null;
+  let homeBoardsWon = 0;
+  let awayBoardsWon = 0;
+  for (const b of boards) {
+    if (b.status === "PLAYED" && b.homeScore != null && b.awayScore != null) {
+      if (b.homeScore > b.awayScore) homeBoardsWon += 1;
+      else if (b.homeScore < b.awayScore) awayBoardsWon += 1;
+    } else if (b.status === "FORFEIT_HOME") {
+      awayBoardsWon += 1;
+    } else if (b.status === "FORFEIT_AWAY") {
+      homeBoardsWon += 1;
+    }
+    // CANCELLED : échiquier non comptabilisé.
+  }
+  return { homeBoardsWon, awayBoardsWon };
+}
+
 // Apparie les vainqueurs consécutifs du tour précédent pour former le tour
 // suivant (vainqueur table 1 vs vainqueur table 2, etc.).
 export function pairKnockoutWinners(winners: string[]): Pairing[] {

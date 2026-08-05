@@ -28,7 +28,7 @@ import {
   updateFinalPhaseSettingsAction,
   updateThirdPlaceSettingsAction,
 } from "@/lib/actions/classic";
-import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
+import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
 import { RoundActionButton } from "@/components/admin/RoundActionButton";
 import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Match, Player, Pool, Team } from "@prisma/client";
@@ -313,6 +313,40 @@ function MatchTable({
         )}
       </tbody>
     </table>
+  );
+}
+
+// Affiche le vainqueur d'une confrontation d'équipes (à la majorité
+// d'échiquiers gagnés) dès que tous ses échiquiers sont décidés, sans
+// attendre que l'arbitre le calcule à la main.
+function EncounterWinnerLabel({
+  matches,
+  homeTeam,
+  awayTeam,
+}: {
+  matches: MatchWithRelations[];
+  homeTeam: Team;
+  awayTeam: Team;
+}) {
+  const result = getTeamEncounterResult(matches);
+  if (!result) return null;
+  const { homeBoardsWon, awayBoardsWon } = result;
+  if (homeBoardsWon === awayBoardsWon) {
+    return (
+      <span className="text-xs font-semibold text-black/50 dark:text-white/50">
+        Égalité ({homeBoardsWon}-{awayBoardsWon})
+      </span>
+    );
+  }
+  const winnerName = homeBoardsWon > awayBoardsWon ? homeTeam.name : awayTeam.name;
+  const score =
+    homeBoardsWon > awayBoardsWon
+      ? `${homeBoardsWon}-${awayBoardsWon}`
+      : `${awayBoardsWon}-${homeBoardsWon}`;
+  return (
+    <span className="text-xs font-semibold text-moss dark:text-moss-light">
+      Vainqueur : {winnerName} ({score})
+    </span>
   );
 }
 
@@ -860,8 +894,11 @@ export default async function RoundsPage({
                   <h3 className="font-medium text-sm">{pool.name}</h3>
                   {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
                     <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2 pl-4">
-                      <p className="text-sm font-medium">
-                        {homeTeam.name} vs {awayTeam.name}
+                      <p className="text-sm font-medium flex flex-wrap items-center gap-2">
+                        <span>
+                          {homeTeam.name} vs {awayTeam.name}
+                        </span>
+                        <EncounterWinnerLabel matches={matches} homeTeam={homeTeam} awayTeam={awayTeam} />
                       </p>
                       <MatchTable
                         matches={matches}
@@ -937,8 +974,11 @@ export default async function RoundsPage({
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
               <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2">
-                <h3 className="font-medium text-sm">
-                  {homeTeam.name} vs {awayTeam.name}
+                <h3 className="font-medium text-sm flex flex-wrap items-center gap-2">
+                  <span>
+                    {homeTeam.name} vs {awayTeam.name}
+                  </span>
+                  <EncounterWinnerLabel matches={matches} homeTeam={homeTeam} awayTeam={awayTeam} />
                 </h3>
                 <MatchTable
                   matches={matches}
@@ -950,9 +990,16 @@ export default async function RoundsPage({
 
             {thirdPlaceEncounter && (
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
-                  Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeam.name} vs{" "}
-                  {thirdPlaceEncounter.awayTeam.name}
+                <h3 className="text-sm font-semibold text-navy dark:text-navy-light flex flex-wrap items-center gap-2">
+                  <span>
+                    Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeam.name} vs{" "}
+                    {thirdPlaceEncounter.awayTeam.name}
+                  </span>
+                  <EncounterWinnerLabel
+                    matches={thirdPlaceEncounter.matches}
+                    homeTeam={thirdPlaceEncounter.homeTeam}
+                    awayTeam={thirdPlaceEncounter.awayTeam}
+                  />
                 </h3>
                 <MatchTable
                   matches={thirdPlaceEncounter.matches}
