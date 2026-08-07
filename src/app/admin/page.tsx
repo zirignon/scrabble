@@ -27,7 +27,7 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Tableau de bord</h1>
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light">Tableau de bord</h1>
         <Link
           href="/admin/tournois/nouveau"
           className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
@@ -41,7 +41,7 @@ export default async function AdminDashboardPage() {
           <Link
             key={tournament.id}
             href={`/admin/tournois/${tournament.id}`}
-            className="flex items-center justify-between px-4 py-3 hover:bg-black/[.02] dark:hover:bg-white/[.04]"
+            className="flex items-center justify-between px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
           >
             <div>
               <p className="font-medium">{tournament.name}</p>

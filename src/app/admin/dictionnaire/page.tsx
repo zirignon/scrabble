@@ -10,7 +10,7 @@ export default async function DictionaryPage() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-semibold">Dictionnaire</h1>
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light">Dictionnaire</h1>
         <p className="text-sm text-black/60 dark:text-white/60 mt-1">
           Cette liste sert à signaler, lors de la saisie coup par coup en
           duplicate, les mots joués qui n&apos;y figurent pas. Importez votre

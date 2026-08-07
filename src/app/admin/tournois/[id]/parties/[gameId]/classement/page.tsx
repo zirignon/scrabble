@@ -32,7 +32,7 @@ export default async function GameClassementPage({
         >
           ← Retour aux parties
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Fiche de classement — {tournament.name}, partie {game.number}
         </h1>
         <div className="flex gap-3 mt-2">

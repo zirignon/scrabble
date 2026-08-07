@@ -9,18 +9,21 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { LiveRefresh } from "@/components/LiveRefresh";
+import { PoolBadge } from "@/components/public/StatusPill";
 
 // Styles partagés par tous les tableaux de classement de cette page : un
 // filet plus marqué sous l'en-tête, des libellés de colonne discrets en
-// petites capitales, et les colonnes chiffrées alignées à droite en
-// tabular-nums pour que les scores s'alignent proprement.
+// petites capitales, un léger zébrage pour guider l'œil, et les colonnes
+// chiffrées alignées à droite en tabular-nums pour que les scores
+// s'alignent proprement.
 const headRow = "text-left border-b-2 border-navy/20 dark:border-navy-light/30";
 const th = "py-2.5 pr-4 text-xs font-semibold uppercase tracking-wide text-black/45 dark:text-white/50";
 const thNum = `${th} text-right`;
-const row = "border-b border-black/5 dark:border-white/5 hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
+const row = "border-b border-black/5 dark:border-white/5 even:bg-navy/[0.02] dark:even:bg-navy-light/[0.03] hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
 const td = "py-2.5 pr-4";
 const tdNum = `${td} text-right tabular-nums`;
 const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
+const sectionHeading = "font-heading text-xl font-semibold text-navy dark:text-navy-light";
 
 function Rank({ value }: { value: number }) {
   return (
@@ -89,7 +92,7 @@ export default async function TournamentStandingsPage({
       {!(tournament.type === "CLASSIC" && tournament.format === "GROUPS") && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-heading text-xl font-semibold">Classement</h2>
+            <h2 className={sectionHeading}>Classement</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
@@ -99,12 +102,12 @@ export default async function TournamentStandingsPage({
               </a>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
           {tournament.type === "CLASSIC" ? (
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className={headRow}>
-                  <th className={th}>#</th>
+                  <th className={`${th} pl-4`}>#</th>
                   <th className={th}>Joueur</th>
                   <th className={th}>Âge</th>
                   <th className={th}>Club</th>
@@ -125,8 +128,8 @@ export default async function TournamentStandingsPage({
               <tbody>
                 {classicStandings.map((r, i) => (
                   <tr key={r.playerId} className={row}>
-                    <td className={td}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
                     <td className={td}>{r.category ?? "—"}</td>
                     <td className={td}>{r.clubName ?? "—"}</td>
                     <td className={td}>{r.federation ?? "—"}</td>
@@ -149,7 +152,7 @@ export default async function TournamentStandingsPage({
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className={headRow}>
-                  <th className={th}>#</th>
+                  <th className={`${th} pl-4`}>#</th>
                   <th className={th}>Licence</th>
                   <th className={th}>Nom</th>
                   <th className={th}>Prénoms</th>
@@ -191,7 +194,7 @@ export default async function TournamentStandingsPage({
                   const pourcentage = topCumul != null && topCumul > 0 ? (r.net / topCumul) * 100 : null;
                   return (
                     <tr key={r.playerId} className={row}>
-                      <td className={td}><Rank value={i + 1} /></td>
+                      <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
                       <td className={td}>{r.licenseNumber ?? "—"}</td>
                       <td className={`${td} font-medium`}>{r.lastName}</td>
                       <td className={`${td} font-medium`}>{r.firstName}</td>
@@ -226,16 +229,21 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent && (
         <section>
-          <h2 className="font-heading text-xl font-semibold mb-3">Classement par poule</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement par poule</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
           <div className="flex flex-col gap-6">
             {poolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
-                <h3 className="font-medium mb-2">{poolName}</h3>
-                <div className="overflow-x-auto">
+                <div className="mb-2"><PoolBadge name={poolName} /></div>
+                <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className={headRow}>
-                      <th className={th}>#</th>
+                      <th className={`${th} pl-4`}>#</th>
                       <th className={th}>Joueur</th>
                       <th className={thNum}>J</th>
                       <th className={thNum}>V</th>
@@ -252,8 +260,8 @@ export default async function TournamentStandingsPage({
                   <tbody>
                     {standings.map((r, i) => (
                       <tr key={r.playerId} className={row}>
-                        <td className={td}><Rank value={i + 1} /></td>
-                        <td className={`${td} font-medium`}>{r.firstName} {r.lastName}</td>
+                        <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                        <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
                         <td className={tdNum}>{r.played}</td>
                         <td className={tdNum}>{r.wins}</td>
                         <td className={tdNum}>{r.draws}</td>
@@ -282,16 +290,21 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && tournament.isTeamEvent && (
         <section>
-          <h2 className="font-heading text-xl font-semibold mb-3">Classement par poule (équipes)</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement par poule (équipes)</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
           <div className="flex flex-col gap-6">
             {teamPoolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
-                <h3 className="font-medium mb-2">{poolName}</h3>
-                <div className="overflow-x-auto">
+                <div className="mb-2"><PoolBadge name={poolName} /></div>
+                <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className={headRow}>
-                      <th className={th}>#</th>
+                      <th className={`${th} pl-4`}>#</th>
                       <th className={th}>Équipe</th>
                       <th className={thNum}>J</th>
                       <th className={thNum}>V</th>
@@ -307,7 +320,7 @@ export default async function TournamentStandingsPage({
                   <tbody>
                     {standings.map((r, i) => (
                       <tr key={r.teamId} className={row}>
-                        <td className={td}><Rank value={i + 1} /></td>
+                        <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
                         <td className={`${td} font-medium`}>{r.name}</td>
                         <td className={tdNum}>{r.played}</td>
                         <td className={tdNum}>{r.wins}</td>
@@ -335,7 +348,7 @@ export default async function TournamentStandingsPage({
       {tournament.isTeamEvent && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-heading text-xl font-semibold">Classement par équipes</h2>
+            <h2 className={sectionHeading}>Classement par équipes</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
                 Exporter en CSV
@@ -345,12 +358,12 @@ export default async function TournamentStandingsPage({
               </a>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
           {tournament.type === "CLASSIC" ? (
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className={headRow}>
-                  <th className={th}>#</th>
+                  <th className={`${th} pl-4`}>#</th>
                   <th className={th}>Équipe</th>
                   <th className={thNum}>J</th>
                   <th className={thNum}>V</th>
@@ -366,7 +379,7 @@ export default async function TournamentStandingsPage({
               <tbody>
                 {classicTeamStandings.map((r, i) => (
                   <tr key={r.teamId} className={row}>
-                    <td className={td}><Rank value={i + 1} /></td>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
                     <td className={`${td} font-medium`}>{r.name}</td>
                     <td className={tdNum}>{r.played}</td>
                     <td className={tdNum}>{r.wins}</td>
@@ -383,7 +396,7 @@ export default async function TournamentStandingsPage({
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className={headRow}>
-                  <th className={th}>#</th>
+                  <th className={`${th} pl-4`}>#</th>
                   <th className={th}>Équipe</th>
                   <th className={thNum}>Parties</th>
                   <th className={thNum}>Score total</th>
@@ -396,7 +409,7 @@ export default async function TournamentStandingsPage({
               <tbody>
                 {duplicateTeamStandings.map((r, i) => (
                   <tr key={r.teamId} className={row}>
-                    <td className={td}><Rank value={i + 1} /></td>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
                     <td className={`${td} font-medium`}>{r.name}</td>
                     <td className={tdNum}>{r.gamesPlayed}</td>
                     <td className={tdNum}>{r.totalScore}</td>

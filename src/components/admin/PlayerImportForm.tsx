@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { importPlayersChunkAction } from "@/lib/actions/players";
 
@@ -24,37 +24,53 @@ export function PlayerImportForm() {
   const [progress, setProgress] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
+  // Garde synchrone contre un déclenchement en double (l'état `isPending`
+  // de useTransition ne se met à jour qu'au prochain rendu, ce qui laisse
+  // une fenêtre où deux imports pourraient démarrer en parallèle et se
+  // marcher dessus sur la création des clubs).
+  const importingRef = useRef(false);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || importingRef.current) return;
+    importingRef.current = true;
 
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result ?? "");
-      if (!text.trim()) return;
+      if (!text.trim()) {
+        importingRef.current = false;
+        return;
+      }
       startTransition(async () => {
-        setErrors([]);
-        const chunks = splitIntoChunks(text, LINES_PER_CHUNK);
-        let created = 0;
-        let updated = 0;
-        let clubsCreated = 0;
-        const allErrors: string[] = [];
-        for (let i = 0; i < chunks.length; i++) {
-          setProgress(`Import en cours... bloc ${i + 1}/${chunks.length}`);
-          const result = await importPlayersChunkAction(chunks[i]);
-          created += result.created;
-          updated += result.updated;
-          clubsCreated += result.clubsCreated;
-          allErrors.push(...result.errors);
+        try {
+          setErrors([]);
+          const chunks = splitIntoChunks(text, LINES_PER_CHUNK);
+          let created = 0;
+          let updated = 0;
+          let clubsCreated = 0;
+          const allErrors: string[] = [];
+          for (let i = 0; i < chunks.length; i++) {
+            setProgress(`Import en cours... bloc ${i + 1}/${chunks.length}`);
+            const result = await importPlayersChunkAction(chunks[i]);
+            created += result.created;
+            updated += result.updated;
+            clubsCreated += result.clubsCreated;
+            allErrors.push(...result.errors);
+          }
+          setProgress(
+            `Terminé : ${created} joueur(s) créé(s), ${updated} mis à jour, ${clubsCreated} club(s) créé(s).`
+          );
+          setErrors(allErrors);
+          router.refresh();
+        } finally {
+          importingRef.current = false;
         }
-        setProgress(
-          `Terminé : ${created} joueur(s) créé(s), ${updated} mis à jour, ${clubsCreated} club(s) créé(s).`
-        );
-        setErrors(allErrors);
-        router.refresh();
       });
+    };
+    reader.onerror = () => {
+      importingRef.current = false;
     };
     // Les fichiers fédéraux sont généralement encodés en ISO-8859-1.
     reader.readAsText(file, "ISO-8859-1");

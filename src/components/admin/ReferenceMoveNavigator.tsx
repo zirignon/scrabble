@@ -108,14 +108,17 @@ export function ReferenceMoveNavigator({
           <button
             type="submit"
             formAction={deleteActionBase.bind(null, selectedMove.id)}
-            className="rounded border border-red-600 text-red-600 px-2 py-1 text-xs"
+            className="rounded bg-brick hover:bg-brick/90 text-white px-3 py-1.5 text-xs font-medium transition-colors"
           >
             Supprimer
           </button>
         </form>
       ) : (
         <ReferenceMoveSolverForm
-          key={turnNumber}
+          // Remonte le formulaire (et donc réinitialise son état local) dès
+          // que le tirage validé par l'arbitre change, pour que le champ
+          // tirage reste synchronisé sans que l'arbitre ait à le ressaisir.
+          key={`${turnNumber}:${initialRack}`}
           addAction={addAction}
           findSolutions={findSolutions}
           turnNumber={turnNumber}

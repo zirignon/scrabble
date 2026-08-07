@@ -182,6 +182,25 @@ model Tournament {
   format       ClassicFormat?
   isTeamEvent  Boolean           @default(false)
   qualifiersPerPool Int          @default(2)
+  // Phase finale à élimination directe optionnelle après un round-robin ou
+  // un système suisse (indépendante de qualifiersPerPool, qui ne concerne
+  // que le format poules) : activable/désactivable, avec le nombre de
+  // qualifiés (au classement général, tous confondus) configurable.
+  finalPhaseEnabled     Boolean   @default(false)
+  finalPhaseQualifiers  Int       @default(4)
+  // Match de classement pour la 3e place, optionnel, entre les deux
+  // perdants de demi-finale — s'applique à tout tableau à élimination
+  // directe (KNOCKOUT, phase finale de poules, ou phase finale générée
+  // depuis le classement général en round-robin/suisse).
+  thirdPlaceMatchEnabled Boolean  @default(false)
+  // Rondes de round-robin (format ROUND_ROBIN, hors poules) pas encore
+  // matérialisées en base — révélées une par une au fur et à mesure que la
+  // ronde en cours se termine, pour que l'affichage public suive la partie
+  // réellement en train de se jouer plutôt que de sauter direct à la
+  // dernière ronde du calendrier. Tableau de rondes (chacune un tableau
+  // d'appariements {home, away}), dans l'ordre où elles doivent être
+  // révélées ; null/vide une fois tout le calendrier matérialisé.
+  pendingRoundRobinSchedule Json?
   duplicateFormula DuplicateFormula?
   duplicateRythme  DuplicateRythme?
   description  String?
@@ -263,6 +282,11 @@ model Pool {
   teams   Team[]
   matches Match[]
 
+  // Voir le commentaire équivalent sur Tournament.pendingRoundRobinSchedule
+  // — chaque poule joue son propre round-robin interne, donc son propre
+  // calendrier en attente.
+  pendingRoundRobinSchedule Json?
+
   @@unique([tournamentId, name])
 }
 
@@ -284,6 +308,11 @@ model Round {
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   number       Int
   playedAt     DateTime?
+  // Marque les rondes de la phase finale à élimination directe générée
+  // après un round-robin ou un système suisse (voir finalPhaseEnabled sur
+  // Tournament) — permet de distinguer ces rondes des rondes de la phase
+  // principale, qui elles n'ont pas de poolId pour les départager.
+  isFinalPhase Boolean    @default(false)
 
   matches Match[]
 
@@ -309,6 +338,21 @@ model Match {
   awayScore    Int?
   status       MatchStatus @default(SCHEDULED)
   isBye        Boolean     @default(false)
+  // Marque le(s) match(s) de classement pour la 3e place (perdants des deux
+  // demi-finales), généré dans la même ronde que la finale — permet de le
+  // distinguer du match principal pour l'étiquetage du tour (voir
+  // countKnockoutEntrants/getKnockoutStageLabel) et son affichage à part.
+  isThirdPlace Boolean     @default(false)
+  // Par équipes uniquement : indique si c'est le joueur "domicile" (colonne
+  // de gauche) qui débute la partie sur cet échiquier, ou son adversaire
+  // "extérieur" — alterné à chaque échiquier au sein d'une même
+  // confrontation (voir createTeamEncounterMatches) pour équilibrer les
+  // débuts de partie entre les deux équipes, sans jamais toucher
+  // homeTeamId/awayTeamId (qui doivent rester stables sur toute la
+  // confrontation pour le calcul du classement par équipes). N'affecte que
+  // l'ordre d'affichage ; toujours vrai (non pertinent) hors tournoi par
+  // équipes.
+  homeStarts   Boolean     @default(true)
 
   // Chronomètre d'échecs du match (classique) : chaque camp dispose d'un
   // temps de réflexion propre, alterné manuellement par l'arbitre.
@@ -409,6 +453,11 @@ model DuplicateMove {
   top             Int?
   isPass          Boolean  @default(false)
   penaltyType     DuplicateMovePenalty?
+
+  // Un coup "solo" (seul meilleur score du tour) détecté par l'algorithme
+  // ne rapporte ses +10 points (règlement FISF §3.5) qu'après validation
+  // explicite de l'arbitre — voir toggleSoloConfirmationAction.
+  soloConfirmed   Boolean  @default(false)
 
   @@unique([gameId, playerId, turnNumber])
 }

@@ -90,9 +90,18 @@ Après `npm run db:seed` :
   fonction serverless. Upsert par n° de licence (clé unique) : les
   joueurs déjà présents sont mis à jour plutôt que dupliqués ; les clubs
   inconnus sont créés à la volée à partir de leur code (nom à corriger
-  ensuite par l'organisateur si besoin). La liste des joueurs et le
+  ensuite par l'organisateur si besoin) — si un club du même nom existe
+  déjà sans code associé (créé manuellement, ou par un import précédent
+  ou concurrent), il est réutilisé et complété avec ce code au lieu de
+  faire échouer l'import des joueurs de ce club. Un déclenchement en
+  double de l'import (double sélection du fichier) est bloqué côté
+  navigateur pour éviter ce genre de collision. La liste des joueurs et le
   sélecteur d'inscription à un tournoi (recherche par nom ou licence)
-  restent utilisables même avec des dizaines de milliers de fiches
+  restent utilisables même avec des dizaines de milliers de fiches. Le
+  formulaire d'ajout d'un joueur propose aussi une autocomplétion sur le
+  nom : sélectionner une suggestion pré-remplit toute la fiche depuis la
+  base existante et transforme l'enregistrement en mise à jour de ce
+  joueur plutôt qu'en création d'un doublon
 - Création de tournois (classique ou duplicate), statut de cycle de vie
   (brouillon → inscriptions ouvertes → fermées → en cours → terminé →
   archivé), et suppression définitive (avec confirmation) qui efface en
@@ -113,6 +122,11 @@ Après `npm run db:seed` :
   avec gestion des exempts/bye si nombre impair)
 - Génération round par round en système suisse (appariement par score,
   évite les revanches quand possible)
+- Round-robin et suisse : phase finale à élimination directe optionnelle
+  (activable/désactivable par l'organisateur depuis la page des rondes,
+  avec le nombre de qualifiés configurable — au classement général, tous
+  confondus, contrairement aux poules qui qualifient par poule). Se
+  génère une fois la phase principale terminée, individuel comme équipes
 - Poules : chaque poule joue son propre round-robin interne, avec un
   classement calculé séparément par poule ; le nombre de qualifiés par
   poule est configurable par l'organisateur, et une phase finale à
@@ -122,6 +136,14 @@ Après `npm run db:seed` :
 - Élimination directe : génération du tableau initial (avec exempts si
   l'effectif n'est pas une puissance de 2), puis génération du tour
   suivant à partir des vainqueurs jusqu'à la finale
+- Les rondes à élimination directe (tableau initial, phase finale des
+  poules, phase finale round-robin/suisse) affichent le nom du tour
+  selon le nombre d'entrants — Finale (2), Demi-finales (4), Quarts de
+  finale (8), Huitièmes de finale (16), etc. — à la place du numéro de
+  ronde, pour ne pas confondre les deux notions : le numéro de ronde
+  reste utilisé pour les rondes de la phase principale (round-robin,
+  suisse, poules), qui n'ont pas ce nom de tour. Sur les pages admin et
+  publiques ainsi que sur l'affichage grand écran
 - Ajout manuel de rondes/matchs pour composer un format sur mesure
 - Chronomètre d'échecs par match (temps propre à chaque camp, alterné
   manuellement par l'arbitre, avec pause/réinitialisation)

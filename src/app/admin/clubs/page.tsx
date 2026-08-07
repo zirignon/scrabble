@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/guards";
 import { ClubForm } from "@/components/admin/ClubForm";
 import { ClubRow } from "@/components/admin/ClubRow";
 
@@ -11,6 +12,7 @@ export default async function AdminClubsPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
+  await requireRole(["ADMIN"]);
   const { q, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
@@ -39,7 +41,7 @@ export default async function AdminClubsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold mb-4">Clubs ({total})</h1>
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mb-4">Clubs ({total})</h1>
         <ClubForm />
       </div>
 

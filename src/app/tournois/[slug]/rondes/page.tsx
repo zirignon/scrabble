@@ -1,8 +1,130 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
-import { matchRow, matchCell, scoreCell, MatchStatusPill } from "@/components/public/StatusPill";
+import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill, PoolBadge } from "@/components/public/StatusPill";
+import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
+
+type RoundMatch = Prisma.MatchGetPayload<{
+  include: { homePlayer: true; awayPlayer: true; homeTeam: true; awayTeam: true; pool: true };
+}>;
+
+const roundHeading = "font-heading text-lg font-semibold text-navy dark:text-navy-light";
+
+// Affiche le vainqueur d'une confrontation d'équipes (à la majorité
+// d'échiquiers gagnés) dès que tous ses échiquiers sont décidés.
+function EncounterWinnerLabel({
+  matches,
+  homeTeamName,
+  awayTeamName,
+}: {
+  matches: RoundMatch[];
+  homeTeamName: string;
+  awayTeamName: string;
+}) {
+  const result = getTeamEncounterResult(matches);
+  if (!result) return null;
+  const { homeBoardsWon, awayBoardsWon } = result;
+  if (homeBoardsWon === awayBoardsWon) {
+    return (
+      <span className="text-xs font-semibold text-black/50 dark:text-white/50">
+        Égalité ({homeBoardsWon}-{awayBoardsWon})
+      </span>
+    );
+  }
+  const winnerName = homeBoardsWon > awayBoardsWon ? homeTeamName : awayTeamName;
+  const score =
+    homeBoardsWon > awayBoardsWon
+      ? `${homeBoardsWon}-${awayBoardsWon}`
+      : `${awayBoardsWon}-${homeBoardsWon}`;
+  return (
+    <span className="text-xs font-semibold text-moss dark:text-moss-light">
+      Vainqueur : {winnerName} ({score})
+    </span>
+  );
+}
+
+// Un tableau de confrontations, dans une carte bordée avec un en-tête de
+// colonnes — factorisé car répété pour chaque ronde/poule/confrontation
+// d'équipes de la page. `forceNotBye` : les tables ci-dessous représentent
+// déjà les échiquiers d'une confrontation d'équipes précise (jamais un bye,
+// géré séparément via la liste des équipes exemptes).
+//
+// table-fixed avec des largeurs de colonne explicites (identiques d'une
+// carte à l'autre) : chaque confrontation ayant sa propre table
+// indépendante, un table-layout auto laisserait chacune caler ses colonnes
+// sur son propre contenu, décalant le "Score" d'une carte à l'autre.
+function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; forceNotBye?: boolean }) {
+  return (
+    <div className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
+      <table className="w-full text-sm border-collapse table-fixed">
+        <thead>
+          <tr className={headRow}>
+            <th className={`${th} w-[34%] pl-4`}>Domicile</th>
+            <th className={`${th} w-[20%] text-center`}>Score</th>
+            <th className={`${th} w-[34%]`}>Extérieur</th>
+            <th className={`${th} w-[12%] pr-4`}>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {matches.map((match) => {
+            const isBye = match.isBye && !forceNotBye;
+            // Par équipes, homeStarts alterne d'un échiquier à l'autre au
+            // sein d'une même confrontation (voir createTeamEncounterMatches)
+            // pour équilibrer qui débute la partie ; le joueur qui débute
+            // est toujours affiché à gauche, sans toucher homeTeamId/
+            // awayTeamId (utilisés pour le classement par équipes).
+            const leftName = match.homeStarts
+              ? match.homePlayer
+                ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+                : "—"
+              : match.awayPlayer
+                ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+                : "—";
+            const rightName = match.homeStarts
+              ? match.awayPlayer
+                ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+                : "—"
+              : match.homePlayer
+                ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
+                : "—";
+            const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
+            const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
+            const leftWins =
+              !isBye && leftScore != null && rightScore != null && leftScore > rightScore;
+            const rightWins =
+              !isBye && leftScore != null && rightScore != null && rightScore > leftScore;
+            return (
+              <tr key={match.id} className={matchRow}>
+                <td className={`${matchCell} pl-4 truncate`}>{leftName}</td>
+                <td className={`${scoreCell} text-center`}>
+                  {isBye ? (
+                    "—"
+                  ) : (
+                    <>
+                      <span className={leftWins ? "text-moss dark:text-moss-light" : ""}>
+                        {leftScore ?? "-"}
+                      </span>
+                      {" - "}
+                      <span className={rightWins ? "text-moss dark:text-moss-light" : ""}>
+                        {rightScore ?? "-"}
+                      </span>
+                    </>
+                  )}
+                </td>
+                <td className={`${matchCell} truncate`}>{rightName}</td>
+                <td className={`${matchCell} pr-4`}>
+                  <MatchStatusPill status={match.status} isBye={forceNotBye ? false : match.isBye} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default async function TournamentRoundsPage({
   params,
@@ -25,6 +147,12 @@ export default async function TournamentRoundsPage({
               awayTeam: true,
               pool: true,
             },
+            // Trié par id (ordre de création), stable dans le temps — voir
+            // le commentaire équivalent côté admin : sans clé de tri, ou en
+            // triant par un numéro de table qui repart de 1 à chaque
+            // confrontation d'équipes, l'ordre des lignes n'est pas garanti
+            // stable après une mise à jour de score.
+            orderBy: { id: "asc" },
           },
         },
       },
@@ -68,36 +196,11 @@ export default async function TournamentRoundsPage({
 
             return (
               <div key={round.id} className="flex flex-col gap-4">
-                <h3 className="font-medium">Ronde {round.number}</h3>
+                <h3 className={roundHeading}>Ronde {round.number}</h3>
                 {[...byPool.values()].map(({ poolName, matches }) => (
-                  <div key={poolName} className="overflow-x-auto">
-                    <p className="text-sm font-medium mb-1">{poolName}</p>
-                    <table className="w-full text-sm border-collapse">
-                      <tbody>
-                        {matches.map((match) => (
-                          <tr key={match.id} className={matchRow}>
-                            <td className={matchCell}>
-                              {match.homePlayer
-                                ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-                                : "—"}
-                            </td>
-                            <td className={scoreCell}>
-                              {match.isBye
-                                ? "—"
-                                : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                            </td>
-                            <td className={matchCell}>
-                              {match.awayPlayer
-                                ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-                                : "—"}
-                            </td>
-                            <td className={matchCell}>
-                              <MatchStatusPill status={match.status} isBye={match.isBye} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div key={poolName} className="flex flex-col gap-1.5">
+                    <PoolBadge name={poolName} />
+                    <MatchTable matches={matches} />
                   </div>
                 ))}
               </div>
@@ -105,38 +208,30 @@ export default async function TournamentRoundsPage({
           }
 
           if (!tournament.isTeamEvent) {
+            const isKnockoutRound =
+              tournament.format === "KNOCKOUT" ||
+              tournament.format === "GROUPS" ||
+              round.isFinalPhase;
+            const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
+            const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
             return (
-              <div key={round.id} className="overflow-x-auto">
-                <h3 className="font-medium mb-2">
-                  Ronde {round.number}
-                  {tournament.format === "GROUPS" && " — Phase finale"}
-                </h3>
-                <table className="w-full text-sm border-collapse">
-                  <tbody>
-                    {round.matches.map((match) => (
-                      <tr key={match.id} className={matchRow}>
-                        <td className={matchCell}>
-                          {match.homePlayer
-                            ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-                            : "—"}
-                        </td>
-                        <td className={scoreCell}>
-                          {match.isBye
-                            ? "—"
-                            : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                        </td>
-                        <td className={matchCell}>
-                          {match.awayPlayer
-                            ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-                            : "—"}
-                        </td>
-                        <td className={matchCell}>
-                          <MatchStatusPill status={match.status} isBye={match.isBye} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div key={round.id} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <h3 className={roundHeading}>
+                    {isKnockoutRound
+                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                      : `Ronde ${round.number}`}
+                  </h3>
+                  <MatchTable matches={mainMatches} />
+                </div>
+                {thirdPlaceMatches.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                      Match pour la 3ᵉ place
+                    </h3>
+                    <MatchTable matches={thirdPlaceMatches} />
+                  </div>
+                )}
               </div>
             );
           }
@@ -181,39 +276,24 @@ export default async function TournamentRoundsPage({
 
             return (
               <div key={round.id} className="flex flex-col gap-5">
-                <h3 className="font-medium">Ronde {round.number}</h3>
+                <h3 className={roundHeading}>Ronde {round.number}</h3>
                 {[...byPool.values()].map(({ poolName, encounters, byeTeamNames }) => (
                   <div key={poolName} className="flex flex-col gap-3">
-                    <p className="text-sm font-semibold">{poolName}</p>
+                    <PoolBadge name={poolName} />
                     {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
-                      <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 overflow-x-auto">
-                        <p className="text-sm font-medium mb-1">
-                          {homeTeamName} vs {awayTeamName}
+                      <div key={`${homeTeamName}:${awayTeamName}`} className="pl-4 flex flex-col gap-1.5">
+                        <p className="text-sm font-semibold text-black/80 dark:text-white/80 flex flex-wrap items-center gap-2">
+                          <span>
+                            {homeTeamName}{" "}
+                            <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
+                          </span>
+                          <EncounterWinnerLabel
+                            matches={matches}
+                            homeTeamName={homeTeamName}
+                            awayTeamName={awayTeamName}
+                          />
                         </p>
-                        <table className="w-full text-sm border-collapse">
-                          <tbody>
-                            {matches.map((match) => (
-                              <tr key={match.id} className={matchRow}>
-                                <td className={matchCell}>
-                                  {match.homePlayer
-                                    ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-                                    : "—"}
-                                </td>
-                                <td className={scoreCell}>
-                                  {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                                </td>
-                                <td className={matchCell}>
-                                  {match.awayPlayer
-                                    ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-                                    : "—"}
-                                </td>
-                                <td className={matchCell}>
-                                  <MatchStatusPill status={match.status} isBye={false} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <MatchTable matches={matches} forceNotBye />
                       </div>
                     ))}
                     {byeTeamNames.map((name) => (
@@ -228,11 +308,16 @@ export default async function TournamentRoundsPage({
           }
 
           // Tournoi par équipes : regroupe les échiquiers par confrontation.
+          // Le match pour la 3e place (le cas échéant) est exclu de ce
+          // regroupement principal pour ne pas fausser le décompte des
+          // entrants (et donc l'étiquette du tour) et s'affiche à part.
           const encounters = new Map<
             string,
             { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }
           >();
           const byeTeamNames: string[] = [];
+          let thirdPlaceEncounter: { homeTeamName: string; awayTeamName: string; matches: typeof round.matches } | null =
+            null;
 
           for (const match of round.matches) {
             if (match.isBye) {
@@ -240,6 +325,17 @@ export default async function TournamentRoundsPage({
               continue;
             }
             if (!match.homeTeam || !match.awayTeam) continue;
+            if (match.isThirdPlace) {
+              if (!thirdPlaceEncounter) {
+                thirdPlaceEncounter = {
+                  homeTeamName: match.homeTeam.name,
+                  awayTeamName: match.awayTeam.name,
+                  matches: [],
+                };
+              }
+              thirdPlaceEncounter.matches.push(match);
+              continue;
+            }
             const key = `${match.homeTeam.id}:${match.awayTeam.id}`;
             if (!encounters.has(key)) {
               encounters.set(key, {
@@ -251,41 +347,30 @@ export default async function TournamentRoundsPage({
             encounters.get(key)!.matches.push(match);
           }
 
+          const isKnockoutRound =
+            tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
           return (
             <div key={round.id} className="flex flex-col gap-4">
-              <h3 className="font-medium">
-                Ronde {round.number}
-                {tournament.format === "GROUPS" && " — Phase finale"}
+              <h3 className={roundHeading}>
+                {isKnockoutRound
+                  ? getKnockoutStageLabel(
+                      countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                    )
+                  : `Ronde ${round.number}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
-                <div key={`${homeTeamName}:${awayTeamName}`} className="overflow-x-auto">
-                  <p className="text-sm font-medium mb-1">
-                    {homeTeamName} vs {awayTeamName}
+                <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">
+                  <p className="text-sm font-semibold text-black/80 dark:text-white/80 flex flex-wrap items-center gap-2">
+                    <span>
+                      {homeTeamName} <span className="text-gold dark:text-gold-light font-normal">vs</span> {awayTeamName}
+                    </span>
+                    <EncounterWinnerLabel
+                      matches={matches}
+                      homeTeamName={homeTeamName}
+                      awayTeamName={awayTeamName}
+                    />
                   </p>
-                  <table className="w-full text-sm border-collapse">
-                    <tbody>
-                      {matches.map((match) => (
-                        <tr key={match.id} className={matchRow}>
-                          <td className={matchCell}>
-                            {match.homePlayer
-                              ? `${match.homePlayer.firstName} ${match.homePlayer.lastName}`
-                              : "—"}
-                          </td>
-                          <td className={scoreCell}>
-                            {`${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-                          </td>
-                          <td className={matchCell}>
-                            {match.awayPlayer
-                              ? `${match.awayPlayer.firstName} ${match.awayPlayer.lastName}`
-                              : "—"}
-                          </td>
-                          <td className={matchCell}>
-                            <MatchStatusPill status={match.status} isBye={false} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <MatchTable matches={matches} forceNotBye />
                 </div>
               ))}
               {byeTeamNames.map((name) => (
@@ -293,6 +378,23 @@ export default async function TournamentRoundsPage({
                   {name} : équipe exempte pour cette ronde.
                 </p>
               ))}
+              {thirdPlaceEncounter && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light flex flex-wrap items-center gap-2">
+                    <span>
+                      Match pour la 3ᵉ place — {thirdPlaceEncounter.homeTeamName}{" "}
+                      <span className="text-gold dark:text-gold-light font-normal">vs</span>{" "}
+                      {thirdPlaceEncounter.awayTeamName}
+                    </span>
+                    <EncounterWinnerLabel
+                      matches={thirdPlaceEncounter.matches}
+                      homeTeamName={thirdPlaceEncounter.homeTeamName}
+                      awayTeamName={thirdPlaceEncounter.awayTeamName}
+                    />
+                  </h3>
+                  <MatchTable matches={thirdPlaceEncounter.matches} forceNotBye />
+                </div>
+              )}
             </div>
           );
         })}

@@ -3,6 +3,7 @@ import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
+import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
 import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import {
@@ -35,14 +36,6 @@ export interface DisplayStandingGroup {
   rows: DisplayStandingRow[];
 }
 
-export interface DisplayMatchClock {
-  initialSeconds: number;
-  homeRemainingSeconds: number;
-  awayRemainingSeconds: number;
-  runningSide: "HOME" | "AWAY" | null;
-  startedAt: string | null;
-}
-
 export interface DisplayRoundMatch {
   table: number | null;
   home: string;
@@ -51,7 +44,6 @@ export interface DisplayRoundMatch {
   awayScore: number | null;
   status: string;
   isBye: boolean;
-  clock: DisplayMatchClock | null;
 }
 
 export interface DisplayRoundGroup {
@@ -120,7 +112,7 @@ async function buildStandings(tournament: {
           name: pool.poolName,
           rows: pool.standings.map((s, i) => ({
             rank: i + 1,
-            name: `${s.firstName} ${s.lastName}`,
+            name: `${s.lastName} ${s.firstName}`,
             columns: classicIndividualColumns(s),
           })),
         })),
@@ -150,7 +142,7 @@ async function buildStandings(tournament: {
           name: null,
           rows: rows.map((s, i) => ({
             rank: i + 1,
-            name: `${s.firstName} ${s.lastName}`,
+            name: `${s.lastName} ${s.firstName}`,
             columns: classicIndividualColumns(s),
           })),
         },
@@ -190,7 +182,7 @@ async function buildStandings(tournament: {
         name: null,
         rows: rows.map((s, i) => ({
           rank: i + 1,
-          name: `${s.firstName} ${s.lastName}`,
+          name: `${s.lastName} ${s.firstName}`,
           columns: [
             { label: "Parties", value: String(s.gamesPlayed) },
             { label: "Score total", value: String(s.totalScore) },
@@ -256,6 +248,7 @@ function classicTeamColumns(s: {
 async function buildCurrent(tournament: {
   id: string;
   type: string;
+  format: string | null;
   duplicateRythme: string | null;
 }): Promise<DisplayCurrent> {
   if (tournament.type === "CLASSIC") {
@@ -265,53 +258,88 @@ async function buildCurrent(tournament: {
       include: {
         matches: {
           include: { homePlayer: true, awayPlayer: true, homeTeam: true, awayTeam: true, pool: true },
-          orderBy: { table: "asc" },
+          // id (ordre de création) plutôt que table, qui repart de 1 à
+          // chaque confrontation d'équipes et n'est donc pas une clé de tri
+          // stable (l'ordre des égalités peut changer après une mise à jour
+          // de score) — voir le commentaire équivalent sur les pages rondes.
+          orderBy: { id: "asc" },
         },
       },
     });
     if (!lastRound) return { kind: "matches", label: "Aucune ronde", groups: [] };
 
     const grouped = lastRound.matches.some((m) => m.poolId);
+    // En équipes, chaque ligne Match ne représente qu'un échiquier d'une
+    // confrontation (une équipe contre une autre) : plutôt que de répéter
+    // le nom des deux équipes sur chaque ligne, on regroupe les échiquiers
+    // d'une même confrontation sous un même titre et on affiche les noms
+    // des deux joueurs qui s'affrontent sur cet échiquier.
+    const isTeamRound = lastRound.matches.some((m) => m.homeTeamId);
     const groupsMap = new Map<string, DisplayRoundMatch[]>();
     for (const m of lastRound.matches) {
-      const groupName = grouped ? m.pool?.name ?? "—" : "";
-      const homeName = m.homeTeam
-        ? m.homeTeam.name
-        : m.homePlayer
-          ? `${m.homePlayer.firstName} ${m.homePlayer.lastName}`
-          : "?";
-      const awayName = m.isBye
+      const poolPrefix = grouped && m.pool ? `${m.pool.name} — ` : "";
+      const groupName = m.isThirdPlace
+        ? "Match pour la 3ᵉ place"
+        : isTeamRound
+          ? `${poolPrefix}${m.homeTeam?.name ?? "?"}${
+              m.isBye ? " (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
+            }`
+          : grouped
+            ? m.pool?.name ?? "—"
+            : "";
+      const rawHomeName =
+        isTeamRound && !m.isBye
+          ? m.homePlayer
+            ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
+            : "?"
+          : m.homeTeam
+            ? m.homeTeam.name
+            : m.homePlayer
+              ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
+              : "?";
+      const rawAwayName = m.isBye
         ? null
-        : m.awayTeam
-          ? m.awayTeam.name
-          : m.awayPlayer
-            ? `${m.awayPlayer.firstName} ${m.awayPlayer.lastName}`
-            : "?";
+        : isTeamRound
+          ? m.awayPlayer
+            ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
+            : "?"
+          : m.awayTeam
+            ? m.awayTeam.name
+            : m.awayPlayer
+              ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
+              : "?";
+      // Par équipes, homeStarts alterne d'un échiquier à l'autre au sein
+      // d'une même confrontation pour équilibrer qui débute la partie ; le
+      // joueur qui débute est toujours affiché à gauche, sans toucher
+      // homeTeamId/awayTeamId (utilisés pour le classement par équipes).
+      const swapForDisplay = isTeamRound && !m.isBye && !m.homeStarts;
+      // rawAwayName n'est null que pour un bye, exclu de swapForDisplay.
+      const leftName = swapForDisplay ? (rawAwayName as string) : rawHomeName;
+      const rightName = swapForDisplay ? rawHomeName : rawAwayName;
+      const leftScore = swapForDisplay ? m.awayScore : m.homeScore;
+      const rightScore = swapForDisplay ? m.homeScore : m.awayScore;
       const arr = groupsMap.get(groupName) ?? [];
       arr.push({
         table: m.table,
-        home: homeName,
-        away: awayName,
-        homeScore: m.homeScore,
-        awayScore: m.awayScore,
+        home: leftName,
+        away: rightName,
+        homeScore: leftScore,
+        awayScore: rightScore,
         status: matchStatusLabel[m.status] ?? m.status,
         isBye: m.isBye,
-        clock:
-          m.clockInitialSeconds == null
-            ? null
-            : {
-                initialSeconds: m.clockInitialSeconds,
-                homeRemainingSeconds: m.homeClockRemainingSeconds ?? m.clockInitialSeconds,
-                awayRemainingSeconds: m.awayClockRemainingSeconds ?? m.clockInitialSeconds,
-                runningSide: m.clockRunningSide as "HOME" | "AWAY" | null,
-                startedAt: m.clockStartedAt ? m.clockStartedAt.toISOString() : null,
-              },
       });
       groupsMap.set(groupName, arr);
     }
+    const isKnockoutRound =
+      tournament.format === "KNOCKOUT" ||
+      (tournament.format === "GROUPS" && !grouped) ||
+      lastRound.isFinalPhase;
+    const label = isKnockoutRound
+      ? getKnockoutStageLabel(countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace)))
+      : `Ronde ${lastRound.number}`;
     return {
       kind: "matches",
-      label: `Ronde ${lastRound.number}`,
+      label,
       groups: [...groupsMap.entries()].map(([name, matches]) => ({ name: name || null, matches })),
     };
   }

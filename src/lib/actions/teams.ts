@@ -56,11 +56,21 @@ export async function addTeamMemberAction(
     orderBy: { board: "desc" },
   });
 
+  // Inscrit automatiquement le joueur au tournoi s'il ne l'est pas déjà :
+  // l'ajout à une équipe se fait directement depuis la base des joueurs,
+  // sans passer par une inscription individuelle préalable.
+  await prisma.registration.upsert({
+    where: { tournamentId_playerId: { tournamentId, playerId } },
+    update: {},
+    create: { tournamentId, playerId },
+  });
+
   await prisma.teamMember.create({
     data: { teamId, playerId, board: (last?.board ?? 0) + 1 },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/equipes`);
+  revalidatePath(`/admin/tournois/${tournamentId}`);
 }
 
 export async function removeTeamMemberAction(
