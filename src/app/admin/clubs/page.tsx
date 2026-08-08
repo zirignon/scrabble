@@ -71,6 +71,7 @@ export default async function AdminClubsPage({
             <th className="py-2 pr-4">Club</th>
             <th className="py-2 pr-4">Joueurs</th>
             <th className="py-2 pr-4" />
+            <th className="py-2 pr-4" />
           </tr>
         </thead>
         <tbody>
@@ -89,7 +90,7 @@ export default async function AdminClubsPage({
           ))}
           {clubs.length === 0 && (
             <tr>
-              <td colSpan={3} className="py-4 text-black/50 dark:text-white/50">
+              <td colSpan={4} className="py-4 text-black/50 dark:text-white/50">
                 Aucun club ne correspond à cette recherche.
               </td>
             </tr>
