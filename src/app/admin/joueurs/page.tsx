@@ -49,7 +49,7 @@ export default async function AdminPlayersPage({
           <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light">Joueurs ({total})</h1>
           <a
             href="/api/joueurs/export"
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Exporter en CSV
           </a>

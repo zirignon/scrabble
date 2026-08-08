@@ -61,7 +61,7 @@ export default async function AdminUsersPage() {
                   </select>
                   <button
                     type="submit"
-                    className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+                    className="rounded bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-2 py-1 text-xs font-medium transition-colors"
                   >
                     OK
                   </button>
@@ -81,7 +81,7 @@ export default async function AdminUsersPage() {
                   />
                   <button
                     type="submit"
-                    className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs"
+                    className="rounded bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-2 py-1 text-xs font-medium transition-colors"
                   >
                     Changer
                   </button>

@@ -70,11 +70,11 @@ function MatchClockControls({
           type="number"
           name="minutes"
           placeholder="min/camp"
-          className="w-20 rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5 bg-transparent"
+          className="w-20 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
         />
         <button
           type="submit"
-          className="rounded border border-black/10 dark:border-white/20 px-2 py-0.5"
+          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-0.5 text-xs font-medium transition-colors"
         >
           ⏱ Activer un chrono
         </button>
@@ -112,7 +112,7 @@ function MatchClockControls({
             <input type="hidden" name="side" value="HOME" />
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-1.5 py-0.5 text-xs font-medium transition-colors"
             >
               ▶ Dom.
             </button>
@@ -121,7 +121,7 @@ function MatchClockControls({
             <input type="hidden" name="side" value="AWAY" />
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-1.5 py-0.5 text-xs font-medium transition-colors"
             >
               ▶ Ext.
             </button>
@@ -129,7 +129,7 @@ function MatchClockControls({
           <form action={pauseMatchClockAction.bind(null, tournamentId, match.id)}>
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-1.5 py-0.5 text-xs font-medium transition-colors"
             >
               ⏸
             </button>
@@ -137,7 +137,7 @@ function MatchClockControls({
           <form action={resetMatchClockAction.bind(null, tournamentId, match.id)}>
             <button
               type="submit"
-              className="rounded border border-black/10 dark:border-white/20 px-1.5 py-0.5"
+              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-1.5 py-0.5 text-xs font-medium transition-colors"
             >
               ↺
             </button>
@@ -917,7 +917,7 @@ export default async function RoundsPage({
                     type="number"
                     name="table"
                     placeholder="Table"
-                    className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+                    className="w-20 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                   />
                   <button
                     type="submit"

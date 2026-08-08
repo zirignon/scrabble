@@ -25,6 +25,11 @@ interface PlayerMatch {
 
 const inputClass =
   "rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm";
+// Champs numériques (Elo, coefficient) : encadré et coloré en or, comme les
+// scores de match — pour bien les distinguer des champs de texte au milieu
+// du formulaire.
+const numberInputClass =
+  "rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none";
 
 export function PlayerForm({
   clubs,
@@ -203,7 +208,7 @@ export function PlayerForm({
           <label htmlFor="eloDuplicate" className="text-xs font-medium">
             Elo duplicate
           </label>
-          <input id="eloDuplicate" name="eloDuplicate" type="number" className={`${inputClass} w-24`} />
+          <input id="eloDuplicate" name="eloDuplicate" type="number" className={`${numberInputClass} w-24`} />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="classificationClassic" className="text-xs font-medium">
@@ -220,7 +225,7 @@ export function PlayerForm({
           <label htmlFor="eloClassic" className="text-xs font-medium">
             Elo classique
           </label>
-          <input id="eloClassic" name="eloClassic" type="number" className={`${inputClass} w-24`} />
+          <input id="eloClassic" name="eloClassic" type="number" className={`${numberInputClass} w-24`} />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="coefficientClassic" className="text-xs font-medium">
@@ -230,7 +235,7 @@ export function PlayerForm({
             id="coefficientClassic"
             name="coefficientClassic"
             type="number"
-            className={`${inputClass} w-24`}
+            className={`${numberInputClass} w-24`}
           />
         </div>
         <div className="flex flex-col gap-1">

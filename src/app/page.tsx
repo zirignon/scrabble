@@ -31,7 +31,7 @@ export default async function Home() {
             </Link>
             <Link
               href="/register"
-              className="rounded-md border border-black/10 dark:border-white/20 px-5 py-2.5 font-medium"
+              className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-5 py-2.5 font-medium transition-colors"
             >
               Créer un compte
             </Link>

@@ -410,7 +410,7 @@ export default async function GameMovesPage({
                                   max={move.points}
                                   title={`Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser.`}
                                   placeholder="—"
-                                  className="w-14 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-sm"
+                                  className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 text-center bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                                 />
                                 <select
                                   form={formId}
