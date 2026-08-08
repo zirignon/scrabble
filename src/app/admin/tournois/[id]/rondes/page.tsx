@@ -389,7 +389,7 @@ function FinalPhaseSettingsForm({
               type="number"
               min={2}
               defaultValue={finalPhaseQualifiers}
-              className="w-24 rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+              className="w-24 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
             />
           </div>
           <button
@@ -445,7 +445,7 @@ function SwissRoundsSettingsForm({
               min={1}
               defaultValue={swissRoundsCount ?? ""}
               placeholder="Illimité"
-              className="w-28 rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+              className="w-28 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
             />
           </div>
           <button
@@ -454,7 +454,7 @@ function SwissRoundsSettingsForm({
           >
             Mettre à jour
           </button>
-          <span className="text-sm text-black/60 dark:text-white/60 pb-2">
+          <span className="rounded-md border-2 border-navy/30 dark:border-navy-light/40 bg-navy/10 dark:bg-navy-light/10 px-3 py-2 text-sm font-semibold text-navy dark:text-navy-light">
             {swissRoundsCount
               ? `Ronde ${roundsPlayed} / ${swissRoundsCount}`
               : `${roundsPlayed} ronde(s) générée(s)`}
