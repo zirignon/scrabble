@@ -27,6 +27,7 @@ import {
   startMatchClockAction,
   updateFinalPhaseSettingsAction,
   updateSwissRoundsSettingsAction,
+  updateSwissSeedingAction,
   updateThirdPlaceSettingsAction,
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
@@ -477,6 +478,72 @@ function SwissRoundsSettingsForm({
   );
 }
 
+const swissSeedingLabel: Record<string, string> = {
+  RANDOM: "Tirage au sort",
+  RATING: "Classement (Elo classique)",
+};
+
+function SwissSeedingSettingsForm({
+  tournamentId,
+  swissSeeding,
+  roundsPlayed,
+  canManage,
+}: {
+  tournamentId: string;
+  swissSeeding: string;
+  roundsPlayed: number;
+  canManage: boolean;
+}) {
+  const roundOneGenerated = roundsPlayed > 0;
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Appariement de la ronde 1</p>
+      {canManage && !roundOneGenerated ? (
+        <form
+          action={updateSwissSeedingAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="swissSeeding" className="text-xs font-medium">
+              Méthode
+            </label>
+            <select
+              id="swissSeeding"
+              name="swissSeeding"
+              defaultValue={swissSeeding}
+              className="rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+            >
+              {Object.entries(swissSeedingLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {swissSeedingLabel[swissSeeding]}
+          {roundOneGenerated && " — ronde 1 déjà générée, réglage figé."}
+        </p>
+      )}
+      <p className="text-xs text-black/50 dark:text-white/50">
+        Avant la ronde 1, le classement (0 point partout) ne permet pas
+        encore de départager les joueurs pour l&apos;appariement : tirage au
+        sort équitable, ou classement par Elo classique décroissant (les
+        joueurs sans Elo renseigné sont classés derniers). Sans effet à
+        partir de la ronde 2.
+      </p>
+    </div>
+  );
+}
+
 function ThirdPlaceSettingsForm({
   tournamentId,
   thirdPlaceMatchEnabled,
@@ -640,6 +707,15 @@ export default async function RoundsPage({
           )}
         </div>
       </div>
+
+      {tournament.format === "SWISS" && (
+        <SwissSeedingSettingsForm
+          tournamentId={tournament.id}
+          swissSeeding={tournament.swissSeeding}
+          roundsPlayed={mainPhaseRounds.length}
+          canManage={canManage}
+        />
+      )}
 
       {tournament.format === "SWISS" && (
         <SwissRoundsSettingsForm

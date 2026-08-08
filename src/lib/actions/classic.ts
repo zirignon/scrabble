@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { generateRoundRobinRounds } from "@/lib/classic/pairing";
-import { generateSwissRound } from "@/lib/classic/swiss";
+import { generateSwissRound, seedFirstSwissRound } from "@/lib/classic/swiss";
 import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
@@ -392,8 +392,22 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
     previousOpponents.get(m.awayPlayerId)!.add(m.homePlayerId);
   }
 
+  // Avant la ronde 1, tout le monde est à 0 point de match : le classement
+  // ne peut pas encore départager les joueurs pour l'appariement. On
+  // applique alors la méthode choisie par l'organisateur (tirage au sort ou
+  // Elo classique) ; sans effet à partir de la ronde 2.
+  let standingsForPairing = standings;
+  if (previousMatches.length === 0) {
+    const registrations = await prisma.registration.findMany({
+      where: { tournamentId },
+      select: { playerId: true, player: { select: { eloClassic: true } } },
+    });
+    const eloByPlayer = new Map(registrations.map((r) => [r.playerId, r.player.eloClassic]));
+    standingsForPairing = seedFirstSwissRound(standings, tournament.swissSeeding, eloByPlayer);
+  }
+
   const pairings = generateSwissRound(
-    standings.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
+    standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
     previousOpponents,
     playersWithBye
   );
@@ -444,7 +458,12 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
 
   const teams = await prisma.team.findMany({
     where: { tournamentId },
-    include: { members: { orderBy: { board: "asc" } } },
+    include: {
+      members: {
+        orderBy: { board: "asc" },
+        include: { player: { select: { eloClassic: true } } },
+      },
+    },
   });
   if (teams.length < 2) throw new Error("Il faut au moins 2 équipes.");
 
@@ -456,6 +475,26 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
 
   const teamStandings = await computeClassicTeamStandings(tournamentId);
+
+  // Avant la ronde 1, on départage les équipes soit par tirage au sort, soit
+  // par force moyenne (moyenne des Elo classiques de l'équipe) — même
+  // logique que pour le suisse individuel, voir plus haut.
+  let teamStandingsForPairing = teamStandings.map((s) => ({
+    playerId: s.teamId,
+    matchPoints: s.matchPoints,
+  }));
+  if (previousMatches.length === 0) {
+    const eloByTeam = new Map(
+      teams.map((t) => {
+        const elos = t.members
+          .map((m) => m.player.eloClassic)
+          .filter((elo): elo is number => elo != null);
+        const average = elos.length > 0 ? elos.reduce((a, b) => a + b, 0) / elos.length : null;
+        return [t.id, average];
+      })
+    );
+    teamStandingsForPairing = seedFirstSwissRound(teamStandingsForPairing, tournament.swissSeeding, eloByTeam);
+  }
 
   const previousOpponents = new Map<string, Set<string>>();
   const teamsWithBye = new Set<string>();
@@ -471,11 +510,7 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
     previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
   }
 
-  const pairings = generateSwissRound(
-    teamStandings.map((s) => ({ playerId: s.teamId, matchPoints: s.matchPoints })),
-    previousOpponents,
-    teamsWithBye
-  );
+  const pairings = generateSwissRound(teamStandingsForPairing, previousOpponents, teamsWithBye);
 
   const last = await prisma.round.findFirst({
     where: { tournamentId },
@@ -870,6 +905,31 @@ export async function updateSwissRoundsSettingsAction(
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: { swissRoundsCount },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+// Fixe la méthode d'appariement de la ronde 1 (tirage au sort ou Elo
+// classique) — sans effet une fois cette ronde déjà générée, voir
+// seedFirstSwissRound.
+export async function updateSwissSeedingAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "SWISS") {
+    throw new Error("Ce réglage ne s'applique qu'au format suisse.");
+  }
+
+  const swissSeeding = formData.get("swissSeeding");
+  if (swissSeeding !== "RANDOM" && swissSeeding !== "RATING") {
+    throw new Error("Méthode invalide.");
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { swissSeeding },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);

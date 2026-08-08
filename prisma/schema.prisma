@@ -43,6 +43,15 @@ enum ClassicFormat {
   KNOCKOUT
 }
 
+// Détermine comment départager les joueurs/équipes pour l'appariement de la
+// toute première ronde suisse — le classement (0 point partout) ne permet
+// pas encore de les différencier à ce stade, contrairement aux rondes
+// suivantes. Sans effet une fois la ronde 1 générée.
+enum SwissSeeding {
+  RANDOM
+  RATING
+}
+
 // Mode de l'affichage grand écran : par défaut il alterne automatiquement
 // entre le classement et la ronde/partie en cours (AUTO) ; l'organisateur
 // peut figer l'affichage sur l'une des deux vues (STANDINGS/CURRENT) pour
@@ -193,6 +202,11 @@ model Tournament {
   // les rondes se génèrent une par une sans limite prédéfinie comme
   // auparavant (l'organisateur décide lui-même quand s'arrêter).
   swissRoundsCount      Int?
+  // Méthode d'appariement de la toute première ronde suisse : tirage au
+  // sort (par défaut) ou classement par Elo classique décroissant. Laisse
+  // le choix à l'organisateur, qui peut préférer l'un ou l'autre selon le
+  // tournoi (amical vs compétitif, Elo fiable ou non).
+  swissSeeding          SwissSeeding @default(RANDOM)
   // Match de classement pour la 3e place, optionnel, entre les deux
   // perdants de demi-finale — s'applique à tout tableau à élimination
   // directe (KNOCKOUT, phase finale de poules, ou phase finale générée
