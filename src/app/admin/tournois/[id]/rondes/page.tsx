@@ -394,7 +394,7 @@ function FinalPhaseSettingsForm({
           </div>
           <button
             type="submit"
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Mettre à jour
           </button>
@@ -450,7 +450,7 @@ function SwissRoundsSettingsForm({
           </div>
           <button
             type="submit"
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Mettre à jour
           </button>
@@ -505,7 +505,7 @@ function ThirdPlaceSettingsForm({
           </label>
           <button
             type="submit"
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Mettre à jour
           </button>
@@ -809,7 +809,7 @@ export default async function RoundsPage({
           <RoundActionButton
             action={addRoundBound}
             label="+ Ajouter une ronde manuelle"
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-2 text-sm font-medium"
+            className="rounded-md bg-gold hover:bg-gold/90 text-white dark:bg-gold-light dark:hover:bg-gold-light/90 dark:text-navy px-4 py-2 text-sm font-medium transition-colors"
           />
         </div>
       )}
@@ -921,7 +921,7 @@ export default async function RoundsPage({
                   />
                   <button
                     type="submit"
-                    className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+                    className="rounded bg-gold hover:bg-gold/90 text-white dark:bg-gold-light dark:hover:bg-gold-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
                   >
                     + Match
                   </button>
