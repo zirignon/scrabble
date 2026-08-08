@@ -26,6 +26,7 @@ import {
   setMatchClockDurationAction,
   startMatchClockAction,
   updateFinalPhaseSettingsAction,
+  updateSwissRoundsSettingsAction,
   updateThirdPlaceSettingsAction,
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
@@ -414,6 +415,68 @@ function FinalPhaseSettingsForm({
   );
 }
 
+function SwissRoundsSettingsForm({
+  tournamentId,
+  swissRoundsCount,
+  roundsPlayed,
+  canManage,
+}: {
+  tournamentId: string;
+  swissRoundsCount: number | null;
+  roundsPlayed: number;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Nombre de rondes (suisse)</p>
+      {canManage ? (
+        <form
+          action={updateSwissRoundsSettingsAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="swissRoundsCount" className="text-xs font-medium">
+              Rondes prévues avant la phase finale
+            </label>
+            <input
+              id="swissRoundsCount"
+              name="swissRoundsCount"
+              type="number"
+              min={1}
+              defaultValue={swissRoundsCount ?? ""}
+              placeholder="Illimité"
+              className="w-28 rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+          >
+            Mettre à jour
+          </button>
+          <span className="text-sm text-black/60 dark:text-white/60 pb-2">
+            {swissRoundsCount
+              ? `Ronde ${roundsPlayed} / ${swissRoundsCount}`
+              : `${roundsPlayed} ronde(s) générée(s)`}
+          </span>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {swissRoundsCount
+            ? `${roundsPlayed} / ${swissRoundsCount} ronde(s) générée(s).`
+            : `${roundsPlayed} ronde(s) générée(s), sans limite prédéfinie.`}
+        </p>
+      )}
+      <p className="text-xs text-black/50 dark:text-white/50">
+        Laissez vide pour générer les rondes une par une sans limite, comme
+        avant. Une fois le nombre indiqué atteint, générez la phase finale
+        (si activée) — vous pouvez toujours ajouter une ronde manuelle en
+        plus si besoin.
+      </p>
+    </div>
+  );
+}
+
 function ThirdPlaceSettingsForm({
   tournamentId,
   thirdPlaceMatchEnabled,
@@ -535,6 +598,8 @@ export default async function RoundsPage({
       r.matches.every((m) => m.isBye || !m.homePlayerId || !m.awayPlayerId || m.status !== "SCHEDULED")
     );
   const finalPhaseFromStandingsExists = tournament.rounds.some((r) => r.isFinalPhase);
+  const swissRoundLimitReached =
+    tournament.swissRoundsCount !== null && mainPhaseRounds.length >= tournament.swissRoundsCount;
 
   return (
     <div className="flex flex-col gap-8">
@@ -576,6 +641,15 @@ export default async function RoundsPage({
         </div>
       </div>
 
+      {tournament.format === "SWISS" && (
+        <SwissRoundsSettingsForm
+          tournamentId={tournament.id}
+          swissRoundsCount={tournament.swissRoundsCount}
+          roundsPlayed={mainPhaseRounds.length}
+          canManage={canManage}
+        />
+      )}
+
       {(tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") && (
         <FinalPhaseSettingsForm
           tournamentId={tournament.id}
@@ -611,19 +685,26 @@ export default async function RoundsPage({
                 className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
               />
             )}
-          {!tournament.isTeamEvent && tournament.format === "SWISS" && (
+          {!tournament.isTeamEvent && tournament.format === "SWISS" && !swissRoundLimitReached && (
             <RoundActionButton
               action={generateSwissBound}
               label="Générer la ronde suisse suivante"
               className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
             />
           )}
-          {tournament.isTeamEvent && tournament.format === "SWISS" && (
+          {tournament.isTeamEvent && tournament.format === "SWISS" && !swissRoundLimitReached && (
             <RoundActionButton
               action={generateTeamSwissBound}
               label="Générer la ronde suisse suivante (équipes)"
               className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
             />
+          )}
+          {tournament.format === "SWISS" && swissRoundLimitReached && (
+            <p className="text-sm text-black/60 dark:text-white/60 self-center">
+              Nombre de rondes prévu atteint — générez la phase finale
+              ci-dessous, ou augmentez le nombre de rondes plus haut pour en
+              ajouter une de plus.
+            </p>
           )}
           {!tournament.isTeamEvent &&
             tournament.format === "GROUPS" &&

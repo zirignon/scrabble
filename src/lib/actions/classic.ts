@@ -848,6 +848,33 @@ export async function updateFinalPhaseSettingsAction(
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
 }
 
+// Fixe (ou retire) le nombre de rondes suisses que l'organisateur prévoit de
+// jouer avant de passer à la phase finale — un champ vide retire la limite
+// et redonne un enchaînement de rondes sans fin prédéfinie, comme avant
+// l'ajout de ce réglage.
+export async function updateSwissRoundsSettingsAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "SWISS") {
+    throw new Error("Ce réglage ne s'applique qu'au format suisse.");
+  }
+
+  const raw = formData.get("swissRoundsCount");
+  const swissRoundsCount = raw && String(raw).trim() ? Number(raw) : null;
+  if (swissRoundsCount !== null && (!Number.isInteger(swissRoundsCount) || swissRoundsCount < 1)) {
+    return;
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { swissRoundsCount },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
 // Active/désactive le match pour la 3e place (perdants de demi-finale) —
 // s'applique à tout tableau à élimination directe (KNOCKOUT, phase finale
 // de poules, ou phase finale round-robin/suisse), contrairement à la
