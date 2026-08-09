@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireUser, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { slugify } from "@/lib/slug";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
+import { writeAuditLog } from "@/lib/audit";
 import type { ActionState } from "@/lib/actions/auth";
 
 const tournamentSchema = z.object({
@@ -93,6 +94,10 @@ export async function createTournamentAction(
       status: "DRAFT",
     },
   });
+  await writeAuditLog(session, "TOURNAMENT_CREATED", "TOURNAMENT", tournament.id, {
+    type: tournament.type,
+    format: tournament.format,
+  });
 
   revalidatePath("/admin");
   revalidatePath("/tournois");
@@ -149,6 +154,10 @@ export async function updateDuplicateSettingsAction(
       duplicateRythme: rythme as (typeof duplicateRythmeValues)[number],
     },
   });
+  await writeAuditLog(session, "TOURNAMENT_STATUS_CHANGED", "TOURNAMENT", tournamentId, {
+    from: tournament.status,
+    to: status,
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
 }
@@ -195,6 +204,9 @@ export async function deleteTournamentAction(tournamentId: string) {
     throw new Error("Non autorisé.");
   }
 
+  await writeAuditLog(session, "TOURNAMENT_DELETED", "TOURNAMENT", tournamentId, {
+    name: tournament.name,
+  });
   await prisma.tournament.delete({ where: { id: tournamentId } });
 
   revalidatePath("/admin");
