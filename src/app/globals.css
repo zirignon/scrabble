@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7faf8;
+  --foreground: #18231e;
+  --surface: rgb(255 255 255 / 0.82);
+  --surface-strong: #ffffff;
+  --border: rgb(24 35 30 / 0.12);
 }
 
 @theme inline {
@@ -26,17 +29,57 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #101815;
+    --foreground: #edf5ef;
+    --surface: rgb(21 32 27 / 0.82);
+    --surface-strong: #17221c;
+    --border: rgb(237 245 239 / 0.14);
   }
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3 {
   font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.025em;
+}
+
+::selection {
+  background: rgb(43 58 103 / 0.23);
+  color: inherit;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid rgb(43 58 103 / 0.55);
+  outline-offset: 3px;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
