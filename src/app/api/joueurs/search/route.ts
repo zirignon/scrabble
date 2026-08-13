@@ -15,18 +15,29 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
   const tournamentId = searchParams.get("tournamentId") ?? undefined;
+  // "team" : cas de l'ajout direct d'un joueur à une équipe — on n'exclut
+  // que les joueurs déjà affectés à une équipe de ce tournoi (l'inscription
+  // se fait automatiquement à l'ajout), pas tous les inscrits.
+  const context = searchParams.get("context");
 
   if (q.length < 2) {
     return NextResponse.json({ players: [] });
   }
 
   const excludePlayerIds = tournamentId
-    ? (
-        await prisma.registration.findMany({
-          where: { tournamentId },
-          select: { playerId: true },
-        })
-      ).map((r) => r.playerId)
+    ? context === "team"
+      ? (
+          await prisma.teamMember.findMany({
+            where: { team: { tournamentId } },
+            select: { playerId: true },
+          })
+        ).map((m) => m.playerId)
+      : (
+          await prisma.registration.findMany({
+            where: { tournamentId },
+            select: { playerId: true },
+          })
+        ).map((r) => r.playerId)
     : [];
 
   const where: Prisma.PlayerWhereInput = {
@@ -51,7 +62,16 @@ export async function GET(request: NextRequest) {
       firstName: p.firstName,
       lastName: p.lastName,
       licenseNumber: p.licenseNumber,
+      clubId: p.clubId,
       clubName: p.club?.name ?? null,
+      category: p.category,
+      classification: p.classification,
+      classificationClassic: p.classificationClassic,
+      coefficientClassic: p.coefficientClassic,
+      eloDuplicate: p.eloDuplicate,
+      eloClassic: p.eloClassic,
+      nationality: p.nationality,
+      federation: p.federation,
     })),
   });
 }

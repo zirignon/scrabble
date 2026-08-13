@@ -17,12 +17,16 @@ export default async function AdminLayout({
         <Link href="/admin/tournois/nouveau" className="hover:underline">
           Créer un tournoi
         </Link>
-        <Link href="/admin/joueurs" className="hover:underline">
-          Joueurs
-        </Link>
-        <Link href="/admin/clubs" className="hover:underline">
-          Clubs
-        </Link>
+        {session.role === "ADMIN" && (
+          <Link href="/admin/joueurs" className="hover:underline">
+            Joueurs
+          </Link>
+        )}
+        {session.role === "ADMIN" && (
+          <Link href="/admin/clubs" className="hover:underline">
+            Clubs
+          </Link>
+        )}
         {session.role === "ADMIN" && (
           <Link href="/admin/dictionnaire" className="hover:underline">
             Dictionnaire

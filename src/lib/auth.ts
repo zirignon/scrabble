@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { hasSecureSessionSecret } from "@/lib/security";
 
 const SESSION_COOKIE = "session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -13,6 +15,12 @@ function getSecretKey() {
   if (!secret) {
     throw new Error("SESSION_SECRET is not set");
   }
+  if (
+    process.env.NODE_ENV === "production" &&
+    !hasSecureSessionSecret(secret)
+  ) {
+    throw new Error("SESSION_SECRET must be at least 32 characters in production");
+  }
   return new TextEncoder().encode(secret);
 }
 
@@ -21,6 +29,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: Role;
+  sessionVersion: number;
 }
 
 export async function hashPassword(password: string) {
@@ -34,6 +43,8 @@ export async function verifyPassword(password: string, hash: string) {
 export async function createSession(payload: SessionPayload) {
   const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("scrabble-app")
+    .setAudience("scrabble-app")
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
     .sign(getSecretKey());
@@ -59,12 +70,35 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, getSecretKey());
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      issuer: "scrabble-app",
+      audience: "scrabble-app",
+    });
+    if (
+      typeof payload.userId !== "string" ||
+      typeof payload.email !== "string" ||
+      typeof payload.name !== "string" ||
+      typeof payload.sessionVersion !== "number" ||
+      !["ADMIN", "ORGANIZER", "REFEREE", "PLAYER"].includes(payload.role as string)
+    ) {
+      return null;
+    }
+
+    // Ne jamais faire confiance durablement au rôle présent dans le JWT : un
+    // administrateur rétrogradé (ou un compte supprimé) doit perdre son accès
+    // immédiatement, sans attendre l'expiration du cookie.
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, email: true, name: true, role: true, sessionVersion: true },
+    });
+    if (!user || user.sessionVersion !== payload.sessionVersion) return null;
+
     return {
-      userId: payload.userId as string,
-      email: payload.email as string,
-      name: payload.name as string,
-      role: payload.role as Role,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      sessionVersion: user.sessionVersion,
     };
   } catch {
     return null;

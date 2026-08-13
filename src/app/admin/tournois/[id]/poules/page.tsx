@@ -39,12 +39,12 @@ function QualifiersSettingsForm({
               type="number"
               min={1}
               defaultValue={qualifiersPerPool}
-              className="w-24 rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+              className="w-24 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
             />
           </div>
           <button
             type="submit"
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Mettre à jour
           </button>
@@ -101,7 +101,7 @@ export default async function PoolsPage({
           >
             ← Retour au tournoi
           </Link>
-          <h1 className="text-2xl font-semibold mt-1">
+          <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
             Poules — {tournament.name}
           </h1>
           <p className="text-sm text-black/60 dark:text-white/60 mt-1">
@@ -143,7 +143,7 @@ export default async function PoolsPage({
         {tournament.pools.map((pool) => (
           <section key={pool.id} className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
+              <h2 className="font-heading text-lg font-semibold">
                 {pool.name}
                 <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
                   {pool.teams.length} équipe(s)
@@ -214,7 +214,7 @@ export default async function PoolsPage({
                 </div>
                 <button
                   type="submit"
-                  className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+                  className="rounded-md bg-gold hover:bg-gold/90 text-white dark:bg-gold-light dark:hover:bg-gold-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
                 >
                   + Ajouter
                 </button>
@@ -255,7 +255,7 @@ export default async function PoolsPage({
         >
           ← Retour au tournoi
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Poules — {tournament.name}
         </h1>
         <p className="text-sm text-black/60 dark:text-white/60 mt-1">
@@ -296,7 +296,7 @@ export default async function PoolsPage({
       {tournament.pools.map((pool) => (
         <section key={pool.id} className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
+            <h2 className="font-heading text-lg font-semibold">
               {pool.name}
               <span className="ml-2 text-sm font-normal text-black/60 dark:text-white/60">
                 {pool.members.length} joueur(s)
@@ -322,7 +322,7 @@ export default async function PoolsPage({
               {pool.members.map((member) => (
                 <tr key={member.id} className="border-b border-black/5 dark:border-white/5">
                   <td className="py-2 pr-4">
-                    {member.player.firstName} {member.player.lastName}
+                    {member.player.lastName} {member.player.firstName}
                   </td>
                   {canManage && (
                     <td className="py-2 pr-4 text-right">
@@ -362,14 +362,14 @@ export default async function PoolsPage({
                   <option value="">Sélectionner...</option>
                   {unassignedPlayers.map((player) => (
                     <option key={player.id} value={player.id}>
-                      {player.firstName} {player.lastName}
+                      {player.lastName} {player.firstName}
                     </option>
                   ))}
                 </select>
               </div>
               <button
                 type="submit"
-                className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+                className="rounded-md bg-gold hover:bg-gold/90 text-white dark:bg-gold-light dark:hover:bg-gold-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
               >
                 + Ajouter
               </button>
@@ -387,7 +387,7 @@ export default async function PoolsPage({
       {unassignedPlayers.length > 0 && tournament.pools.length > 0 && (
         <p className="text-sm text-black/50 dark:text-white/50">
           Joueurs inscrits non encore affectés à une poule :{" "}
-          {unassignedPlayers.map((p) => `${p.firstName} ${p.lastName}`).join(", ")}
+          {unassignedPlayers.map((p) => `${p.lastName} ${p.firstName}`).join(", ")}
         </p>
       )}
     </div>

@@ -64,7 +64,7 @@ export function ReferenceMoveSolverForm({
           type="button"
           onClick={handleSearch}
           disabled={!rack.trim() || isPending}
-          className="rounded border border-black/10 dark:border-white/20 px-2 py-1 text-xs disabled:opacity-40"
+          className="rounded bg-navy hover:bg-navy/90 dark:bg-navy-light dark:text-navy text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
         >
           {isPending ? "Recherche…" : "Solutions"}
         </button>
@@ -82,7 +82,7 @@ export function ReferenceMoveSolverForm({
         </label>
         <button
           type="submit"
-          className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-sm font-medium transition-colors"
         >
           + Coup de référence
         </button>

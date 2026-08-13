@@ -4,9 +4,22 @@ export const headRow = "text-left border-b-2 border-navy/20 dark:border-navy-lig
 export const th = "py-2.5 pr-4 text-xs font-semibold uppercase tracking-wide text-black/45 dark:text-white/50";
 export const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
 
-export const matchRow = "border-b border-black/5 dark:border-white/5 hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
+// Zébrage discret (even:) en plus du survol, pour guider l'œil sur les
+// tableaux à beaucoup de lignes sans alourdir le contraste.
+export const matchRow = "border-b border-black/5 dark:border-white/5 even:bg-navy/[0.02] dark:even:bg-navy-light/[0.03] hover:bg-navy/[0.035] dark:hover:bg-white/[0.05] transition-colors";
 export const matchCell = "py-2 pr-4";
 export const scoreCell = "py-2 pr-4 font-semibold tabular-nums";
+
+// Pastille ronde colorée pour une lettre/nom de poule court (« A », « B »...),
+// en écho aux pastilles de statut : un petit repère visuel plutôt qu'un
+// simple libellé texte.
+export function PoolBadge({ name }: { name: string }) {
+  return (
+    <span className="self-start inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-navy dark:bg-navy-light text-white dark:text-navy text-xs font-heading font-semibold">
+      {name}
+    </span>
+  );
+}
 
 const matchStatusLabel: Record<string, string> = {
   SCHEDULED: "À jouer",
@@ -44,4 +57,19 @@ export function MatchStatusPill({ status, isBye }: { status: string; isBye: bool
   if (status === "SCHEDULED") return <Pill tone="gold">À jouer</Pill>;
   if (status === "CANCELLED") return <Pill tone="muted">Annulé</Pill>;
   return <Pill tone="brick">{matchStatusLabel[status] ?? status}</Pill>;
+}
+
+const registrationStatusLabel: Record<string, string> = {
+  PENDING: "En attente",
+  CONFIRMED: "Confirmé",
+  WAITLIST: "Liste d'attente",
+  CANCELLED: "Annulé",
+};
+
+export function RegistrationStatusPill({ status }: { status: string }) {
+  if (status === "CONFIRMED") return <Pill tone="moss">Confirmé</Pill>;
+  if (status === "PENDING") return <Pill tone="gold">En attente</Pill>;
+  if (status === "WAITLIST") return <Pill tone="gold">Liste d&apos;attente</Pill>;
+  if (status === "CANCELLED") return <Pill tone="muted">Annulé</Pill>;
+  return <Pill tone="muted">{registrationStatusLabel[status] ?? status}</Pill>;
 }

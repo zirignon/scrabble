@@ -25,11 +25,17 @@ export function ClubRow({
     updateClubAction.bind(null, club.id),
     initialState
   );
+  // Le bouton "Enregistrer" vit dans sa propre colonne (via l'attribut
+  // form=, plutôt qu'imbriqué dans le <form>) pour que cette colonne reste
+  // alignée d'une ligne à l'autre : à l'intérieur du <form>, sa position
+  // dépendait de la longueur du code fédéral affiché juste avant, ce qui la
+  // décalait ligne par ligne.
+  const formId = `club-form-${club.id}`;
 
   return (
     <tr className="border-b border-black/5 dark:border-white/5 align-top">
       <td className="py-2 pr-4">
-        <form action={formAction} className="flex flex-wrap items-center gap-2">
+        <form id={formId} action={formAction} className="flex flex-wrap items-center gap-2">
           <input name="name" defaultValue={club.name} required className={`${inputClass} w-40`} />
           <input
             name="city"
@@ -51,17 +57,20 @@ export function ClubRow({
               code : {club.code}
             </span>
           )}
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-md bg-emerald-700 text-white px-3 py-1.5 text-xs font-medium disabled:opacity-60"
-          >
-            {pending ? "..." : "Enregistrer"}
-          </button>
           {state.error && <p className="text-xs text-red-600 basis-full">{state.error}</p>}
         </form>
       </td>
       <td className="py-2 pr-4">{club.playerCount}</td>
+      <td className="py-2 pr-4">
+        <button
+          form={formId}
+          type="submit"
+          disabled={pending}
+          className="rounded-md bg-emerald-700 text-white px-3 py-1.5 text-xs font-medium disabled:opacity-60 whitespace-nowrap"
+        >
+          {pending ? "..." : "Enregistrer"}
+        </button>
+      </td>
       <td className="py-2 pr-4 text-right">
         <form action={deleteClubAction.bind(null, club.id)}>
           <button type="submit" className="text-red-600 hover:underline text-sm">

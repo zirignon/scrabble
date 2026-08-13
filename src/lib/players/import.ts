@@ -111,8 +111,23 @@ export async function importPlayersCsvChunk(text: string): Promise<PlayerImportS
       });
       clubCodeToId.set(code, club.id);
       summary.clubsCreated += 1;
-    } catch (err) {
-      summary.errors.push(`Club ${code} : ${err instanceof Error ? err.message : "erreur inconnue"}`);
+    } catch {
+      // Un club portant ce nom existe déjà (créé manuellement, ou par un
+      // import précédent/concurrent avant que le code ne lui soit associé) :
+      // on le retrouve par son nom et on lui attache ce code, plutôt que de
+      // faire échouer l'import des joueurs de ce club.
+      try {
+        const existing = await prisma.club.findUnique({ where: { name: code } });
+        if (!existing) throw new Error("introuvable même par nom");
+        if (!existing.code) {
+          await prisma.club.update({ where: { id: existing.id }, data: { code } });
+        }
+        clubCodeToId.set(code, existing.id);
+      } catch (fallbackErr) {
+        summary.errors.push(
+          `Club ${code} : ${fallbackErr instanceof Error ? fallbackErr.message : "erreur inconnue"}`
+        );
+      }
     }
   }
 

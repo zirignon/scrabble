@@ -36,7 +36,7 @@ export async function GET(
     return game.results.map((result) => [
       game.number,
       top ?? "",
-      `${result.player.firstName} ${result.player.lastName}`,
+      `${result.player.lastName} ${result.player.firstName}`,
       result.score,
       result.penalty,
       result.score - result.penalty,

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireRole, STAFF_ROLES } from "@/lib/guards";
+import { requireRole } from "@/lib/guards";
 import type { ActionState } from "@/lib/actions/auth";
 
 const clubSchema = z.object({
@@ -16,7 +16,7 @@ export async function createClubAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
 
   const parsed = clubSchema.safeParse({
     name: formData.get("name"),
@@ -38,7 +38,7 @@ export async function createClubAction(
 }
 
 export async function deleteClubAction(clubId: string) {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
   await prisma.club.delete({ where: { id: clubId } });
   revalidatePath("/admin/clubs");
 }
@@ -48,7 +48,7 @@ export async function updateClubAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
 
   const parsed = clubSchema.safeParse({
     name: formData.get("name"),

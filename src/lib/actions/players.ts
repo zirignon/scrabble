@@ -27,11 +27,16 @@ const playerSchema = z.object({
   federation: z.string().optional(),
 });
 
-export async function createPlayerAction(
+// Crée un nouveau joueur, ou met à jour un joueur existant si un
+// `playerId` est fourni (cas d'une suggestion sélectionnée dans
+// l'autocomplétion du formulaire — voir PlayerForm).
+export async function savePlayerAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
+
+  const playerId = formData.get("playerId");
 
   const parsed = playerSchema.safeParse({
     firstName: formData.get("firstName"),
@@ -51,14 +56,55 @@ export async function createPlayerAction(
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  await prisma.player.create({ data: parsed.data });
+  try {
+    if (typeof playerId === "string" && playerId) {
+      await prisma.player.update({ where: { id: playerId }, data: parsed.data });
+    } else {
+      await prisma.player.create({ data: parsed.data });
+    }
+  } catch {
+    return { error: "Un joueur avec ce n° de licence existe déjà." };
+  }
 
   revalidatePath("/admin/joueurs");
   return {};
 }
 
-export async function deletePlayerAction(playerId: string) {
+const quickPlayerSchema = z.object({
+  firstName: z.string().min(1, "Prénom requis."),
+  lastName: z.string().min(1, "Nom requis."),
+  licenseNumber: z.string().optional(),
+});
+
+// Création minimale d'un joueur directement depuis un écran d'inscription
+// (tournoi ou équipe) plutôt que via la fiche complète de /admin/joueurs —
+// accessible aux organisateurs/arbitres (STAFF_ROLES), contrairement à
+// savePlayerAction qui reste réservé aux administrateurs.
+export async function createPlayerQuickAction(
+  formData: FormData
+): Promise<{ playerId?: string; error?: string }> {
   await requireRole(STAFF_ROLES);
+
+  const parsed = quickPlayerSchema.safeParse({
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    licenseNumber: formData.get("licenseNumber") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  try {
+    const player = await prisma.player.create({ data: parsed.data });
+    revalidatePath("/admin/joueurs");
+    return { playerId: player.id };
+  } catch {
+    return { error: "Un joueur avec ce n° de licence existe déjà." };
+  }
+}
+
+export async function deletePlayerAction(playerId: string) {
+  await requireRole(["ADMIN"]);
   await prisma.player.delete({ where: { id: playerId } });
   revalidatePath("/admin/joueurs");
 }
@@ -66,7 +112,7 @@ export async function deletePlayerAction(playerId: string) {
 export async function importPlayersChunkAction(
   text: string
 ): Promise<PlayerImportSummary> {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
   const summary = await importPlayersCsvChunk(text);
   revalidatePath("/admin/joueurs");
   revalidatePath("/admin/clubs");

@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { requireRole, STAFF_ROLES } from "@/lib/guards";
+import { requireRole } from "@/lib/guards";
 import { csvResponse, toCsv } from "@/lib/csv";
 
 export async function GET() {
-  await requireRole(STAFF_ROLES);
+  await requireRole(["ADMIN"]);
 
   const players = await prisma.player.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

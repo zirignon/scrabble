@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DisplayData, DisplayGameTimer } from "@/lib/display";
-import { LiveCountdown } from "@/components/LiveCountdown";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { FRENCH_LETTER_VALUES } from "@/lib/duplicate/board";
 import { computeLiveRemaining, formatClock } from "@/lib/timer";
@@ -18,7 +17,13 @@ export function DisplayBoard({
   initialData: DisplayData;
 }) {
   const [data, setData] = useState<DisplayData>(initialData);
-  const [view, setView] = useState<"standings" | "current">("standings");
+  const [autoView, setAutoView] = useState<"standings" | "current">("standings");
+  const view =
+    data.displayMode === "STANDINGS"
+      ? "standings"
+      : data.displayMode === "CURRENT"
+        ? "current"
+        : autoView;
 
   useEffect(() => {
     // Les navigateurs bloquent la lecture audio sans interaction préalable :
@@ -43,16 +48,9 @@ export function DisplayBoard({
     // Un mode figé par l'organisateur (STANDINGS/CURRENT) désactive
     // l'alternance automatique et impose la vue choisie ; en mode AUTO,
     // l'écran continue d'alterner toutes les 12s comme avant.
-    if (data.displayMode === "STANDINGS") {
-      setView("standings");
-      return;
-    }
-    if (data.displayMode === "CURRENT") {
-      setView("current");
-      return;
-    }
+    if (data.displayMode !== "AUTO") return;
     const interval = setInterval(() => {
-      setView((v) => (v === "standings" ? "current" : "standings"));
+      setAutoView((v) => (v === "standings" ? "current" : "standings"));
     }, ROTATE_MS);
     return () => clearInterval(interval);
   }, [data.displayMode]);
@@ -239,53 +237,29 @@ function CurrentView({ data }: { data: DisplayData }) {
           {group.name && (
             <h2 className="text-3xl font-semibold mb-3 text-emerald-800">{group.name}</h2>
           )}
-          <table className="w-full text-2xl border-collapse">
+          <table className="w-full text-2xl border-collapse table-fixed">
             <thead>
-              <tr className="text-left text-black/50 text-xl border-b border-black/20">
-                <th className="py-2 pr-4">Table</th>
-                <th className="py-2 pr-4">Domicile</th>
-                <th className="py-2 pr-4 text-right">⏱</th>
-                <th className="py-2 pr-4 text-right">Score</th>
-                <th className="py-2 pr-4">Extérieur</th>
-                <th className="py-2 pr-4">⏱</th>
+              <tr className="text-left text-black/50 text-lg border-b border-black/20">
+                <th className="py-2 pr-4 w-[9%]">Table</th>
+                <th className="py-2 pr-4 w-[33%]">Domicile</th>
+                <th className="py-2 pr-4 w-[25%] text-center">Score</th>
+                <th className="py-2 pr-4 w-[33%]">Extérieur</th>
               </tr>
             </thead>
             <tbody>
               {group.matches.map((m, mi) => (
-                <tr key={mi} className="border-b border-black/10">
-                  <td className="py-2 pr-4">{m.table ?? "—"}</td>
-                  <td className="py-2 pr-4">{m.home}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {m.clock ? (
-                      <LiveCountdown
-                        baselineSeconds={m.clock.homeRemainingSeconds}
-                        runningSince={m.clock.runningSide === "HOME" ? m.clock.startedAt : null}
-                        className={m.clock.runningSide === "HOME" ? "text-emerald-800 font-semibold" : ""}
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
+                <tr key={mi} className="border-b border-black/10 align-middle">
+                  <td className="py-3 pr-2 tabular-nums">{m.table ?? "—"}</td>
+                  <td className="py-3 pr-4 text-xl leading-tight break-words">{m.home}</td>
+                  <td className="py-3 pr-4 text-center tabular-nums text-xl whitespace-nowrap overflow-hidden">
                     {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
                   </td>
-                  <td className="py-2 pr-4">{m.away ?? ""}</td>
-                  <td className="py-2 pr-4 tabular-nums">
-                    {m.clock ? (
-                      <LiveCountdown
-                        baselineSeconds={m.clock.awayRemainingSeconds}
-                        runningSince={m.clock.runningSide === "AWAY" ? m.clock.startedAt : null}
-                        className={m.clock.runningSide === "AWAY" ? "text-emerald-800 font-semibold" : ""}
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
+                  <td className="py-3 pr-4 text-xl leading-tight break-words">{m.away ?? ""}</td>
                 </tr>
               ))}
               {group.matches.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-black/40 text-xl">
+                  <td colSpan={4} className="py-4 text-black/40 text-xl">
                     Aucun match.
                   </td>
                 </tr>

@@ -37,6 +37,7 @@ export async function loginAction(
     email: user.email,
     name: user.name,
     role: user.role,
+    sessionVersion: user.sessionVersion,
   });
 
   redirect("/");
@@ -89,6 +90,7 @@ export async function registerAction(
     email: user.email,
     name: user.name,
     role: user.role,
+    sessionVersion: user.sessionVersion,
   });
 
   redirect("/");

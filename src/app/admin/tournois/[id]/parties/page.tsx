@@ -66,7 +66,7 @@ function FormulaSettingsForm({
           </select>
           <button
             type="submit"
-            className="rounded-md border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Mettre à jour
           </button>
@@ -118,7 +118,7 @@ export default async function GamesPage({
         >
           ← Retour au tournoi
         </Link>
-        <h1 className="text-2xl font-semibold mt-1">
+        <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Parties — {tournament.name}
         </h1>
         {canManage && tournament.games.length > 0 && (
@@ -161,7 +161,7 @@ export default async function GamesPage({
         const topIsAutomatic = game.referenceMoves.length > 0;
         return (
           <section key={game.id} className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">
+            <h2 className="font-heading text-lg font-semibold">
               Partie {game.number}
               {game.playedAt && (
                 <span className="text-xs text-black/50 dark:text-white/50 ml-2">
@@ -200,7 +200,7 @@ export default async function GamesPage({
                     type="number"
                     name="top"
                     defaultValue={game.top ?? ""}
-                    className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                    className="w-24 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                   />
                 ) : (
                   <span>{game.top ?? "—"}</span>
@@ -224,7 +224,7 @@ export default async function GamesPage({
                     return (
                       <tr key={player.id} className="border-b border-black/5 dark:border-white/5">
                         <td className="py-2 pr-4">
-                          {player.firstName} {player.lastName}
+                          {player.lastName} {player.firstName}
                         </td>
                         <td className="py-2 pr-4">
                           {canManage ? (
@@ -232,7 +232,7 @@ export default async function GamesPage({
                               type="number"
                               name={`score_${player.id}`}
                               defaultValue={result?.score ?? ""}
-                              className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                              className="w-20 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                             />
                           ) : (
                             (result?.score ?? "—")
@@ -244,7 +244,7 @@ export default async function GamesPage({
                               type="number"
                               name={`penalty_${player.id}`}
                               defaultValue={result?.penalty ?? 0}
-                              className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent"
+                              className="w-20 rounded border-2 border-gold/40 dark:border-gold-light/40 px-2 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                             />
                           ) : (
                             (result?.penalty ?? 0)
