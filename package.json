@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test tests/classic.test.ts tests/security.test.ts",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
     "vercel-build": "prisma migrate deploy && next build",
