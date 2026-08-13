@@ -18,7 +18,7 @@ export function NavBarClient({
   // barre de navigation du site.
   if (pathname?.endsWith("/affichage")) return null;
 
-  const navLink = "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors";
+  const navLink = "rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200";
   const navLinkInactive =
     "text-black/70 dark:text-white/70 hover:bg-navy/10 hover:text-navy dark:hover:bg-navy-light/15 dark:hover:text-navy-light";
   const navLinkActive = "bg-navy text-white dark:bg-navy-light dark:text-navy";
@@ -27,13 +27,13 @@ export function NavBarClient({
   const isAdmin = pathname?.startsWith("/admin");
 
   return (
-    <header className="border-b border-black/10 dark:border-white/10">
-      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-heading font-semibold text-lg">
+    <header className="sticky top-0 z-30 border-b border-black/10 bg-white/75 shadow-sm shadow-emerald-950/[0.03] backdrop-blur-md dark:border-white/10 dark:bg-[#101815]/75">
+      <div className="mx-auto max-w-5xl px-4 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <Link href="/" className="flex items-center gap-2 font-heading font-semibold text-lg tracking-tight text-navy dark:text-white">
           <Logo size={26} />
           Scrabble Tournois
         </Link>
-        <nav className="flex items-center gap-1.5 text-sm">
+        <nav className="flex flex-wrap items-center justify-end gap-1.5 text-sm">
           <Link
             href="/tournois"
             className={`${navLink} ${isTournois ? navLinkActive : navLinkInactive}`}
@@ -69,7 +69,7 @@ export function NavBarClient({
               </Link>
               <Link
                 href="/register"
-                className="rounded-md bg-emerald-700 text-white px-3.5 py-1.5 text-sm font-medium hover:bg-emerald-800 transition-colors"
+                className="rounded-full bg-emerald-700 text-white px-3.5 py-1.5 text-sm font-medium shadow-sm shadow-emerald-950/20 transition-all duration-200 hover:-translate-y-px hover:bg-emerald-800 hover:shadow-md"
               >
                 Créer un compte
               </Link>

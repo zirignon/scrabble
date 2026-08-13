@@ -32,7 +32,7 @@ export default function RootLayout({
       lang="fr"
       className={`${fraunces.variable} ${workSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-emerald-50 dark:bg-emerald-950/20">
+      <body className="min-h-full flex flex-col bg-emerald-50/70 dark:bg-emerald-950/20">
         <div
           className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
           aria-hidden="true"
