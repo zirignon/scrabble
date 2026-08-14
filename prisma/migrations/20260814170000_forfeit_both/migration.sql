@@ -1,0 +1,1 @@
+ALTER TYPE "MatchStatus" ADD VALUE 'FORFEIT_BOTH';

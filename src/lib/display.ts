@@ -18,6 +18,7 @@ const matchStatusLabel: Record<string, string> = {
   PLAYED: "Joué",
   FORFEIT_HOME: "Forfait (domicile)",
   FORFEIT_AWAY: "Forfait (extérieur)",
+  FORFEIT_BOTH: "Forfait (double)",
   CANCELLED: "Annulé",
 };
 

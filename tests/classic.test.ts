@@ -193,3 +193,27 @@ test("barème de points : victoire 3, nul 2, défaite jouée 1, forfait 0", () =
   assert.equal(byId.get("a")!.forfeits, 1);
   assert.equal(byId.get("a")!.losses, 1);
 });
+
+test("un double forfait (0-0) donne 0 point aux deux camps, pas un nul", () => {
+  const players = [
+    { playerId: "a", firstName: "A", lastName: "A" },
+    { playerId: "b", firstName: "B", lastName: "B" },
+  ];
+  const rows = computeStandingsFromMatches(players, [
+    {
+      isBye: false,
+      homePlayerId: "a",
+      awayPlayerId: "b",
+      homeScore: 0,
+      awayScore: 0,
+      status: "FORFEIT_BOTH",
+      roundNumber: 1,
+    },
+  ]);
+  const byId = new Map(rows.map((r) => [r.playerId, r]));
+  assert.equal(byId.get("a")!.matchPoints, 0);
+  assert.equal(byId.get("a")!.forfeits, 1);
+  assert.equal(byId.get("a")!.losses, 1);
+  assert.equal(byId.get("b")!.matchPoints, 0);
+  assert.equal(byId.get("b")!.forfeits, 1);
+});

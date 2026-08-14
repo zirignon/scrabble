@@ -421,6 +421,10 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
     for (const m of lastRoundMatches) {
       if (m.status === "FORFEIT_HOME" && m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
       if (m.status === "FORFEIT_AWAY" && m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+      if (m.status === "FORFEIT_BOTH") {
+        if (m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
+        if (m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+      }
     }
   }
 
@@ -1471,6 +1475,7 @@ const resultSchema = z.object({
     "PLAYED",
     "FORFEIT_HOME",
     "FORFEIT_AWAY",
+    "FORFEIT_BOTH",
     "CANCELLED",
   ]),
 });
@@ -1498,11 +1503,14 @@ export async function recordMatchResultAction(
   // sauvegarde silencieusement mais le statut ne bouge pas, ce qui donne
   // l'impression que le bouton OK n'a rien fait. Un score de 0 signale en
   // plus un forfait de ce camp (au Scrabble classique, un score de 0 à
-  // l'issue d'une partie réellement jouée est en pratique impossible) —
+  // l'issue d'une partie réellement jouée est en pratique impossible), ou
+  // des deux camps si les deux scores sont à 0 (ex. deux forfaits appariés
+  // ensemble par le système suisse, voir generateSwissRoundWithForfeits) —
   // ignoré si l'arbitre a déjà choisi explicitement un statut.
   let status = parsed.data.status;
   if (status === "SCHEDULED" && homeScore !== null && awayScore !== null) {
-    if (homeScore === 0 && awayScore > 0) status = "FORFEIT_HOME";
+    if (homeScore === 0 && awayScore === 0) status = "FORFEIT_BOTH";
+    else if (homeScore === 0 && awayScore > 0) status = "FORFEIT_HOME";
     else if (awayScore === 0 && homeScore > 0) status = "FORFEIT_AWAY";
     else status = "PLAYED";
   }

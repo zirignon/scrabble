@@ -183,6 +183,14 @@ export function computeStandingsFromMatches(
         participantsThisRound.add(match.awayPlayerId);
         applyResult(match.homePlayerId, match.awayPlayerId, "WIN", match.homeScore ?? 0, match.awayScore ?? 0);
         applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0, true);
+      } else if (match.status === "FORFEIT_BOTH") {
+        // Les deux camps sont absents : 0 point chacun, comme un forfait
+        // simple — pas de vainqueur, à ne pas confondre avec un match nul
+        // réellement joué (2 points chacun).
+        participantsThisRound.add(match.homePlayerId);
+        participantsThisRound.add(match.awayPlayerId);
+        applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore ?? 0, match.awayScore ?? 0, true);
+        applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0, true);
       }
     }
 
