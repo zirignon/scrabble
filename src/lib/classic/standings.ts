@@ -217,13 +217,17 @@ export function computeStandingsFromMatches(
     headToHead.set(`${m.playerId}:${m.opponentId}`, m.outcome);
   }
 
+  // Ordre de départage (du plus déterminant au moins déterminant) : points
+  // de match, différence de points, Sonneborn-Berger, Buchholz, Buchholz
+  // médian, score cumulé — puis, en tout dernier recours, le total de
+  // points marqués et la confrontation directe.
   return [...rows.values()].sort((a, b) => {
     if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+    if (b.diff !== a.diff) return b.diff - a.diff;
+    if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
     if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
     if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
-    if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
     if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
-    if (b.diff !== a.diff) return b.diff - a.diff;
     if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
     const outcome = headToHead.get(`${a.playerId}:${b.playerId}`);
     if (outcome === "WIN") return -1;

@@ -215,11 +215,11 @@ function classicIndividualColumns(s: {
     { label: "N", value: String(s.draws) },
     { label: "D", value: String(s.losses) },
     { label: "Pts", value: String(s.matchPoints) },
+    { label: "Diff", value: formatDiff(s.diff) },
+    { label: "SB", value: String(s.sonnebornBerger) },
     { label: "Bchz", value: String(s.buchholz) },
     { label: "Bchz méd.", value: String(s.buchholzMedian) },
-    { label: "SB", value: String(s.sonnebornBerger) },
     { label: "Cumul", value: String(s.cumulativeScore) },
-    { label: "Diff", value: formatDiff(s.diff) },
   ];
 }
 

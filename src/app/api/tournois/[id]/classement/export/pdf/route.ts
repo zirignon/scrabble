@@ -28,7 +28,7 @@ export async function GET(
     const pools = await computeClassicPoolStandings(tournament.id);
     const sections: PdfSection[] = pools.map((pool) => ({
       heading: `Poule ${pool.poolName}`,
-      headers: ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Bchz", "Bchz méd.", "SB", "Cumul", "Diff"],
+      headers: ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
       rows: pool.standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
@@ -37,11 +37,11 @@ export async function GET(
         row.draws,
         row.losses,
         row.matchPoints,
+        row.diff,
+        row.sonnebornBerger,
         row.buchholz,
         row.buchholzMedian,
-        row.sonnebornBerger,
         row.cumulativeScore,
-        row.diff,
       ]),
       columnWeights: [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     }));
@@ -56,7 +56,7 @@ export async function GET(
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Bchz", "Bchz méd.", "SB", "Cumul", "Diff"],
+      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
       standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
@@ -69,11 +69,11 @@ export async function GET(
         row.draws,
         row.losses,
         row.matchPoints,
+        row.diff,
+        row.sonnebornBerger,
         row.buchholz,
         row.buchholzMedian,
-        row.sonnebornBerger,
         row.cumulativeScore,
-        row.diff,
       ]),
       [1, 2.6, 1, 1.4, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       { landscape: true }

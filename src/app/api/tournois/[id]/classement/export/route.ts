@@ -31,11 +31,11 @@ export async function GET(
         "N",
         "D",
         "Points",
+        "Diff",
+        "Sonneborn-Berger",
         "Buchholz",
         "Buchholz médian",
-        "Sonneborn-Berger",
         "Cumul progressif",
-        "Diff",
       ],
       standings.map((row, i) => [
         i + 1,
@@ -49,11 +49,11 @@ export async function GET(
         row.draws,
         row.losses,
         row.matchPoints,
+        row.diff,
+        row.sonnebornBerger,
         row.buchholz,
         row.buchholzMedian,
-        row.sonnebornBerger,
         row.cumulativeScore,
-        row.diff,
       ])
     );
   } else {
