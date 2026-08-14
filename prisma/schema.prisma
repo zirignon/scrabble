@@ -392,17 +392,6 @@ model Match {
   // l'ordre d'affichage ; toujours vrai (non pertinent) hors tournoi par
   // équipes.
   homeStarts   Boolean     @default(true)
-
-  // Chronomètre d'échecs du match (classique) : chaque camp dispose d'un
-  // temps de réflexion propre, alterné manuellement par l'arbitre.
-  // *ClockRemainingSeconds est le temps restant "figé" au dernier
-  // démarrage/pause ; clockStartedAt marque le dernier départ du camp
-  // en train de jouer (clockRunningSide), pour calculer le temps écoulé.
-  clockInitialSeconds       Int?
-  homeClockRemainingSeconds Int?
-  awayClockRemainingSeconds Int?
-  clockRunningSide          String?
-  clockStartedAt            DateTime?
 }
 
 // ---- Scrabble duplicate ----
