@@ -17,7 +17,13 @@ export function DisplayBoard({
   initialData: DisplayData;
 }) {
   const [data, setData] = useState<DisplayData>(initialData);
-  const [view, setView] = useState<"standings" | "current">("standings");
+  const [autoView, setAutoView] = useState<"standings" | "current">("standings");
+  const view =
+    data.displayMode === "STANDINGS"
+      ? "standings"
+      : data.displayMode === "CURRENT"
+        ? "current"
+        : autoView;
 
   useEffect(() => {
     // Les navigateurs bloquent la lecture audio sans interaction préalable :
@@ -42,16 +48,9 @@ export function DisplayBoard({
     // Un mode figé par l'organisateur (STANDINGS/CURRENT) désactive
     // l'alternance automatique et impose la vue choisie ; en mode AUTO,
     // l'écran continue d'alterner toutes les 12s comme avant.
-    if (data.displayMode === "STANDINGS") {
-      setView("standings");
-      return;
-    }
-    if (data.displayMode === "CURRENT") {
-      setView("current");
-      return;
-    }
+    if (data.displayMode !== "AUTO") return;
     const interval = setInterval(() => {
-      setView((v) => (v === "standings" ? "current" : "standings"));
+      setAutoView((v) => (v === "standings" ? "current" : "standings"));
     }, ROTATE_MS);
     return () => clearInterval(interval);
   }, [data.displayMode]);

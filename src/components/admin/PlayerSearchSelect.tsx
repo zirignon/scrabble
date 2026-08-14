@@ -143,7 +143,6 @@ export function PlayerSearchSelect({
 
   useEffect(() => {
     if (selected || query.trim().length < 2) {
-      setResults([]);
       return;
     }
     // AbortController plutôt qu'un simple debounce : sur un réseau lent, une

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ReferenceMoveSolverForm } from "@/components/admin/ReferenceMoveSolverForm";
 import type { SolverSolution } from "@/lib/duplicate/solver";
 
@@ -34,13 +34,11 @@ export function ReferenceMoveNavigator({
   initialRack: string;
 }) {
   const maxTurn = moves.length > 0 ? moves[moves.length - 1].turnNumber : 0;
-  const [turnNumber, setTurnNumber] = useState(maxTurn + 1);
-
-  // Après l'ajout ou la suppression d'un coup, revient automatiquement sur
-  // le prochain tour à saisir.
-  useEffect(() => {
-    setTurnNumber(maxTurn + 1);
-  }, [maxTurn]);
+  // null représente toujours le prochain coup. Le choix utilisateur est
+  // conservé pour l'édition d'un coup existant, sans synchronisation d'état
+  // dans un effet lors du retour serveur après ajout/suppression.
+  const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
+  const turnNumber = selectedTurn ?? maxTurn + 1;
 
   const selectedMove = moves.find((m) => m.turnNumber === turnNumber) ?? null;
 
@@ -53,7 +51,10 @@ export function ReferenceMoveNavigator({
         <select
           id="coup-select"
           value={turnNumber}
-          onChange={(e) => setTurnNumber(Number(e.target.value))}
+          onChange={(e) => {
+            const nextTurn = Number(e.target.value);
+            setSelectedTurn(nextTurn > maxTurn ? null : nextTurn);
+          }}
           className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
         >
           {moves.map((m) => (

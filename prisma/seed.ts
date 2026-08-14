@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateRoundRobinRounds } from "../src/lib/classic/pairing";
 import { importDictionaryWords } from "../src/lib/dictionary";
+import { canRunDemoSeed } from "../src/lib/security";
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,9 @@ async function hash(password: string) {
 }
 
 async function main() {
+  if (!canRunDemoSeed(process.env.NODE_ENV)) {
+    throw new Error("Le seed de démonstration est interdit en production.");
+  }
   console.log("Seeding database...");
 
   const admin = await prisma.user.upsert({
