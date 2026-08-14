@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { generateRoundRobinRounds } from "@/lib/classic/pairing";
-import { generateSwissRound, seedFirstSwissRound } from "@/lib/classic/swiss";
+import { generateSwissRound, generateSwissRoundWithForfeits, seedFirstSwissRound } from "@/lib/classic/swiss";
 import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
@@ -406,16 +406,31 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
     standingsForPairing = seedFirstSwissRound(standings, tournament.swissSeeding, eloByPlayer);
   }
 
-  const pairings = generateSwissRound(
-    standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
-    previousOpponents,
-    playersWithBye
-  );
-
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
+
+  // Un joueur forfait à la ronde qui vient de se terminer est probablement
+  // encore absent : on l'envoie en bas du classement pour l'appariement et
+  // on le fait rencontrer un autre forfait plutôt que d'imposer une
+  // "victoire gratuite" à un joueur présent (voir generateSwissRoundWithForfeits).
+  const forfeitedLastRound = new Set<string>();
+  if (last) {
+    const lastRoundMatches = previousMatches.filter((m) => m.roundId === last.id);
+    for (const m of lastRoundMatches) {
+      if (m.status === "FORFEIT_HOME" && m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
+      if (m.status === "FORFEIT_AWAY" && m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+    }
+  }
+
+  const pairings = generateSwissRoundWithForfeits(
+    standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
+    previousOpponents,
+    playersWithBye,
+    forfeitedLastRound
+  );
+
   const round = await prisma.round.create({
     data: { tournamentId, number: (last?.number ?? 0) + 1 },
   });
@@ -1473,24 +1488,28 @@ export async function recordMatchResultAction(
   });
   if (!parsed.success) return;
 
+  const homeScore = parsed.data.homeScore ? Number(parsed.data.homeScore) : null;
+  const awayScore = parsed.data.awayScore ? Number(parsed.data.awayScore) : null;
+
   // Si les deux scores sont renseignés mais que le statut est resté sur "À
   // jouer" (valeur par défaut du menu déroulant, facilement oubliée quand
   // on ne fait que saisir un score), on considère le match joué plutôt que
   // d'exiger une action séparée sur le menu — sans quoi le score se
   // sauvegarde silencieusement mais le statut ne bouge pas, ce qui donne
-  // l'impression que le bouton OK n'a rien fait.
-  const status =
-    parsed.data.status === "SCHEDULED" && parsed.data.homeScore && parsed.data.awayScore
-      ? "PLAYED"
-      : parsed.data.status;
+  // l'impression que le bouton OK n'a rien fait. Un score de 0 signale en
+  // plus un forfait de ce camp (au Scrabble classique, un score de 0 à
+  // l'issue d'une partie réellement jouée est en pratique impossible) —
+  // ignoré si l'arbitre a déjà choisi explicitement un statut.
+  let status = parsed.data.status;
+  if (status === "SCHEDULED" && homeScore !== null && awayScore !== null) {
+    if (homeScore === 0 && awayScore > 0) status = "FORFEIT_HOME";
+    else if (awayScore === 0 && homeScore > 0) status = "FORFEIT_AWAY";
+    else status = "PLAYED";
+  }
 
   const match = await prisma.match.update({
     where: { id: matchId },
-    data: {
-      homeScore: parsed.data.homeScore ? Number(parsed.data.homeScore) : null,
-      awayScore: parsed.data.awayScore ? Number(parsed.data.awayScore) : null,
-      status,
-    },
+    data: { homeScore, awayScore, status },
   });
   await maybeAdvanceRoundRobin(tournamentId, match.roundId);
 

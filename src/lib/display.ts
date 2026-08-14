@@ -202,6 +202,7 @@ function classicIndividualColumns(s: {
   wins: number;
   draws: number;
   losses: number;
+  forfeits: number;
   matchPoints: number;
   buchholz: number;
   buchholzMedian: number;
@@ -214,6 +215,7 @@ function classicIndividualColumns(s: {
     { label: "V", value: String(s.wins) },
     { label: "N", value: String(s.draws) },
     { label: "D", value: String(s.losses) },
+    { label: "Abs.", value: String(s.forfeits) },
     { label: "Pts", value: String(s.matchPoints) },
     { label: "Diff", value: formatDiff(s.diff) },
     { label: "SB", value: String(s.sonnebornBerger) },

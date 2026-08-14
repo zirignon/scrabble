@@ -28,7 +28,7 @@ export async function GET(
     const pools = await computeClassicPoolStandings(tournament.id);
     const sections: PdfSection[] = pools.map((pool) => ({
       heading: `Poule ${pool.poolName}`,
-      headers: ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
+      headers: ["Rang", "Joueur", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
       rows: pool.standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
@@ -36,6 +36,7 @@ export async function GET(
         row.wins,
         row.draws,
         row.losses,
+        row.forfeits,
         row.matchPoints,
         row.diff,
         row.sonnebornBerger,
@@ -43,7 +44,7 @@ export async function GET(
         row.buchholzMedian,
         row.cumulativeScore,
       ]),
-      columnWeights: [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      columnWeights: [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     }));
     pdf = await renderMultiTablePdf(
       `Classement par poule — ${tournament.name}`,
@@ -56,7 +57,7 @@ export async function GET(
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
+      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
       standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
@@ -68,6 +69,7 @@ export async function GET(
         row.wins,
         row.draws,
         row.losses,
+        row.forfeits,
         row.matchPoints,
         row.diff,
         row.sonnebornBerger,
@@ -75,7 +77,7 @@ export async function GET(
         row.buchholzMedian,
         row.cumulativeScore,
       ]),
-      [1, 2.6, 1, 1.4, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 2.6, 1, 1.4, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       { landscape: true }
     );
   } else {

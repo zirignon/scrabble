@@ -117,6 +117,7 @@ export default async function TournamentStandingsPage({
                   <th className={thNum}>V</th>
                   <th className={thNum}>N</th>
                   <th className={thNum}>D</th>
+                  <th className={thNum} title="Forfaits (absences)">Abs.</th>
                   <th className={thNum}>Pts</th>
                   <th className={thNum}>Diff</th>
                   <th className={thNum} title="Sonneborn-Berger">SB</th>
@@ -138,6 +139,7 @@ export default async function TournamentStandingsPage({
                     <td className={tdNum}>{r.wins}</td>
                     <td className={tdNum}>{r.draws}</td>
                     <td className={tdNum}>{r.losses}</td>
+                    <td className={tdNum}>{r.forfeits}</td>
                     <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
                     <td className={tdNum}>{r.diff}</td>
                     <td className={tdNum}>{r.sonnebornBerger}</td>
@@ -249,6 +251,7 @@ export default async function TournamentStandingsPage({
                       <th className={thNum}>V</th>
                       <th className={thNum}>N</th>
                       <th className={thNum}>D</th>
+                      <th className={thNum} title="Forfaits (absences)">Abs.</th>
                       <th className={thNum}>Pts</th>
                       <th className={thNum}>Diff</th>
                       <th className={thNum} title="Sonneborn-Berger">SB</th>
@@ -266,6 +269,7 @@ export default async function TournamentStandingsPage({
                         <td className={tdNum}>{r.wins}</td>
                         <td className={tdNum}>{r.draws}</td>
                         <td className={tdNum}>{r.losses}</td>
+                        <td className={tdNum}>{r.forfeits}</td>
                         <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
                         <td className={tdNum}>{r.diff}</td>
                         <td className={tdNum}>{r.sonnebornBerger}</td>
