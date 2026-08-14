@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -20,11 +19,7 @@ import {
   generateTeamKnockoutBracketAction,
   generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
-  pauseMatchClockAction,
   recordMatchResultAction,
-  resetMatchClockAction,
-  setMatchClockDurationAction,
-  startMatchClockAction,
   updateFinalPhaseSettingsAction,
   updateSwissRoundsSettingsAction,
   updateSwissSeedingAction,
@@ -32,7 +27,6 @@ import {
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
 import { RoundActionButton } from "@/components/admin/RoundActionButton";
-import { LiveCountdown } from "@/components/LiveCountdown";
 import type { Match, Player, Pool, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
@@ -40,6 +34,7 @@ const statusLabel: Record<string, string> = {
   PLAYED: "Joué",
   FORFEIT_HOME: "Forfait (domicile)",
   FORFEIT_AWAY: "Forfait (extérieur)",
+  FORFEIT_BOTH: "Forfait (double)",
   CANCELLED: "Annulé",
 };
 
@@ -51,103 +46,6 @@ type MatchWithRelations = Match & {
   pool: Pool | null;
 };
 
-function MatchClockControls({
-  match,
-  canManage,
-  tournamentId,
-}: {
-  match: MatchWithRelations;
-  canManage: boolean;
-  tournamentId: string;
-}) {
-  if (match.clockInitialSeconds == null) {
-    if (!canManage) return null;
-    return (
-      <form
-        action={setMatchClockDurationAction.bind(null, tournamentId, match.id)}
-        className="flex items-center gap-1"
-      >
-        <input
-          type="number"
-          name="minutes"
-          placeholder="min/camp"
-          className="w-20 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-0.5 text-xs font-medium transition-colors"
-        >
-          ⏱ Activer un chrono
-        </button>
-      </form>
-    );
-  }
-
-  const runningSince = match.clockStartedAt ? match.clockStartedAt.toISOString() : null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-black/50 dark:text-white/50">⏱</span>
-      <LiveCountdown
-        baselineSeconds={match.homeClockRemainingSeconds ?? match.clockInitialSeconds}
-        runningSince={match.clockRunningSide === "HOME" ? runningSince : null}
-        className={
-          match.clockRunningSide === "HOME"
-            ? "font-semibold text-emerald-700 dark:text-emerald-400"
-            : ""
-        }
-      />
-      <span className="text-black/40 dark:text-white/40">/</span>
-      <LiveCountdown
-        baselineSeconds={match.awayClockRemainingSeconds ?? match.clockInitialSeconds}
-        runningSince={match.clockRunningSide === "AWAY" ? runningSince : null}
-        className={
-          match.clockRunningSide === "AWAY"
-            ? "font-semibold text-emerald-700 dark:text-emerald-400"
-            : ""
-        }
-      />
-      {canManage && (
-        <>
-          <form action={startMatchClockAction.bind(null, tournamentId, match.id)}>
-            <input type="hidden" name="side" value="HOME" />
-            <button
-              type="submit"
-              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-1.5 py-0.5 text-xs font-medium transition-colors"
-            >
-              ▶ Dom.
-            </button>
-          </form>
-          <form action={startMatchClockAction.bind(null, tournamentId, match.id)}>
-            <input type="hidden" name="side" value="AWAY" />
-            <button
-              type="submit"
-              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-1.5 py-0.5 text-xs font-medium transition-colors"
-            >
-              ▶ Ext.
-            </button>
-          </form>
-          <form action={pauseMatchClockAction.bind(null, tournamentId, match.id)}>
-            <button
-              type="submit"
-              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-1.5 py-0.5 text-xs font-medium transition-colors"
-            >
-              ⏸
-            </button>
-          </form>
-          <form action={resetMatchClockAction.bind(null, tournamentId, match.id)}>
-            <button
-              type="submit"
-              className="rounded bg-navy/10 hover:bg-navy/15 text-navy border border-navy/30 dark:bg-navy-light/10 dark:hover:bg-navy-light/15 dark:text-navy-light dark:border-navy-light/40 px-1.5 py-0.5 text-xs font-medium transition-colors"
-            >
-              ↺
-            </button>
-          </form>
-        </>
-      )}
-    </div>
-  );
-}
 
 function MatchRow({
   match,
@@ -204,7 +102,6 @@ function MatchRow({
   const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
   const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
   return (
-    <Fragment>
       <tr className="border-b border-black/5 dark:border-white/5">
         <td className="py-2 pr-4">{match.table ?? "—"}</td>
         <td className="py-2 pr-4 truncate">{leftName}</td>
@@ -258,18 +155,6 @@ function MatchRow({
           )}
         </td>
       </tr>
-      {!match.isBye && (
-        <tr className="border-b border-black/5 dark:border-white/5">
-          <td colSpan={5} className="pb-2 pl-4 text-xs">
-            <MatchClockControls
-              match={match}
-              canManage={canManage}
-              tournamentId={tournamentId}
-            />
-          </td>
-        </tr>
-      )}
-    </Fragment>
   );
 }
 

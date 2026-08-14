@@ -30,12 +30,13 @@ export async function GET(
         "V",
         "N",
         "D",
+        "Forfaits",
         "Points",
+        "Diff",
+        "Sonneborn-Berger",
         "Buchholz",
         "Buchholz médian",
-        "Sonneborn-Berger",
         "Cumul progressif",
-        "Diff",
       ],
       standings.map((row, i) => [
         i + 1,
@@ -48,12 +49,13 @@ export async function GET(
         row.wins,
         row.draws,
         row.losses,
+        row.forfeits,
         row.matchPoints,
+        row.diff,
+        row.sonnebornBerger,
         row.buchholz,
         row.buchholzMedian,
-        row.sonnebornBerger,
         row.cumulativeScore,
-        row.diff,
       ])
     );
   } else {

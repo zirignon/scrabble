@@ -12,6 +12,9 @@ export interface ClassicStandingRow {
   wins: number;
   draws: number;
   losses: number;
+  // Sous-ensemble des défaites dues à un forfait (absence), distinct d'une
+  // défaite après une partie réellement jouée — voir applyResult.
+  forfeits: number;
   matchPoints: number;
   pointsFor: number;
   pointsAgainst: number;
@@ -65,6 +68,7 @@ export function computeStandingsFromMatches(
         wins: 0,
         draws: 0,
         losses: 0,
+        forfeits: 0,
         matchPoints: 0,
         pointsFor: 0,
         pointsAgainst: 0,
@@ -93,12 +97,16 @@ export function computeStandingsFromMatches(
   // départages (Buchholz, Sonneborn-Berger) une fois les scores finaux connus.
   const matchups: Array<{ playerId: string; opponentId: string; outcome: Outcome }> = [];
 
+  // Barème : victoire 3 pts, nul 2 pts, défaite jouée 1 pt, forfait (absence)
+  // 0 pt — le seul écart avec une "vraie" défaite est ce dernier point,
+  // c'est ce qui distingue un joueur présent mais battu d'un joueur absent.
   function applyResult(
     playerId: string,
     opponentId: string,
     outcome: Outcome,
     pointsFor: number,
-    pointsAgainst: number
+    pointsAgainst: number,
+    isForfeitLoss = false
   ) {
     const row = ensure(playerId);
     row.played += 1;
@@ -110,9 +118,14 @@ export function computeStandingsFromMatches(
       row.matchPoints += 3;
     } else if (outcome === "DRAW") {
       row.draws += 1;
-      row.matchPoints += 1;
+      row.matchPoints += 2;
     } else {
       row.losses += 1;
+      if (isForfeitLoss) {
+        row.forfeits += 1;
+      } else {
+        row.matchPoints += 1;
+      }
     }
     matchups.push({ playerId, opponentId, outcome });
   }
@@ -163,13 +176,21 @@ export function computeStandingsFromMatches(
       } else if (match.status === "FORFEIT_HOME") {
         participantsThisRound.add(match.homePlayerId);
         participantsThisRound.add(match.awayPlayerId);
-        applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore ?? 0, match.awayScore ?? 0);
+        applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore ?? 0, match.awayScore ?? 0, true);
         applyResult(match.awayPlayerId, match.homePlayerId, "WIN", match.awayScore ?? 0, match.homeScore ?? 0);
       } else if (match.status === "FORFEIT_AWAY") {
         participantsThisRound.add(match.homePlayerId);
         participantsThisRound.add(match.awayPlayerId);
         applyResult(match.homePlayerId, match.awayPlayerId, "WIN", match.homeScore ?? 0, match.awayScore ?? 0);
-        applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0);
+        applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0, true);
+      } else if (match.status === "FORFEIT_BOTH") {
+        // Les deux camps sont absents : 0 point chacun, comme un forfait
+        // simple — pas de vainqueur, à ne pas confondre avec un match nul
+        // réellement joué (2 points chacun).
+        participantsThisRound.add(match.homePlayerId);
+        participantsThisRound.add(match.awayPlayerId);
+        applyResult(match.homePlayerId, match.awayPlayerId, "LOSS", match.homeScore ?? 0, match.awayScore ?? 0, true);
+        applyResult(match.awayPlayerId, match.homePlayerId, "LOSS", match.awayScore ?? 0, match.homeScore ?? 0, true);
       }
     }
 
@@ -217,13 +238,17 @@ export function computeStandingsFromMatches(
     headToHead.set(`${m.playerId}:${m.opponentId}`, m.outcome);
   }
 
+  // Ordre de départage (du plus déterminant au moins déterminant) : points
+  // de match, différence de points, Sonneborn-Berger, Buchholz, Buchholz
+  // médian, score cumulé — puis, en tout dernier recours, le total de
+  // points marqués et la confrontation directe.
   return [...rows.values()].sort((a, b) => {
     if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+    if (b.diff !== a.diff) return b.diff - a.diff;
+    if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
     if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
     if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
-    if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
     if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
-    if (b.diff !== a.diff) return b.diff - a.diff;
     if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
     const outcome = headToHead.get(`${a.playerId}:${b.playerId}`);
     if (outcome === "WIN") return -1;

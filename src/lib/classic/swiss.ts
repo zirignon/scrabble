@@ -80,3 +80,43 @@ export function generateSwissRound(
 
   return pairings;
 }
+
+// Variante de generateSwissRound qui isole les joueurs forfait à la ronde
+// précédente : ils sont envoyés en bas du classement pour l'appariement et
+// se rencontrent entre eux plutôt que d'imposer une "victoire gratuite" à un
+// joueur présent. En nombre impair, le forfait restant affronte le dernier
+// joueur présent au classement (plutôt qu'un joueur mieux classé) ; les
+// joueurs présents restants sont ensuite appariés normalement, bye compris.
+// Sans effet si personne n'était forfait à la ronde précédente.
+export function generateSwissRoundWithForfeits(
+  standings: SwissStanding[],
+  previousOpponents: Map<string, Set<string>>,
+  playersWithBye: Set<string>,
+  forfeitedLastRound: Set<string>
+): Pairing[] {
+  const forfeits = standings.filter((s) => forfeitedLastRound.has(s.playerId));
+  if (forfeits.length === 0) {
+    return generateSwissRound(standings, previousOpponents, playersWithBye);
+  }
+
+  const presentsSorted = standings
+    .filter((s) => !forfeitedLastRound.has(s.playerId))
+    .sort((a, b) => b.matchPoints - a.matchPoints);
+  const forfeitPool = [...forfeits];
+  const pairings: Pairing[] = [];
+
+  if (forfeitPool.length % 2 !== 0) {
+    const extra = forfeitPool.pop()!;
+    const lastPresent = presentsSorted.pop();
+    // Le dernier joueur présent au classement affronte le forfait restant
+    // plutôt qu'un bye ou un joueur mieux classé — s'il n'y a personne
+    // d'autre de présent, le forfait reste seul (traité comme un bye).
+    pairings.push({ home: extra.playerId, away: lastPresent?.playerId ?? null });
+  }
+
+  // forfeitPool est désormais de taille paire : pas de bye à gérer ici.
+  pairings.push(...generateSwissRound(forfeitPool, previousOpponents, new Set()));
+  pairings.push(...generateSwissRound(presentsSorted, previousOpponents, playersWithBye));
+
+  return pairings;
+}

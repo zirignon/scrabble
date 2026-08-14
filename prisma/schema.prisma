@@ -110,6 +110,11 @@ enum MatchStatus {
   PLAYED
   FORFEIT_HOME
   FORFEIT_AWAY
+  // Les deux camps sont absents (à distinguer d'un forfait simple, où
+  // l'adversaire présent est crédité d'une victoire) : les deux perdent 0
+  // point, comme un forfait individuel, plutôt qu'un match nul joué (2 pts
+  // chacun) — voir computeStandingsFromMatches.
+  FORFEIT_BOTH
   CANCELLED
 }
 
@@ -392,17 +397,6 @@ model Match {
   // l'ordre d'affichage ; toujours vrai (non pertinent) hors tournoi par
   // équipes.
   homeStarts   Boolean     @default(true)
-
-  // Chronomètre d'échecs du match (classique) : chaque camp dispose d'un
-  // temps de réflexion propre, alterné manuellement par l'arbitre.
-  // *ClockRemainingSeconds est le temps restant "figé" au dernier
-  // démarrage/pause ; clockStartedAt marque le dernier départ du camp
-  // en train de jouer (clockRunningSide), pour calculer le temps écoulé.
-  clockInitialSeconds       Int?
-  homeClockRemainingSeconds Int?
-  awayClockRemainingSeconds Int?
-  clockRunningSide          String?
-  clockStartedAt            DateTime?
 }
 
 // ---- Scrabble duplicate ----

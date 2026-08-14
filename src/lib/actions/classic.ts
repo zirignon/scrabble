@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { generateRoundRobinRounds } from "@/lib/classic/pairing";
-import { generateSwissRound, seedFirstSwissRound } from "@/lib/classic/swiss";
+import { generateSwissRound, generateSwissRoundWithForfeits, seedFirstSwissRound } from "@/lib/classic/swiss";
 import { computeClassicStandings } from "@/lib/classic/standings";
 import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
@@ -406,16 +406,35 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
     standingsForPairing = seedFirstSwissRound(standings, tournament.swissSeeding, eloByPlayer);
   }
 
-  const pairings = generateSwissRound(
-    standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
-    previousOpponents,
-    playersWithBye
-  );
-
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
+
+  // Un joueur forfait à la ronde qui vient de se terminer est probablement
+  // encore absent : on l'envoie en bas du classement pour l'appariement et
+  // on le fait rencontrer un autre forfait plutôt que d'imposer une
+  // "victoire gratuite" à un joueur présent (voir generateSwissRoundWithForfeits).
+  const forfeitedLastRound = new Set<string>();
+  if (last) {
+    const lastRoundMatches = previousMatches.filter((m) => m.roundId === last.id);
+    for (const m of lastRoundMatches) {
+      if (m.status === "FORFEIT_HOME" && m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
+      if (m.status === "FORFEIT_AWAY" && m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+      if (m.status === "FORFEIT_BOTH") {
+        if (m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
+        if (m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+      }
+    }
+  }
+
+  const pairings = generateSwissRoundWithForfeits(
+    standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
+    previousOpponents,
+    playersWithBye,
+    forfeitedLastRound
+  );
+
   const round = await prisma.round.create({
     data: { tournamentId, number: (last?.number ?? 0) + 1 },
   });
@@ -1456,6 +1475,7 @@ const resultSchema = z.object({
     "PLAYED",
     "FORFEIT_HOME",
     "FORFEIT_AWAY",
+    "FORFEIT_BOTH",
     "CANCELLED",
   ]),
 });
@@ -1473,24 +1493,31 @@ export async function recordMatchResultAction(
   });
   if (!parsed.success) return;
 
+  const homeScore = parsed.data.homeScore ? Number(parsed.data.homeScore) : null;
+  const awayScore = parsed.data.awayScore ? Number(parsed.data.awayScore) : null;
+
   // Si les deux scores sont renseignés mais que le statut est resté sur "À
   // jouer" (valeur par défaut du menu déroulant, facilement oubliée quand
   // on ne fait que saisir un score), on considère le match joué plutôt que
   // d'exiger une action séparée sur le menu — sans quoi le score se
   // sauvegarde silencieusement mais le statut ne bouge pas, ce qui donne
-  // l'impression que le bouton OK n'a rien fait.
-  const status =
-    parsed.data.status === "SCHEDULED" && parsed.data.homeScore && parsed.data.awayScore
-      ? "PLAYED"
-      : parsed.data.status;
+  // l'impression que le bouton OK n'a rien fait. Un score de 0 signale en
+  // plus un forfait de ce camp (au Scrabble classique, un score de 0 à
+  // l'issue d'une partie réellement jouée est en pratique impossible), ou
+  // des deux camps si les deux scores sont à 0 (ex. deux forfaits appariés
+  // ensemble par le système suisse, voir generateSwissRoundWithForfeits) —
+  // ignoré si l'arbitre a déjà choisi explicitement un statut.
+  let status = parsed.data.status;
+  if (status === "SCHEDULED" && homeScore !== null && awayScore !== null) {
+    if (homeScore === 0 && awayScore === 0) status = "FORFEIT_BOTH";
+    else if (homeScore === 0 && awayScore > 0) status = "FORFEIT_HOME";
+    else if (awayScore === 0 && homeScore > 0) status = "FORFEIT_AWAY";
+    else status = "PLAYED";
+  }
 
   const match = await prisma.match.update({
     where: { id: matchId },
-    data: {
-      homeScore: parsed.data.homeScore ? Number(parsed.data.homeScore) : null,
-      awayScore: parsed.data.awayScore ? Number(parsed.data.awayScore) : null,
-      status,
-    },
+    data: { homeScore, awayScore, status },
   });
   await maybeAdvanceRoundRobin(tournamentId, match.roundId);
 
@@ -1499,104 +1526,3 @@ export async function recordMatchResultAction(
   revalidatePath(`/tournois`);
 }
 
-export async function setMatchClockDurationAction(
-  tournamentId: string,
-  matchId: string,
-  formData: FormData
-) {
-  await assertCanManage(tournamentId);
-  const minutes = Number(formData.get("minutes"));
-  if (!Number.isFinite(minutes) || minutes <= 0) return;
-  const seconds = Math.round(minutes * 60);
-
-  await prisma.match.update({
-    where: { id: matchId },
-    data: {
-      clockInitialSeconds: seconds,
-      homeClockRemainingSeconds: seconds,
-      awayClockRemainingSeconds: seconds,
-      clockRunningSide: null,
-      clockStartedAt: null,
-    },
-  });
-
-  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
-  notifyTournamentUpdate(tournamentId);
-  revalidatePath(`/tournois`);
-}
-
-// Fige le temps écoulé du camp actuellement en train de jouer dans son
-// compteur "restant", avant de changer d'état (départ d'un autre camp,
-// pause, etc). Factorisé car appelé par démarrer/mettre en pause.
-async function settleMatchClock(matchId: string) {
-  const match = await prisma.match.findUniqueOrThrow({ where: { id: matchId } });
-  if (!match.clockRunningSide || !match.clockStartedAt) return;
-
-  const elapsed = Math.floor((Date.now() - match.clockStartedAt.getTime()) / 1000);
-  if (match.clockRunningSide === "HOME") {
-    await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        homeClockRemainingSeconds: Math.max(0, (match.homeClockRemainingSeconds ?? 0) - elapsed),
-      },
-    });
-  } else {
-    await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        awayClockRemainingSeconds: Math.max(0, (match.awayClockRemainingSeconds ?? 0) - elapsed),
-      },
-    });
-  }
-}
-
-export async function startMatchClockAction(
-  tournamentId: string,
-  matchId: string,
-  formData: FormData
-) {
-  await assertCanManage(tournamentId);
-  const side = formData.get("side");
-  if (side !== "HOME" && side !== "AWAY") return;
-
-  await settleMatchClock(matchId);
-  await prisma.match.update({
-    where: { id: matchId },
-    data: { clockRunningSide: side, clockStartedAt: new Date() },
-  });
-
-  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
-  notifyTournamentUpdate(tournamentId);
-  revalidatePath(`/tournois`);
-}
-
-export async function pauseMatchClockAction(tournamentId: string, matchId: string) {
-  await assertCanManage(tournamentId);
-  await settleMatchClock(matchId);
-  await prisma.match.update({
-    where: { id: matchId },
-    data: { clockRunningSide: null, clockStartedAt: null },
-  });
-
-  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
-  notifyTournamentUpdate(tournamentId);
-  revalidatePath(`/tournois`);
-}
-
-export async function resetMatchClockAction(tournamentId: string, matchId: string) {
-  await assertCanManage(tournamentId);
-  const match = await prisma.match.findUniqueOrThrow({ where: { id: matchId } });
-  await prisma.match.update({
-    where: { id: matchId },
-    data: {
-      homeClockRemainingSeconds: match.clockInitialSeconds,
-      awayClockRemainingSeconds: match.clockInitialSeconds,
-      clockRunningSide: null,
-      clockStartedAt: null,
-    },
-  });
-
-  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
-  notifyTournamentUpdate(tournamentId);
-  revalidatePath(`/tournois`);
-}

@@ -18,6 +18,7 @@ const matchStatusLabel: Record<string, string> = {
   PLAYED: "Joué",
   FORFEIT_HOME: "Forfait (domicile)",
   FORFEIT_AWAY: "Forfait (extérieur)",
+  FORFEIT_BOTH: "Forfait (double)",
   CANCELLED: "Annulé",
 };
 
@@ -202,6 +203,7 @@ function classicIndividualColumns(s: {
   wins: number;
   draws: number;
   losses: number;
+  forfeits: number;
   matchPoints: number;
   buchholz: number;
   buchholzMedian: number;
@@ -214,12 +216,13 @@ function classicIndividualColumns(s: {
     { label: "V", value: String(s.wins) },
     { label: "N", value: String(s.draws) },
     { label: "D", value: String(s.losses) },
+    { label: "Abs.", value: String(s.forfeits) },
     { label: "Pts", value: String(s.matchPoints) },
+    { label: "Diff", value: formatDiff(s.diff) },
+    { label: "SB", value: String(s.sonnebornBerger) },
     { label: "Bchz", value: String(s.buchholz) },
     { label: "Bchz méd.", value: String(s.buchholzMedian) },
-    { label: "SB", value: String(s.sonnebornBerger) },
     { label: "Cumul", value: String(s.cumulativeScore) },
-    { label: "Diff", value: formatDiff(s.diff) },
   ];
 }
 

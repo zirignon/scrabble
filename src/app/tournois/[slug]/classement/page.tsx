@@ -117,12 +117,13 @@ export default async function TournamentStandingsPage({
                   <th className={thNum}>V</th>
                   <th className={thNum}>N</th>
                   <th className={thNum}>D</th>
+                  <th className={thNum} title="Forfaits (absences)">Abs.</th>
                   <th className={thNum}>Pts</th>
+                  <th className={thNum}>Diff</th>
+                  <th className={thNum} title="Sonneborn-Berger">SB</th>
                   <th className={thNum} title="Buchholz">Bchz</th>
                   <th className={thNum} title="Buchholz médian">Bchz méd.</th>
-                  <th className={thNum} title="Sonneborn-Berger">SB</th>
                   <th className={thNum} title="Score cumulé progressif">Cumul</th>
-                  <th className={thNum}>Diff</th>
                 </tr>
               </thead>
               <tbody>
@@ -138,12 +139,13 @@ export default async function TournamentStandingsPage({
                     <td className={tdNum}>{r.wins}</td>
                     <td className={tdNum}>{r.draws}</td>
                     <td className={tdNum}>{r.losses}</td>
+                    <td className={tdNum}>{r.forfeits}</td>
                     <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                    <td className={tdNum}>{r.sonnebornBerger}</td>
                     <td className={tdNum}>{r.buchholz}</td>
                     <td className={tdNum}>{r.buchholzMedian}</td>
-                    <td className={tdNum}>{r.sonnebornBerger}</td>
                     <td className={tdNum}>{r.cumulativeScore}</td>
-                    <td className={tdNum}>{r.diff}</td>
                   </tr>
                 ))}
               </tbody>
@@ -249,12 +251,13 @@ export default async function TournamentStandingsPage({
                       <th className={thNum}>V</th>
                       <th className={thNum}>N</th>
                       <th className={thNum}>D</th>
+                      <th className={thNum} title="Forfaits (absences)">Abs.</th>
                       <th className={thNum}>Pts</th>
+                      <th className={thNum}>Diff</th>
+                      <th className={thNum} title="Sonneborn-Berger">SB</th>
                       <th className={thNum} title="Buchholz">Bchz</th>
                       <th className={thNum} title="Buchholz médian">Bchz méd.</th>
-                      <th className={thNum} title="Sonneborn-Berger">SB</th>
                       <th className={thNum} title="Score cumulé progressif">Cumul</th>
-                      <th className={thNum}>Diff</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -266,12 +269,13 @@ export default async function TournamentStandingsPage({
                         <td className={tdNum}>{r.wins}</td>
                         <td className={tdNum}>{r.draws}</td>
                         <td className={tdNum}>{r.losses}</td>
+                        <td className={tdNum}>{r.forfeits}</td>
                         <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                        <td className={tdNum}>{r.diff}</td>
+                        <td className={tdNum}>{r.sonnebornBerger}</td>
                         <td className={tdNum}>{r.buchholz}</td>
                         <td className={tdNum}>{r.buchholzMedian}</td>
-                        <td className={tdNum}>{r.sonnebornBerger}</td>
                         <td className={tdNum}>{r.cumulativeScore}</td>
-                        <td className={tdNum}>{r.diff}</td>
                       </tr>
                     ))}
                   </tbody>
