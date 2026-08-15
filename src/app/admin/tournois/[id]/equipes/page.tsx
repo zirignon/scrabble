@@ -59,6 +59,14 @@ export default async function TeamsPage({
           {tournament.type === "CLASSIC" &&
             " Toutes les équipes doivent avoir le même nombre de joueurs avant de générer les rondes (un échiquier par joueur)."}
         </p>
+        <Link
+          href={`/tournois/${tournament.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-emerald-700 dark:text-emerald-400 underline mt-1 inline-block"
+        >
+          Voir la page publique ↗
+        </Link>
       </div>
 
       {canManage && (
