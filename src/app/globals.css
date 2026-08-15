@@ -31,6 +31,10 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -39,4 +43,18 @@ body {
 
 h1, h2, h3 {
   font-family: var(--font-display), Georgia, serif;
+}
+
+/* Anneau de focus cohérent avec la marque (navy), visible seulement au
+   clavier — remplace l'anneau bleu par défaut du navigateur sans dégrader
+   l'accessibilité. */
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+@media (prefers-color-scheme: dark) {
+  :focus-visible {
+    outline-color: var(--color-navy-light);
+  }
 }
