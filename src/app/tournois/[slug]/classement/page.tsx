@@ -9,7 +9,7 @@ import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { LiveRefresh } from "@/components/LiveRefresh";
-import { PoolBadge } from "@/components/public/StatusPill";
+import { PoolBadge, card } from "@/components/public/StatusPill";
 
 // Styles partagés par tous les tableaux de classement de cette page : un
 // filet plus marqué sous l'en-tête, des libellés de colonne discrets en
@@ -25,12 +25,26 @@ const tdNum = `${td} text-right tabular-nums`;
 const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
 const sectionHeading = "font-heading text-xl font-semibold text-navy dark:text-navy-light";
 
+// Pastille médaille pour le podium (or/argent/bronze), simple numéro sinon —
+// un repère visuel immédiat sans changer la palette de la marque (l'argent
+// et le bronze restent des tons neutres, pas de nouvelle couleur).
+const medalClass: Record<number, string> = {
+  1: "bg-gold/15 text-gold dark:bg-gold-light/20 dark:text-gold-light ring-1 ring-gold/30 dark:ring-gold-light/30",
+  2: "bg-black/[0.06] text-black/60 dark:bg-white/10 dark:text-white/70 ring-1 ring-black/10 dark:ring-white/15",
+  3: "bg-brick/10 text-brick/80 dark:bg-brick-light/15 dark:text-brick-light ring-1 ring-brick/20 dark:ring-brick-light/25",
+};
+
 function Rank({ value }: { value: number }) {
-  return (
-    <span className={value === 1 ? "font-heading font-semibold text-gold dark:text-gold-light" : ""}>
-      {value}
-    </span>
-  );
+  if (value <= 3) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-heading font-semibold ${medalClass[value]}`}
+      >
+        {value}
+      </span>
+    );
+  }
+  return <span className="text-black/60 dark:text-white/60">{value}</span>;
 }
 
 export default async function TournamentStandingsPage({
@@ -102,7 +116,7 @@ export default async function TournamentStandingsPage({
               </a>
             </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+          <div className={`overflow-x-auto ${card}`}>
           {tournament.type === "CLASSIC" ? (
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -241,7 +255,7 @@ export default async function TournamentStandingsPage({
             {poolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
                 <div className="mb-2"><PoolBadge name={poolName} /></div>
-                <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+                <div className={`overflow-x-auto ${card}`}>
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className={headRow}>
@@ -304,7 +318,7 @@ export default async function TournamentStandingsPage({
             {teamPoolStandings.map(({ poolId, poolName, standings }) => (
               <div key={poolId}>
                 <div className="mb-2"><PoolBadge name={poolName} /></div>
-                <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+                <div className={`overflow-x-auto ${card}`}>
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className={headRow}>
@@ -362,7 +376,7 @@ export default async function TournamentStandingsPage({
               </a>
             </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+          <div className={`overflow-x-auto ${card}`}>
           {tournament.type === "CLASSIC" ? (
             <table className="w-full text-sm border-collapse">
               <thead>

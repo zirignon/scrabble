@@ -2,7 +2,16 @@
 // (rondes, parties, participants, classement).
 export const headRow = "text-left border-b-2 border-navy/20 dark:border-navy-light/30";
 export const th = "py-2.5 pr-4 text-xs font-semibold uppercase tracking-wide text-black/45 dark:text-white/50";
-export const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2";
+export const exportLink = "text-sm text-navy dark:text-navy-light underline underline-offset-2 decoration-navy/40 dark:decoration-navy-light/40 hover:decoration-navy dark:hover:decoration-navy-light transition-colors";
+
+// Carte élevée réutilisée pour les blocs de contenu (tableaux, sections) sur
+// les pages publiques : ombre douce plutôt qu'un simple filet, qui se
+// creuse légèrement au survol pour les cartes cliquables (liste de
+// tournois, navigation d'un tournoi) — sans jamais changer la palette.
+export const card =
+  "rounded-xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] shadow-sm shadow-black/5 dark:shadow-black/20";
+export const cardHover =
+  "hover:shadow-md hover:shadow-black/10 dark:hover:shadow-black/30 hover:border-navy/20 dark:hover:border-navy-light/30 hover:-translate-y-0.5 transition-all duration-200";
 
 // Zébrage discret (even:) en plus du survol, pour guider l'œil sur les
 // tableaux à beaucoup de lignes sans alourdir le contraste.

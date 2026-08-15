@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
-import { headRow, th, matchRow, matchCell, exportLink } from "@/components/public/StatusPill";
+import { headRow, th, matchRow, matchCell, exportLink, card } from "@/components/public/StatusPill";
 
 export default async function TournamentParticipantsPage({
   params,
@@ -57,7 +57,7 @@ export default async function TournamentParticipantsPage({
             </div>
           )}
         </div>
-        <div className="overflow-x-auto">
+        <div className={`overflow-x-auto ${card}`}>
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className={headRow}>

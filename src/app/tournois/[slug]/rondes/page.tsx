@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
-import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill, PoolBadge } from "@/components/public/StatusPill";
+import { headRow, th, matchRow, matchCell, scoreCell, MatchStatusPill, PoolBadge, card } from "@/components/public/StatusPill";
 import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
 
 type RoundMatch = Prisma.MatchGetPayload<{
@@ -57,7 +57,7 @@ function EncounterWinnerLabel({
 // sur son propre contenu, décalant le "Score" d'une carte à l'autre.
 function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; forceNotBye?: boolean }) {
   return (
-    <div className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
+    <div className={`overflow-hidden ${card}`}>
       <table className="w-full text-sm border-collapse table-fixed">
         <thead>
           <tr className={headRow}>

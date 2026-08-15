@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { tournamentStatusLabel } from "@/lib/labels";
-import { matchRow, matchCell, scoreCell, Pill } from "@/components/public/StatusPill";
+import { matchRow, matchCell, scoreCell, Pill, card } from "@/components/public/StatusPill";
 import { computeGameTop } from "@/lib/duplicate/board";
 
 export default async function TournamentGamesPage({
@@ -47,8 +47,8 @@ export default async function TournamentGamesPage({
         {tournament.games.map((game) => {
           const top = computeGameTop(game.referenceMoves, game.top);
           return (
-            <div key={game.id} className="overflow-x-auto">
-              <h3 className="font-medium mb-2">
+            <div key={game.id} className={card}>
+              <h3 className="font-medium px-4 pt-4">
                 Partie {game.number}
                 {top != null && (
                   <span className="text-xs text-black/50 dark:text-white/50 ml-2">
@@ -56,31 +56,33 @@ export default async function TournamentGamesPage({
                   </span>
                 )}
               </h3>
-              <table className="w-full text-sm border-collapse">
-                <tbody>
-                  {game.results.map((result) => {
-                    const net = result.score - result.penalty;
-                    return (
-                      <tr key={result.id} className={matchRow}>
-                        <td className={matchCell}>
-                          {result.player.lastName} {result.player.firstName}
-                        </td>
-                        <td className={scoreCell}>{result.score}</td>
-                        {result.penalty > 0 && (
-                          <td className="py-2 pr-4">
-                            <Pill tone="brick">-{result.penalty} pénalité</Pill>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <tbody>
+                    {game.results.map((result) => {
+                      const net = result.score - result.penalty;
+                      return (
+                        <tr key={result.id} className={matchRow}>
+                          <td className={`${matchCell} pl-4`}>
+                            {result.player.lastName} {result.player.firstName}
                           </td>
-                        )}
-                        {top != null && (
-                          <td className="py-2 pr-4 text-xs text-black/50 dark:text-white/50">
-                            écart au top : {top - net}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <td className={scoreCell}>{result.score}</td>
+                          {result.penalty > 0 && (
+                            <td className="py-2 pr-4">
+                              <Pill tone="brick">-{result.penalty} pénalité</Pill>
+                            </td>
+                          )}
+                          {top != null && (
+                            <td className="py-2 pr-4 text-xs text-black/50 dark:text-white/50">
+                              écart au top : {top - net}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           );
         })}
