@@ -44,7 +44,12 @@ export async function GET(
         row.buchholzMedian,
         row.cumulativeScore,
       ]),
-      columnWeights: [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      // Poids proportionnels aux libellés réels des colonnes plutôt qu'un
+      // poids uniforme : "Bchz méd." (le plus long des libellés chiffrés)
+      // repassait sinon sur deux lignes, contrairement aux autres colonnes
+      // chiffrées restées sur une seule — incohérence visuelle entre
+      // colonnes que ce réglage corrige.
+      columnWeights: [0.7, 3, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9],
     }));
     pdf = await renderMultiTablePdf(
       `Classement par poule — ${tournament.name}`,
@@ -77,7 +82,12 @@ export async function GET(
         row.buchholzMedian,
         row.cumulativeScore,
       ]),
-      [1, 2.6, 1, 1.4, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      // Idem : "Classement" et "Bchz méd." sont les libellés les plus longs
+      // de leur catégorie (texte / chiffré) et repassaient sinon seuls sur
+      // deux lignes, alors que toutes les autres colonnes restaient sur une
+      // — les poids ci-dessous leur donnent la place nécessaire pour rester
+      // sur une seule ligne, comme le reste de l'en-tête.
+      [0.7, 2.6, 0.8, 1.4, 0.8, 1.6, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9],
       { landscape: true }
     );
   } else {
