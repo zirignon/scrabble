@@ -136,9 +136,27 @@ model User {
   sessionVersion Int    @default(0)
   createdAt    DateTime @default(now())
 
-  player      Player?
-  tournaments Tournament[] @relation("Organizer")
-  auditLogs   AuditLog[]
+  player               Player?
+  tournaments          Tournament[] @relation("Organizer")
+  auditLogs            AuditLog[]
+  twoFactorChallenges  TwoFactorChallenge[]
+}
+
+// Code à usage unique envoyé par email pour la double authentification,
+// exigée à la connexion pour les comptes ADMIN/ORGANIZER/REFEREE (voir
+// STAFF_ROLES) — les comptes PLAYER ne passent jamais par cette étape.
+model TwoFactorChallenge {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Hash du code à 6 chiffres (jamais stocké en clair), voir hashOtpCode.
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Historique minimal des opérations sensibles. Les données métier restent
