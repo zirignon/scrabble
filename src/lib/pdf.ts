@@ -152,6 +152,12 @@ export function renderMultiTablePdf(
         if (y + height > doc.page.height - doc.page.margins.bottom) {
           doc.addPage();
           y = doc.page.margins.top;
+          // Répète l'en-tête de colonnes en haut de chaque nouvelle page :
+          // sans ça, un tableau qui déborde sur plusieurs pages devient
+          // illisible dès la deuxième (plus aucun repère pour savoir quelle
+          // colonne représente quoi).
+          drawRow(section.headers, y, headerHeight, "header");
+          y += headerHeight;
         }
         drawRow(row, y, height, rowIndex % 2 === 0 ? "plain" : "shaded");
         y += height;

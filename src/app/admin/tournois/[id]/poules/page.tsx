@@ -109,6 +109,14 @@ export default async function PoolsPage({
             rondes. Créez les équipes sur la page « Équipes » avant de les
             affecter ici.
           </p>
+          <Link
+            href={`/tournois/${tournament.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline mt-1 inline-block"
+          >
+            Voir la page publique ↗
+          </Link>
         </div>
 
         <QualifiersSettingsForm
@@ -262,6 +270,14 @@ export default async function PoolsPage({
           Chaque poule doit compter au moins 2 joueurs avant de générer les
           rondes (round-robin interne à chaque poule).
         </p>
+        <Link
+          href={`/tournois/${tournament.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-emerald-700 dark:text-emerald-400 underline mt-1 inline-block"
+        >
+          Voir la page publique ↗
+        </Link>
       </div>
 
       <QualifiersSettingsForm

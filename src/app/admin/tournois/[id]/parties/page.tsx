@@ -121,14 +121,24 @@ export default async function GamesPage({
         <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Parties — {tournament.name}
         </h1>
-        {canManage && tournament.games.length > 0 && (
-          <a
-            href={`/api/tournois/${tournament.id}/parties/export`}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+          <Link
+            href={`/tournois/${tournament.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-sm text-emerald-700 dark:text-emerald-400 underline"
           >
-            Exporter les parties en CSV
-          </a>
-        )}
+            Voir la page publique ↗
+          </Link>
+          {canManage && tournament.games.length > 0 && (
+            <a
+              href={`/api/tournois/${tournament.id}/parties/export`}
+              className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+            >
+              Exporter les parties en CSV
+            </a>
+          )}
+        </div>
       </div>
 
       <FormulaSettingsForm

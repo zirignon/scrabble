@@ -567,6 +567,14 @@ export default async function RoundsPage({
         </h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
           <Link
+            href={`/tournois/${tournament.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Voir la page publique ↗
+          </Link>
+          <Link
             href={`/tournois/${tournament.slug}/affichage`}
             target="_blank"
             rel="noopener noreferrer"

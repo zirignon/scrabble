@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { randomInt, createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
@@ -9,6 +10,10 @@ import { hasSecureSessionSecret } from "@/lib/security";
 
 const SESSION_COOKIE = "session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+const TWO_FACTOR_COOKIE = "pending_2fa";
+const TWO_FACTOR_TTL_SECONDS = 60 * 10; // 10 minutes
+export const TWO_FACTOR_MAX_ATTEMPTS = 5;
 
 function getSecretKey() {
   const secret = process.env.SESSION_SECRET;
@@ -62,6 +67,54 @@ export async function createSession(payload: SessionPayload) {
 export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
+}
+
+export function generateOtpCode() {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+// Le SESSION_SECRET sert de poivre : un accès en lecture à la base seule ne
+// suffit pas à rejouer les hashs de code hors ligne.
+export function hashOtpCode(code: string) {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET is not set");
+  }
+  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
+}
+
+/** Crée un défi 2FA en base, pose le cookie de session en attente, et
+ * renvoie le code en clair (à charge de l'appelant de l'envoyer par email). */
+export async function createTwoFactorChallenge(userId: string) {
+  const code = generateOtpCode();
+  const challenge = await prisma.twoFactorChallenge.create({
+    data: {
+      userId,
+      codeHash: hashOtpCode(code),
+      expiresAt: new Date(Date.now() + TWO_FACTOR_TTL_SECONDS * 1000),
+    },
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(TWO_FACTOR_COOKIE, challenge.id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: TWO_FACTOR_TTL_SECONDS,
+  });
+
+  return code;
+}
+
+export async function getPendingTwoFactorChallengeId() {
+  const cookieStore = await cookies();
+  return cookieStore.get(TWO_FACTOR_COOKIE)?.value ?? null;
+}
+
+export async function clearPendingTwoFactorChallenge() {
+  const cookieStore = await cookies();
+  cookieStore.delete(TWO_FACTOR_COOKIE);
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
