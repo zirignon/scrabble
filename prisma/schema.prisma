@@ -136,10 +136,11 @@ model User {
   sessionVersion Int    @default(0)
   createdAt    DateTime @default(now())
 
-  player               Player?
-  tournaments          Tournament[] @relation("Organizer")
-  auditLogs            AuditLog[]
-  twoFactorChallenges  TwoFactorChallenge[]
+  player                Player?
+  tournaments           Tournament[] @relation("Organizer")
+  auditLogs             AuditLog[]
+  twoFactorChallenges   TwoFactorChallenge[]
+  passwordResetTokens   PasswordResetToken[]
 }
 
 // Code à usage unique envoyé par email pour la double authentification,
@@ -153,6 +154,24 @@ model TwoFactorChallenge {
   codeHash   String
   expiresAt  DateTime
   attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Jeton "mot de passe oublié" envoyé par email (lien de réinitialisation en
+// libre-service) — distinct de TwoFactorChallenge : un jeton long et
+// aléatoire glissé dans une URL plutôt qu'un code à 6 chiffres saisi à la
+// main, avec une durée de vie plus longue (1h) adaptée à un email qu'on peut
+// ouvrir en différé.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Hash du jeton (jamais stocké en clair), voir hashResetToken.
+  tokenHash  String    @unique
+  expiresAt  DateTime
   consumedAt DateTime?
   createdAt  DateTime  @default(now())
 
