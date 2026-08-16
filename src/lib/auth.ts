@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { randomInt, createHash } from "crypto";
+import { randomInt, randomBytes, createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
@@ -14,6 +14,8 @@ const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const TWO_FACTOR_COOKIE = "pending_2fa";
 const TWO_FACTOR_TTL_SECONDS = 60 * 10; // 10 minutes
 export const TWO_FACTOR_MAX_ATTEMPTS = 5;
+
+const PASSWORD_RESET_TTL_SECONDS = 60 * 60; // 1 heure
 
 function getSecretKey() {
   const secret = process.env.SESSION_SECRET;
@@ -69,18 +71,23 @@ export async function destroySession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export function generateOtpCode() {
-  return randomInt(0, 1_000_000).toString().padStart(6, "0");
-}
-
 // Le SESSION_SECRET sert de poivre : un accès en lecture à la base seule ne
-// suffit pas à rejouer les hashs de code hors ligne.
-export function hashOtpCode(code: string) {
+// suffit pas à rejouer les hashs (code 2FA ou jeton de réinitialisation)
+// hors ligne.
+function pepperedHash(value: string) {
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
     throw new Error("SESSION_SECRET is not set");
   }
-  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
+  return createHash("sha256").update(`${secret}:${value}`).digest("hex");
+}
+
+export function generateOtpCode() {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+export function hashOtpCode(code: string) {
+  return pepperedHash(code);
 }
 
 /** Crée un défi 2FA en base, pose le cookie de session en attente, et
@@ -115,6 +122,29 @@ export async function getPendingTwoFactorChallengeId() {
 export async function clearPendingTwoFactorChallenge() {
   const cookieStore = await cookies();
   cookieStore.delete(TWO_FACTOR_COOKIE);
+}
+
+export function generateResetToken() {
+  return randomBytes(32).toString("hex");
+}
+
+export function hashResetToken(token: string) {
+  return pepperedHash(token);
+}
+
+/** Crée un jeton de réinitialisation de mot de passe en base et renvoie sa
+ * valeur en clair (à charge de l'appelant de l'envoyer par email, sous
+ * forme de lien). */
+export async function createPasswordResetToken(userId: string) {
+  const token = generateResetToken();
+  await prisma.passwordResetToken.create({
+    data: {
+      userId,
+      tokenHash: hashResetToken(token),
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000),
+    },
+  });
+  return token;
 }
 
 export async function getSession(): Promise<SessionPayload | null> {

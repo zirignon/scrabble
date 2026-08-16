@@ -31,3 +31,15 @@ export async function sendTwoFactorCodeEmail(to: string, code: string) {
     throw new Error(`Échec de l'envoi de l'email 2FA : ${error.message}`);
   }
 }
+
+export async function sendPasswordResetEmail(to: string, resetUrl: string) {
+  const { error } = await getResendClient().emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: "Réinitialisation de votre mot de passe — Scrabble Tournois",
+    text: `Vous avez demandé la réinitialisation de votre mot de passe.\n\nCliquez sur ce lien pour choisir un nouveau mot de passe (valable 1 heure) :\n${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe actuel reste inchangé.`,
+  });
+  if (error) {
+    throw new Error(`Échec de l'envoi de l'email de réinitialisation : ${error.message}`);
+  }
+}

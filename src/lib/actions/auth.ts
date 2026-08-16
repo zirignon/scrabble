@@ -1,21 +1,32 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
   clearPendingTwoFactorChallenge,
+  createPasswordResetToken,
   createSession,
   createTwoFactorChallenge,
   destroySession,
   getPendingTwoFactorChallengeId,
   hashOtpCode,
   hashPassword,
+  hashResetToken,
   verifyPassword,
   TWO_FACTOR_MAX_ATTEMPTS,
 } from "@/lib/auth";
-import { sendTwoFactorCodeEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendTwoFactorCodeEmail } from "@/lib/email";
 import { STAFF_ROLES } from "@/lib/guards";
+
+async function getBaseUrl() {
+  const h = await headers();
+  const host = h.get("host");
+  const proto =
+    h.get("x-forwarded-proto") ?? (process.env.NODE_ENV === "production" ? "https" : "http");
+  return `${proto}://${host}`;
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -189,6 +200,77 @@ export async function cancelTwoFactorAction() {
   }
   await clearPendingTwoFactorChallenge();
   redirect("/login");
+}
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export async function requestPasswordResetAction(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = forgotPasswordSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: "Email invalide." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  // Toujours la même réponse, que le compte existe ou non, et même si
+  // l'envoi de l'email échoue : ne jamais révéler par le comportement de ce
+  // formulaire si un email est associé à un compte.
+  if (user) {
+    const token = await createPasswordResetToken(user.id);
+    const baseUrl = await getBaseUrl();
+    try {
+      await sendPasswordResetEmail(user.email, `${baseUrl}/reset-password?token=${token}`);
+    } catch {
+      // Échec silencieux côté utilisateur, voir commentaire ci-dessus.
+    }
+  }
+
+  return { sent: true };
+}
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, "8 caractères minimum."),
+});
+
+export async function resetPasswordAction(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = resetPasswordSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashResetToken(parsed.data.token) },
+  });
+  if (!resetToken || resetToken.consumedAt || resetToken.expiresAt < new Date()) {
+    return {
+      error: "Ce lien de réinitialisation est invalide ou expiré. Merci d'en redemander un.",
+    };
+  }
+
+  const passwordHash = await hashPassword(parsed.data.password);
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { consumedAt: new Date() },
+    }),
+  ]);
+
+  redirect("/login?reset=success");
 }
 
 const registerSchema = z.object({
