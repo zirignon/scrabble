@@ -437,15 +437,26 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
     }
   }
 
+  const upcomingRoundNumber = (last?.number ?? 0) + 1;
+  // Revanches volontairement autorisées à partir de la ronde configurée
+  // (voir Tournament.allowRematchesFromRound) : on ignore alors l'historique
+  // des adversaires déjà rencontrés pour cet appariement, plutôt que de
+  // laisser generateSwissRoundWithForfeits n'imposer une revanche qu'en
+  // dernier recours.
+  const rematchesAllowed =
+    tournament.allowRematchesFromRound !== null &&
+    upcomingRoundNumber >= tournament.allowRematchesFromRound;
+  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+
   const pairings = generateSwissRoundWithForfeits(
     standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
-    previousOpponents,
+    opponentsForPairing,
     playersWithBye,
     forfeitedLastRound
   );
 
   const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1 },
+    data: { tournamentId, number: upcomingRoundNumber },
   });
 
   let table = 1;
@@ -538,14 +549,21 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
     previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
   }
 
-  const pairings = generateSwissRound(teamStandingsForPairing, previousOpponents, teamsWithBye);
-
   const last = await prisma.round.findFirst({
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
+  const upcomingRoundNumber = (last?.number ?? 0) + 1;
+  // Voir le commentaire équivalent dans generateNextSwissRoundActionImpl.
+  const rematchesAllowed =
+    tournament.allowRematchesFromRound !== null &&
+    upcomingRoundNumber >= tournament.allowRematchesFromRound;
+  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+
+  const pairings = generateSwissRound(teamStandingsForPairing, opponentsForPairing, teamsWithBye);
+
   const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1 },
+    data: { tournamentId, number: upcomingRoundNumber },
   });
 
   for (const pairing of pairings) {
@@ -987,9 +1005,22 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
     }
   }
 
+  // Contrairement au format SWISS classique, la ronde de ce réglage se
+  // compte au sein de la phase suisse elle-même (comme le libellé "Ronde
+  // suisse N" affiché ailleurs), pas dans la numérotation globale du
+  // tournoi qui inclut les rondes de poules précédentes.
+  const swissPhaseRoundsSoFar = await prisma.round.count({
+    where: { tournamentId, isSwissPhase: true },
+  });
+  const upcomingSwissRoundNumber = swissPhaseRoundsSoFar + 1;
+  const rematchesAllowed =
+    tournament.allowRematchesFromRound !== null &&
+    upcomingSwissRoundNumber >= tournament.allowRematchesFromRound;
+  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+
   const pairings = generateSwissRoundWithForfeits(
     standingsForPairing,
-    previousOpponents,
+    opponentsForPairing,
     playersWithBye,
     forfeitedLastRound
   );
@@ -1103,7 +1134,17 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
     previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
   }
 
-  const pairings = generateSwissRound(standingsForPairing, previousOpponents, teamsWithBye);
+  // Voir le commentaire équivalent dans generateSwissPhaseRoundActionImpl.
+  const swissPhaseRoundsSoFar = await prisma.round.count({
+    where: { tournamentId, isSwissPhase: true },
+  });
+  const upcomingSwissRoundNumber = swissPhaseRoundsSoFar + 1;
+  const rematchesAllowed =
+    tournament.allowRematchesFromRound !== null &&
+    upcomingSwissRoundNumber >= tournament.allowRematchesFromRound;
+  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+
+  const pairings = generateSwissRound(standingsForPairing, opponentsForPairing, teamsWithBye);
 
   const last = await prisma.round.findFirst({
     where: { tournamentId },
@@ -1196,6 +1237,37 @@ export async function updateSwissRoundsSettingsAction(
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: { swissRoundsCount },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
+// Fixe (ou retire) la ronde suisse à partir de laquelle les revanches sont
+// volontairement autorisées — voir le commentaire sur Tournament.allowRematchesFromRound.
+export async function updateAllowRematchesFromRoundAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  const tournament = await assertCanManage(tournamentId);
+  if (
+    tournament.type !== "CLASSIC" ||
+    (tournament.format !== "SWISS" && tournament.format !== "COMBINED")
+  ) {
+    throw new Error("Ce réglage ne s'applique qu'au format suisse et au Combiné.");
+  }
+
+  const raw = formData.get("allowRematchesFromRound");
+  const allowRematchesFromRound = raw && String(raw).trim() ? Number(raw) : null;
+  if (
+    allowRematchesFromRound !== null &&
+    (!Number.isInteger(allowRematchesFromRound) || allowRematchesFromRound < 1)
+  ) {
+    return;
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { allowRematchesFromRound },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
