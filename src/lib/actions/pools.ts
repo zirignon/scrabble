@@ -17,7 +17,7 @@ async function assertCanManage(tournamentId: string) {
 
 export async function createPoolAction(tournamentId: string, formData: FormData) {
   const tournament = await assertCanManage(tournamentId);
-  if (tournament.format !== "GROUPS") {
+  if (tournament.format !== "GROUPS" && tournament.format !== "COMBINED") {
     throw new Error("Ce tournoi n'est pas au format poules.");
   }
 

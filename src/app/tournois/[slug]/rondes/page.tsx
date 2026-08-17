@@ -160,6 +160,19 @@ export default async function TournamentRoundsPage({
   });
   if (!tournament || tournament.type !== "CLASSIC") notFound();
 
+  // Numéro de ronde relatif à la phase suisse d'un tournoi COMBINED (poules
+  // puis suisse) — voir le commentaire équivalent côté admin.
+  const swissPhaseRoundNumberById = new Map<string, number>();
+  {
+    let n = 0;
+    for (const r of tournament.rounds) {
+      if (r.isSwissPhase) {
+        n += 1;
+        swissPhaseRoundNumberById.set(r.id, n);
+      }
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-6">
       <div>
@@ -181,7 +194,11 @@ export default async function TournamentRoundsPage({
         {tournament.rounds.map((round) => {
           const roundHasPoolMatches = round.matches.some((m) => m.pool);
 
-          if (!tournament.isTeamEvent && tournament.format === "GROUPS" && roundHasPoolMatches) {
+          if (
+            !tournament.isTeamEvent &&
+            (tournament.format === "GROUPS" || tournament.format === "COMBINED") &&
+            roundHasPoolMatches
+          ) {
             const byPool = new Map<
               string,
               { poolName: string; matches: typeof round.matches }
@@ -211,7 +228,7 @@ export default async function TournamentRoundsPage({
             const isKnockoutRound =
               tournament.format === "KNOCKOUT" ||
               tournament.format === "GROUPS" ||
-              round.isFinalPhase;
+              (round.isFinalPhase && !round.isSwissPhase);
             const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
             const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
             return (
@@ -220,7 +237,9 @@ export default async function TournamentRoundsPage({
                   <h3 className={roundHeading}>
                     {isKnockoutRound
                       ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                      : `Ronde ${round.number}`}
+                      : round.isSwissPhase
+                        ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
+                        : `Ronde ${round.number}`}
                   </h3>
                   <MatchTable matches={mainMatches} />
                 </div>
@@ -236,7 +255,10 @@ export default async function TournamentRoundsPage({
             );
           }
 
-          if (tournament.format === "GROUPS" && roundHasPoolMatches) {
+          if (
+            (tournament.format === "GROUPS" || tournament.format === "COMBINED") &&
+            roundHasPoolMatches
+          ) {
             // Tournoi par équipes en poules : regroupe d'abord par
             // poule, puis par confrontation d'équipes.
             const byPool = new Map<
@@ -348,7 +370,9 @@ export default async function TournamentRoundsPage({
           }
 
           const isKnockoutRound =
-            tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
+            tournament.format === "KNOCKOUT" ||
+            tournament.format === "GROUPS" ||
+            (round.isFinalPhase && !round.isSwissPhase);
           return (
             <div key={round.id} className="flex flex-col gap-4">
               <h3 className={roundHeading}>
@@ -356,7 +380,9 @@ export default async function TournamentRoundsPage({
                   ? getKnockoutStageLabel(
                       countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
                     )
-                  : `Ronde ${round.number}`}
+                  : round.isSwissPhase
+                    ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
+                    : `Ronde ${round.number}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">

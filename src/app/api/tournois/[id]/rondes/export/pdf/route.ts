@@ -78,12 +78,20 @@ export async function GET(
   // round-robin/suisse, ou format élimination directe pur) affiche son nom
   // de tour (Demi-finales, Finale...) plutôt que son simple numéro — voir
   // le commentaire équivalent sur les pages rondes/écran public. Les rondes
-  // de phase principale et celles de phase finale sont en plus regroupées
-  // dans deux tableaux distincts (au lieu d'un seul tableau continu), pour
-  // que la transition entre les deux phases soit visuellement nette.
+  // de phase principale, celles de la phase suisse d'un tournoi Combiné
+  // (voir isSwissPhase) et celles de phase finale sont regroupées dans des
+  // tableaux distincts (au lieu d'un seul tableau continu), pour que la
+  // transition entre phases soit visuellement nette.
   const mainRows: unknown[][] = [];
+  const swissPhaseRows: unknown[][] = [];
   const finalRows: unknown[][] = [];
+  let swissPhaseRoundNumber = 0;
   for (const round of rounds) {
+    if (round.isSwissPhase) {
+      swissPhaseRoundNumber += 1;
+      swissPhaseRows.push(...buildRows(round, `Ronde suisse ${swissPhaseRoundNumber}`));
+      continue;
+    }
     const grouped = round.matches.some((m) => m.poolId);
     const isKnockoutRound =
       tournament.format === "KNOCKOUT" ||
@@ -97,15 +105,18 @@ export async function GET(
   }
 
   const sections: PdfSection[] = [];
-  // Le titre de la première section n'est utile que s'il y a bien deux
+  // Le titre de chaque section n'est utile que s'il y a bien plusieurs
   // phases distinctes à distinguer ; sinon (tournoi entièrement en
   // round-robin/suisse, ou entièrement en élimination directe), un seul
   // tableau sans sous-titre suffit, comme avant.
-  const hasTwoPhases = mainRows.length > 0 && finalRows.length > 0;
+  const phaseCount = [mainRows.length > 0, swissPhaseRows.length > 0, finalRows.length > 0].filter(
+    Boolean
+  ).length;
+  const showHeadings = phaseCount > 1;
   if (mainRows.length > 0) {
     sections.push({
-      heading: hasTwoPhases
-        ? tournament.format === "GROUPS"
+      heading: showHeadings
+        ? tournament.format === "GROUPS" || tournament.format === "COMBINED"
           ? "Phase de poules"
           : "Phase principale"
         : undefined,
@@ -114,9 +125,17 @@ export async function GET(
       columnWeights,
     });
   }
+  if (swissPhaseRows.length > 0) {
+    sections.push({
+      heading: showHeadings ? "Phase suisse" : undefined,
+      headers,
+      rows: swissPhaseRows,
+      columnWeights,
+    });
+  }
   if (finalRows.length > 0) {
     sections.push({
-      heading: hasTwoPhases ? "Phase finale" : undefined,
+      heading: showHeadings ? "Phase finale" : undefined,
       headers,
       rows: finalRows,
       columnWeights,

@@ -176,3 +176,32 @@ export async function computeClassicTeamStandings(
     matches
   );
 }
+
+// Équivalent équipes de computeClassicSwissPhaseStandings : classement de la
+// phase suisse d'un tournoi COMBINED par équipes, restreint aux équipes
+// qualifiées et à leurs matchs de la phase suisse (voir le commentaire
+// équivalent côté individuel).
+export async function computeClassicTeamSwissPhaseStandings(
+  tournamentId: string
+): Promise<ClassicTeamStandingRow[]> {
+  const matches = await prisma.match.findMany({
+    where: {
+      round: { tournamentId, isSwissPhase: true },
+      OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
+    },
+  });
+
+  const teamIds = new Set<string>();
+  for (const m of matches) {
+    if (m.homeTeamId) teamIds.add(m.homeTeamId);
+    if (m.awayTeamId) teamIds.add(m.awayTeamId);
+  }
+  if (teamIds.size === 0) return [];
+
+  const teams = await prisma.team.findMany({ where: { id: { in: [...teamIds] } } });
+
+  return computeTeamStandingsFromMatches(
+    teams.map((t) => ({ teamId: t.id, name: t.name })),
+    matches
+  );
+}

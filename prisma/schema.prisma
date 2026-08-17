@@ -41,6 +41,11 @@ enum ClassicFormat {
   SWISS
   GROUPS
   KNOCKOUT
+  // "Combiné" : phase de poules (qualification) suivie d'une phase suisse
+  // entre les qualifiés, elle-même suivie d'une phase finale à élimination
+  // directe optionnelle (voir finalPhaseEnabled) — comme GROUPS, mais avec
+  // un système suisse à la place du passage direct au tableau final.
+  COMBINED
 }
 
 // Détermine comment départager les joueurs/équipes pour l'appariement de la
@@ -389,11 +394,18 @@ model Round {
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   number       Int
   playedAt     DateTime?
-  // Marque les rondes de la phase finale à élimination directe générée
-  // après un round-robin ou un système suisse (voir finalPhaseEnabled sur
-  // Tournament) — permet de distinguer ces rondes des rondes de la phase
-  // principale, qui elles n'ont pas de poolId pour les départager.
+  // Marque les rondes qui ne font plus partie de la phase principale
+  // (poules, ou round-robin/suisse) — élimination directe (voir
+  // finalPhaseEnabled sur Tournament) la plupart du temps, mais aussi la
+  // phase suisse d'un tournoi COMBINED (voir isSwissPhase ci-dessous). Ces
+  // rondes n'ont pas de poolId pour les départager.
   isFinalPhase Boolean    @default(false)
+  // Ne s'applique qu'aux tournois au format COMBINED (poules puis suisse
+  // puis, en option, élimination directe) : distingue, parmi les rondes
+  // isFinalPhase, celles de la sous-phase suisse (isSwissPhase = true) de
+  // celles du tableau à élimination directe optionnel qui la suit
+  // (isSwissPhase = false, comme toute ronde de phase finale classique).
+  isSwissPhase Boolean    @default(false)
 
   matches Match[]
 

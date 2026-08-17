@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { computeClassicStandings } from "@/lib/classic/standings";
+import { computeClassicStandings, computeClassicSwissPhaseStandings } from "@/lib/classic/standings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
 import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
@@ -19,13 +19,15 @@ export async function GET(
   const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;
 
   let pdf: Buffer;
-  if (tournament.type === "CLASSIC" && tournament.format === "GROUPS" && !tournament.isTeamEvent) {
+  const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
+  if (tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent) {
     // Poules : chaque poule joue son propre round-robin interne, donc son
     // classement n'a de sens que par poule (contrairement au classement
     // général qui mélangerait des joueurs ne s'étant jamais affrontés) —
     // voir la page classement publique, qui affiche déjà un tableau par
     // poule plutôt qu'un classement général unique dans ce cas.
     const pools = await computeClassicPoolStandings(tournament.id);
+    const poolColumnWeights = [0.7, 3, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9];
     const sections: PdfSection[] = pools.map((pool) => ({
       heading: `Poule ${pool.poolName}`,
       headers: ["Rang", "Joueur", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
@@ -49,8 +51,33 @@ export async function GET(
       // repassait sinon sur deux lignes, contrairement aux autres colonnes
       // chiffrées restées sur une seule — incohérence visuelle entre
       // colonnes que ce réglage corrige.
-      columnWeights: [0.7, 3, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9],
+      columnWeights: poolColumnWeights,
     }));
+    // Combiné (poules puis suisse) : ajoute le classement de la phase
+    // suisse à la suite des tableaux par poule, dans le même document.
+    if (tournament.format === "COMBINED") {
+      const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id);
+      sections.push({
+        heading: "Phase suisse",
+        headers: ["Rang", "Joueur", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
+        rows: swissPhaseStandings.map((row, i) => [
+          i + 1,
+          `${row.lastName} ${row.firstName}`,
+          row.played,
+          row.wins,
+          row.draws,
+          row.losses,
+          row.forfeits,
+          row.matchPoints,
+          row.diff,
+          row.sonnebornBerger,
+          row.buchholz,
+          row.buchholzMedian,
+          row.cumulativeScore,
+        ]),
+        columnWeights: poolColumnWeights,
+      });
+    }
     pdf = await renderMultiTablePdf(
       `Classement par poule — ${tournament.name}`,
       subtitle,
