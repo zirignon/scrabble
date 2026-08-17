@@ -269,6 +269,15 @@ model Tournament {
   // les rondes se génèrent une par une sans limite prédéfinie comme
   // auparavant (l'organisateur décide lui-même quand s'arrêter).
   swissRoundsCount      Int?
+  // Autorise volontairement les revanches (deux entrants déjà opposés lors
+  // d'une ronde antérieure) à partir de cette ronde suisse incluse — courant
+  // en fin de tournoi quand le vivier d'adversaires inédits se resserre.
+  // Laissé à null (par défaut) : aucune revanche volontaire, seulement en
+  // dernier recours si generateSwissRound n'a aucun adversaire inédit
+  // disponible pour un entrant donné. Pour un tournoi COMBINED, la ronde se
+  // compte au sein de la phase suisse elle-même (voir "Ronde suisse N"),
+  // pas dans la numérotation globale du tournoi qui inclut les poules.
+  allowRematchesFromRound Int?
   // Méthode d'appariement de la toute première ronde suisse : tirage au
   // sort (par défaut) ou classement par Elo classique décroissant. Laisse
   // le choix à l'organisateur, qui peut préférer l'un ou l'autre selon le
