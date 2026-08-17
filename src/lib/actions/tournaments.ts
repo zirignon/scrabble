@@ -13,7 +13,7 @@ import type { ActionState } from "@/lib/actions/auth";
 const tournamentSchema = z.object({
   name: z.string().min(3, "Le nom est trop court."),
   type: z.enum(["CLASSIC", "DUPLICATE"]),
-  format: z.enum(["ROUND_ROBIN", "SWISS", "GROUPS", "KNOCKOUT"]).optional(),
+  format: z.enum(["ROUND_ROBIN", "SWISS", "GROUPS", "KNOCKOUT", "COMBINED"]).optional(),
   duplicateFormula: z
     .enum([
       "NORMALE",

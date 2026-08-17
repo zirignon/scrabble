@@ -284,3 +284,43 @@ export async function computeClassicStandings(
     matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );
 }
+
+// Classement de la phase suisse d'un tournoi COMBINED (poules puis suisse) :
+// ne doit tenir compte ni des joueurs non qualifiés ni des matchs de poules,
+// exactement comme computeClassicPoolStandings restreint le classement à une
+// poule. Les qualifiés et leurs matchs sont retrouvés directement à partir
+// des rondes marquées isSwissPhase plutôt que recalculés depuis les poules,
+// pour rester la source de vérité unique une fois la phase suisse commencée.
+export async function computeClassicSwissPhaseStandings(
+  tournamentId: string
+): Promise<ClassicStandingRow[]> {
+  const matches = await prisma.match.findMany({
+    where: { round: { tournamentId, isSwissPhase: true } },
+    include: { round: true },
+  });
+
+  const playerIds = new Set<string>();
+  for (const m of matches) {
+    if (m.homePlayerId) playerIds.add(m.homePlayerId);
+    if (m.awayPlayerId) playerIds.add(m.awayPlayerId);
+  }
+  if (playerIds.size === 0) return [];
+
+  const players = await prisma.player.findMany({
+    where: { id: { in: [...playerIds] } },
+    include: { club: true },
+  });
+
+  return computeStandingsFromMatches(
+    players.map((p) => ({
+      playerId: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      category: p.category,
+      classification: p.classificationClassic,
+      clubName: p.club?.name ?? null,
+      federation: p.federation ?? p.club?.federation ?? null,
+    })),
+    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+  );
+}

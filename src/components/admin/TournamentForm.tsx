@@ -13,6 +13,7 @@ export function TournamentForm() {
   );
   const [type, setType] = useState<"CLASSIC" | "DUPLICATE">("CLASSIC");
   const [isTeamEvent, setIsTeamEvent] = useState(false);
+  const [format, setFormat] = useState("ROUND_ROBIN");
 
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-xl">
@@ -63,13 +64,23 @@ export function TournamentForm() {
             id="format"
             name="format"
             className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent"
-            defaultValue="ROUND_ROBIN"
+            value={format}
+            onChange={(e) => setFormat(e.target.value)}
           >
             <option value="ROUND_ROBIN">Round-robin (chacun contre chacun)</option>
             <option value="SWISS">Système suisse</option>
             <option value="GROUPS">Poules</option>
+            <option value="COMBINED">Combiné (poules puis suisse)</option>
             <option value="KNOCKOUT">Élimination directe</option>
           </select>
+          {format === "COMBINED" && (
+            <p className="text-xs text-black/60 dark:text-white/60">
+              Phase de poules (qualification), suivie d&apos;un système
+              suisse entre les qualifiés — avec, en option, une phase finale
+              à élimination directe à la fin (réglable depuis la page
+              Rondes une fois le tournoi créé).
+            </p>
+          )}
           {isTeamEvent && (
             <p className="text-xs text-black/60 dark:text-white/60">
               Seuls le round-robin et le système suisse génèrent

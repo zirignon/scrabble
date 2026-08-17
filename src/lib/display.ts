@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { computeClassicStandings } from "@/lib/classic/standings";
-import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
+import { computeClassicStandings, computeClassicSwissPhaseStandings } from "@/lib/classic/standings";
+import {
+  computeClassicTeamStandings,
+  computeClassicTeamSwissPhaseStandings,
+} from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import { countKnockoutEntrants, getKnockoutStageLabel } from "@/lib/classic/knockout";
@@ -91,7 +94,45 @@ async function buildStandings(tournament: {
   isTeamEvent: boolean;
 }): Promise<{ title: string; groups: DisplayStandingGroup[] }> {
   if (tournament.type === "CLASSIC") {
-    if (tournament.format === "GROUPS") {
+    // Combiné (poules puis suisse) : une fois la phase suisse commencée,
+    // c'est ce classement-là qui devient pertinent pour l'écran public —
+    // le classement par poule ci-dessous ne reste affiché que tant que la
+    // phase de poules est encore en cours.
+    if (tournament.format === "COMBINED") {
+      const swissPhaseStarted = await prisma.round.findFirst({
+        where: { tournamentId: tournament.id, isSwissPhase: true },
+        select: { id: true },
+      });
+      if (swissPhaseStarted) {
+        if (tournament.isTeamEvent) {
+          const rows = await computeClassicTeamSwissPhaseStandings(tournament.id);
+          return {
+            title: "Classement (phase suisse) — Équipes",
+            groups: [
+              {
+                name: null,
+                rows: rows.map((s, i) => ({ rank: i + 1, name: s.name, columns: classicTeamColumns(s) })),
+              },
+            ],
+          };
+        }
+        const rows = await computeClassicSwissPhaseStandings(tournament.id);
+        return {
+          title: "Classement (phase suisse)",
+          groups: [
+            {
+              name: null,
+              rows: rows.map((s, i) => ({
+                rank: i + 1,
+                name: `${s.lastName} ${s.firstName}`,
+                columns: classicIndividualColumns(s),
+              })),
+            },
+          ],
+        };
+      }
+    }
+    if (tournament.format === "GROUPS" || tournament.format === "COMBINED") {
       if (tournament.isTeamEvent) {
         const pools = await computeClassicTeamPoolStandings(tournament.id);
         return {
@@ -336,10 +377,20 @@ async function buildCurrent(tournament: {
     const isKnockoutRound =
       tournament.format === "KNOCKOUT" ||
       (tournament.format === "GROUPS" && !grouped) ||
-      lastRound.isFinalPhase;
-    const label = isKnockoutRound
-      ? getKnockoutStageLabel(countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace)))
-      : `Ronde ${lastRound.number}`;
+      (lastRound.isFinalPhase && !lastRound.isSwissPhase);
+    let label: string;
+    if (isKnockoutRound) {
+      label = getKnockoutStageLabel(
+        countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace))
+      );
+    } else if (lastRound.isSwissPhase) {
+      const swissPhaseRoundNumber = await prisma.round.count({
+        where: { tournamentId: tournament.id, isSwissPhase: true, number: { lte: lastRound.number } },
+      });
+      label = `Ronde suisse ${swissPhaseRoundNumber}`;
+    } else {
+      label = `Ronde ${lastRound.number}`;
+    }
     return {
       kind: "matches",
       label,

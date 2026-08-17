@@ -14,11 +14,13 @@ import {
   generateNextTeamSwissRoundAction,
   generatePoolsRoundRobinAction,
   generateRoundRobinAction,
+  generateSwissPhaseRoundAction,
   generateTeamFinalPhaseFromPoolsAction,
   generateTeamFinalPhaseFromStandingsAction,
   generateTeamKnockoutBracketAction,
   generateTeamPoolsRoundRobinAction,
   generateTeamRoundRobinAction,
+  generateTeamSwissPhaseRoundAction,
   recordMatchResultAction,
   updateFinalPhaseSettingsAction,
   updateSwissRoundsSettingsAction,
@@ -522,6 +524,8 @@ export default async function RoundsPage({
   const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);
   const generateSwissBound = generateNextSwissRoundAction.bind(null, tournament.id);
   const generateTeamSwissBound = generateNextTeamSwissRoundAction.bind(null, tournament.id);
+  const generateSwissPhaseBound = generateSwissPhaseRoundAction.bind(null, tournament.id);
+  const generateTeamSwissPhaseBound = generateTeamSwissPhaseRoundAction.bind(null, tournament.id);
   const generatePoolsBound = generatePoolsRoundRobinAction.bind(null, tournament.id);
   const generateTeamPoolsBound = generateTeamPoolsRoundRobinAction.bind(null, tournament.id);
   const generateKnockoutBound = generateKnockoutBracketAction.bind(null, tournament.id);
@@ -552,6 +556,36 @@ export default async function RoundsPage({
   const finalPhaseFromStandingsExists = tournament.rounds.some((r) => r.isFinalPhase);
   const swissRoundLimitReached =
     tournament.swissRoundsCount !== null && mainPhaseRounds.length >= tournament.swissRoundsCount;
+
+  // Format Combiné (poules puis suisse, puis en option élimination directe) :
+  // pour ce format, mainPhaseRounds/mainPhaseComplete ci-dessus désignent
+  // déjà la phase de poules (isFinalPhase: false), et servent donc aussi de
+  // garde-fou "poules terminées" avant de générer la phase suisse — mais le
+  // décompte de rondes et l'existence d'un tableau final doivent être
+  // recalculés séparément, la phase suisse ayant elle aussi isFinalPhase: true.
+  const swissPhaseRounds = tournament.rounds.filter((r) => r.isSwissPhase);
+  const swissPhaseComplete =
+    swissPhaseRounds.length > 0 &&
+    swissPhaseRounds.every((r) =>
+      r.matches.every((m) => m.isBye || !m.homePlayerId || !m.awayPlayerId || m.status !== "SCHEDULED")
+    );
+  const swissPhaseRoundLimitReached =
+    tournament.swissRoundsCount !== null && swissPhaseRounds.length >= tournament.swissRoundsCount;
+  const knockoutAfterSwissExists = tournament.rounds.some((r) => r.isFinalPhase && !r.isSwissPhase);
+  // Numéro de ronde relatif à la phase suisse (1, 2, 3...), affiché à la
+  // place du numéro de ronde global du tournoi (qui inclut les rondes de
+  // poules précédentes et serait donc trompeur, ex. "Ronde 6" pour la 1re
+  // ronde suisse après 5 rondes de poules).
+  const swissPhaseRoundNumberById = new Map<string, number>();
+  {
+    let n = 0;
+    for (const r of tournament.rounds) {
+      if (r.isSwissPhase) {
+        n += 1;
+        swissPhaseRoundNumberById.set(r.id, n);
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -601,25 +635,27 @@ export default async function RoundsPage({
         </div>
       </div>
 
-      {tournament.format === "SWISS" && (
+      {(tournament.format === "SWISS" || tournament.format === "COMBINED") && (
         <SwissSeedingSettingsForm
           tournamentId={tournament.id}
           swissSeeding={tournament.swissSeeding}
-          roundsPlayed={mainPhaseRounds.length}
+          roundsPlayed={tournament.format === "COMBINED" ? swissPhaseRounds.length : mainPhaseRounds.length}
           canManage={canManage}
         />
       )}
 
-      {tournament.format === "SWISS" && (
+      {(tournament.format === "SWISS" || tournament.format === "COMBINED") && (
         <SwissRoundsSettingsForm
           tournamentId={tournament.id}
           swissRoundsCount={tournament.swissRoundsCount}
-          roundsPlayed={mainPhaseRounds.length}
+          roundsPlayed={tournament.format === "COMBINED" ? swissPhaseRounds.length : mainPhaseRounds.length}
           canManage={canManage}
         />
       )}
 
-      {(tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") && (
+      {(tournament.format === "ROUND_ROBIN" ||
+        tournament.format === "SWISS" ||
+        tournament.format === "COMBINED") && (
         <FinalPhaseSettingsForm
           tournamentId={tournament.id}
           finalPhaseEnabled={tournament.finalPhaseEnabled}
@@ -676,7 +712,7 @@ export default async function RoundsPage({
             </p>
           )}
           {!tournament.isTeamEvent &&
-            tournament.format === "GROUPS" &&
+            (tournament.format === "GROUPS" || tournament.format === "COMBINED") &&
             tournament.rounds.length === 0 && (
               <RoundActionButton
                 action={generatePoolsBound}
@@ -685,7 +721,7 @@ export default async function RoundsPage({
               />
             )}
           {tournament.isTeamEvent &&
-            tournament.format === "GROUPS" &&
+            (tournament.format === "GROUPS" || tournament.format === "COMBINED") &&
             tournament.rounds.length === 0 && (
               <RoundActionButton
                 action={generateTeamPoolsBound}
@@ -714,6 +750,35 @@ export default async function RoundsPage({
               />
             )}
           {!tournament.isTeamEvent &&
+            tournament.format === "COMBINED" &&
+            mainPhaseComplete &&
+            !swissPhaseRoundLimitReached &&
+            !knockoutAfterSwissExists && (
+              <RoundActionButton
+                action={generateSwissPhaseBound}
+                label="Générer la ronde suisse suivante"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "COMBINED" &&
+            mainPhaseComplete &&
+            !swissPhaseRoundLimitReached &&
+            !knockoutAfterSwissExists && (
+              <RoundActionButton
+                action={generateTeamSwissPhaseBound}
+                label="Générer la ronde suisse suivante (équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
+            )}
+          {tournament.format === "COMBINED" && swissPhaseRoundLimitReached && !knockoutAfterSwissExists && (
+            <p className="text-sm text-black/60 dark:text-white/60 self-center">
+              Nombre de rondes suisses prévu atteint — générez la phase
+              finale ci-dessous, ou augmentez le nombre de rondes plus haut
+              pour en ajouter une de plus.
+            </p>
+          )}
+          {!tournament.isTeamEvent &&
             (tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
             tournament.finalPhaseEnabled &&
             mainPhaseComplete &&
@@ -736,6 +801,28 @@ export default async function RoundsPage({
               />
             )}
           {!tournament.isTeamEvent &&
+            tournament.format === "COMBINED" &&
+            tournament.finalPhaseEnabled &&
+            swissPhaseComplete &&
+            !knockoutAfterSwissExists && (
+              <RoundActionButton
+                action={generateFinalPhaseFromStandingsBound}
+                label="Générer la phase finale"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
+            )}
+          {tournament.isTeamEvent &&
+            tournament.format === "COMBINED" &&
+            tournament.finalPhaseEnabled &&
+            swissPhaseComplete &&
+            !knockoutAfterSwissExists && (
+              <RoundActionButton
+                action={generateTeamFinalPhaseFromStandingsBound}
+                label="Générer la phase finale (équipes)"
+                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+              />
+            )}
+          {!tournament.isTeamEvent &&
             tournament.format === "KNOCKOUT" &&
             tournament.rounds.length === 0 && (
               <RoundActionButton
@@ -748,7 +835,8 @@ export default async function RoundsPage({
             ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
               (tournament.format === "GROUPS" && finalPhaseExists) ||
               ((tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
-                finalPhaseFromStandingsExists)) && (
+                finalPhaseFromStandingsExists) ||
+              (tournament.format === "COMBINED" && knockoutAfterSwissExists)) && (
               <RoundActionButton
                 action={generateNextKnockoutBound}
                 label="Générer le tour suivant"
@@ -768,7 +856,8 @@ export default async function RoundsPage({
             ((tournament.format === "KNOCKOUT" && tournament.rounds.length > 0) ||
               (tournament.format === "GROUPS" && finalPhaseExists) ||
               ((tournament.format === "ROUND_ROBIN" || tournament.format === "SWISS") &&
-                finalPhaseFromStandingsExists)) && (
+                finalPhaseFromStandingsExists) ||
+              (tournament.format === "COMBINED" && knockoutAfterSwissExists)) && (
               <RoundActionButton
                 action={generateNextTeamKnockoutBound}
                 label="Générer le tour suivant (équipes)"
@@ -786,7 +875,11 @@ export default async function RoundsPage({
       {tournament.rounds.map((round) => {
         const roundHasPoolMatches = round.matches.some((m) => m.poolId);
 
-        if (!tournament.isTeamEvent && tournament.format === "GROUPS" && roundHasPoolMatches) {
+        if (
+          !tournament.isTeamEvent &&
+          (tournament.format === "GROUPS" || tournament.format === "COMBINED") &&
+          roundHasPoolMatches
+        ) {
           // Tournoi en poules : regroupe les matchs de la ronde par poule
           // (chaque poule joue son propre round-robin interne). Une ronde
           // de la phase finale (générée à partir des qualifiés) n'a pas de
@@ -826,7 +919,7 @@ export default async function RoundsPage({
           const isKnockoutRound =
             tournament.format === "KNOCKOUT" ||
             tournament.format === "GROUPS" ||
-            round.isFinalPhase;
+            (round.isFinalPhase && !round.isSwissPhase);
           const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
           const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
           return (
@@ -834,7 +927,9 @@ export default async function RoundsPage({
               <h2 className="font-heading text-lg font-semibold">
                 {isKnockoutRound
                   ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                  : `Ronde ${round.number}`}
+                  : round.isSwissPhase
+                    ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
+                    : `Ronde ${round.number}`}
               </h2>
               <MatchTable
                 matches={mainMatches}
@@ -900,7 +995,10 @@ export default async function RoundsPage({
           );
         }
 
-        if (tournament.format === "GROUPS" && roundHasPoolMatches) {
+        if (
+          (tournament.format === "GROUPS" || tournament.format === "COMBINED") &&
+          roundHasPoolMatches
+        ) {
           // Tournoi par équipes en poules : regroupe d'abord par poule, puis
           // par confrontation d'équipes à l'intérieur de chaque poule. Une
           // ronde de la phase finale n'a pas de poule associée et tombe
@@ -1011,7 +1109,9 @@ export default async function RoundsPage({
         }
 
         const isKnockoutRound =
-          tournament.format === "KNOCKOUT" || tournament.format === "GROUPS" || round.isFinalPhase;
+          tournament.format === "KNOCKOUT" ||
+          tournament.format === "GROUPS" ||
+          (round.isFinalPhase && !round.isSwissPhase);
         return (
           <section key={round.id} className="flex flex-col gap-5">
             <h2 className="font-heading text-lg font-semibold">
@@ -1019,7 +1119,9 @@ export default async function RoundsPage({
                 ? getKnockoutStageLabel(
                     countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
                   )
-                : `Ronde ${round.number}`}
+                : round.isSwissPhase
+                  ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
+                  : `Ronde ${round.number}`}
             </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (

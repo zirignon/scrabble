@@ -7,8 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { generateRoundRobinRounds } from "@/lib/classic/pairing";
 import { generateSwissRound, generateSwissRoundWithForfeits, seedFirstSwissRound } from "@/lib/classic/swiss";
-import { computeClassicStandings } from "@/lib/classic/standings";
-import { computeClassicTeamStandings } from "@/lib/classic/teamStandings";
+import { computeClassicStandings, computeClassicSwissPhaseStandings } from "@/lib/classic/standings";
+import {
+  computeClassicTeamStandings,
+  computeClassicTeamSwissPhaseStandings,
+} from "@/lib/classic/teamStandings";
 import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
 import {
@@ -129,7 +132,13 @@ function schedulePending(schedule: PendingSchedule): PendingSchedule | null {
 // (génération manuelle intentionnelle).
 async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
   const tournament = await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
-  if (tournament.format !== "ROUND_ROBIN" && tournament.format !== "GROUPS") return;
+  if (
+    tournament.format !== "ROUND_ROBIN" &&
+    tournament.format !== "GROUPS" &&
+    tournament.format !== "COMBINED"
+  ) {
+    return;
+  }
 
   const round = await prisma.round.findUnique({
     where: { id: roundId },
@@ -577,7 +586,10 @@ export const generateNextTeamSwissRoundAction = safeRoundAction(generateNextTeam
 
 async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
-  if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS") {
+  if (
+    tournament.type !== "CLASSIC" ||
+    (tournament.format !== "GROUPS" && tournament.format !== "COMBINED")
+  ) {
     throw new Error("Ce tournoi n'est pas au format poules.");
   }
   if (tournament.isTeamEvent) {
@@ -646,7 +658,11 @@ export const generatePoolsRoundRobinAction = safeRoundAction(generatePoolsRoundR
 
 async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
-  if (tournament.type !== "CLASSIC" || tournament.format !== "GROUPS" || !tournament.isTeamEvent) {
+  if (
+    tournament.type !== "CLASSIC" ||
+    (tournament.format !== "GROUPS" && tournament.format !== "COMBINED") ||
+    !tournament.isTeamEvent
+  ) {
     throw new Error("Ce tournoi n'est pas un tournoi par équipes en poules.");
   }
 
@@ -877,6 +893,257 @@ async function generateTeamFinalPhaseFromPoolsActionImpl(tournamentId: string) {
 }
 export const generateTeamFinalPhaseFromPoolsAction = safeRoundAction(generateTeamFinalPhaseFromPoolsActionImpl);
 
+// Génère la ronde suisse suivante d'un tournoi COMBINED (poules puis
+// suisse) : la toute première ronde de cette sous-phase (aucun match
+// isSwissPhase encore en base) part des qualifiés de poules, fraîchement
+// départagés (voir seedFirstSwissRound) — les rondes suivantes reprennent le
+// classement de la phase suisse elle-même (voir computeClassicSwissPhaseStandings),
+// sans tenir compte des résultats de poules. Une seule action, comme
+// generateNextSwissRoundActionImpl unifie déjà "1re ronde" et "ronde
+// suivante" pour le format SWISS classique.
+async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "COMBINED" || tournament.isTeamEvent) {
+    throw new Error("Cette action ne s'applique qu'aux tournois individuels au format Combiné.");
+  }
+
+  const previousSwissMatches = await prisma.match.findMany({
+    where: { round: { tournamentId, isSwissPhase: true } },
+  });
+  const unfinished = previousSwissMatches.some(
+    (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
+  );
+  if (unfinished) {
+    throw new Error("Terminez la saisie des résultats de la ronde en cours avant d'en générer une nouvelle.");
+  }
+
+  let standingsForPairing: { playerId: string; matchPoints: number }[];
+  if (previousSwissMatches.length === 0) {
+    const poolMatches = await prisma.match.findMany({
+      where: { round: { tournamentId }, poolId: { not: null } },
+    });
+    if (poolMatches.length === 0) throw new Error("Générez d'abord les rondes en poules.");
+    const poolUnfinished = poolMatches.some(
+      (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
+    );
+    if (poolUnfinished) {
+      throw new Error("Terminez la phase de poules avant de générer la phase suisse.");
+    }
+
+    const poolStandings = await computeClassicPoolStandings(tournamentId);
+    const qualifierIds = selectPoolQualifiers(poolStandings, tournament.qualifiersPerPool, "playerId");
+    if (qualifierIds.length < 2) {
+      throw new Error("Pas assez de qualifiés pour générer une phase suisse.");
+    }
+
+    const registrations = await prisma.registration.findMany({
+      where: { tournamentId, playerId: { in: qualifierIds } },
+      select: { playerId: true, player: { select: { eloClassic: true } } },
+    });
+    const eloByPlayer = new Map(registrations.map((r) => [r.playerId, r.player.eloClassic]));
+    standingsForPairing = seedFirstSwissRound(
+      qualifierIds.map((playerId) => ({ playerId, matchPoints: 0 })),
+      tournament.swissSeeding,
+      eloByPlayer
+    );
+  } else {
+    const standings = await computeClassicSwissPhaseStandings(tournamentId);
+    standingsForPairing = standings.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints }));
+  }
+
+  const previousOpponents = new Map<string, Set<string>>();
+  const playersWithBye = new Set<string>();
+  for (const m of previousSwissMatches) {
+    if (m.isBye) {
+      if (m.homePlayerId) playersWithBye.add(m.homePlayerId);
+      continue;
+    }
+    if (!m.homePlayerId || !m.awayPlayerId) continue;
+    if (!previousOpponents.has(m.homePlayerId)) previousOpponents.set(m.homePlayerId, new Set());
+    if (!previousOpponents.has(m.awayPlayerId)) previousOpponents.set(m.awayPlayerId, new Set());
+    previousOpponents.get(m.homePlayerId)!.add(m.awayPlayerId);
+    previousOpponents.get(m.awayPlayerId)!.add(m.homePlayerId);
+  }
+
+  const last = await prisma.round.findFirst({
+    where: { tournamentId },
+    orderBy: { number: "desc" },
+  });
+
+  // Voir le commentaire équivalent dans generateNextSwissRoundActionImpl :
+  // un joueur forfait à la ronde suisse qui vient de se terminer est envoyé
+  // en bas du classement pour l'appariement plutôt que de laisser un joueur
+  // présent hériter d'une "victoire gratuite".
+  const forfeitedLastRound = new Set<string>();
+  if (last && last.isSwissPhase) {
+    const lastRoundMatches = previousSwissMatches.filter((m) => m.roundId === last.id);
+    for (const m of lastRoundMatches) {
+      if (m.status === "FORFEIT_HOME" && m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
+      if (m.status === "FORFEIT_AWAY" && m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+      if (m.status === "FORFEIT_BOTH") {
+        if (m.homePlayerId) forfeitedLastRound.add(m.homePlayerId);
+        if (m.awayPlayerId) forfeitedLastRound.add(m.awayPlayerId);
+      }
+    }
+  }
+
+  const pairings = generateSwissRoundWithForfeits(
+    standingsForPairing,
+    previousOpponents,
+    playersWithBye,
+    forfeitedLastRound
+  );
+
+  const round = await prisma.round.create({
+    data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
+  });
+
+  let table = 1;
+  for (const pairing of pairings) {
+    await prisma.match.create({
+      data: {
+        roundId: round.id,
+        table: pairing.away ? table++ : null,
+        homePlayerId: pairing.home,
+        awayPlayerId: pairing.away,
+        isBye: pairing.away === null,
+        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+      },
+    });
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
+}
+export const generateSwissPhaseRoundAction = safeRoundAction(generateSwissPhaseRoundActionImpl);
+
+// Équivalent équipes de generateSwissPhaseRoundActionImpl : voir les
+// commentaires de cette dernière, la seule différence étant le
+// regroupement par confrontation (une équipe, plusieurs échiquiers) plutôt
+// qu'un match par joueur.
+async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.format !== "COMBINED" || !tournament.isTeamEvent) {
+    throw new Error("Cette action ne s'applique qu'aux tournois par équipes au format Combiné.");
+  }
+
+  const previousSwissMatches = await prisma.match.findMany({
+    where: { round: { tournamentId, isSwissPhase: true } },
+  });
+  const unfinished = previousSwissMatches.some(
+    (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
+  );
+  if (unfinished) {
+    throw new Error("Terminez la saisie des résultats de la ronde en cours avant d'en générer une nouvelle.");
+  }
+
+  let qualifierIds: string[];
+  let standingsForPairing: { playerId: string; matchPoints: number }[];
+  if (previousSwissMatches.length === 0) {
+    const poolMatches = await prisma.match.findMany({
+      where: { round: { tournamentId }, poolId: { not: null } },
+    });
+    if (poolMatches.length === 0) throw new Error("Générez d'abord les rondes en poules.");
+    const poolUnfinished = poolMatches.some(
+      (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
+    );
+    if (poolUnfinished) {
+      throw new Error("Terminez la phase de poules avant de générer la phase suisse.");
+    }
+
+    const poolStandings = await computeClassicTeamPoolStandings(tournamentId);
+    qualifierIds = selectPoolQualifiers(poolStandings, tournament.qualifiersPerPool, "teamId");
+    if (qualifierIds.length < 2) {
+      throw new Error("Pas assez d'équipes qualifiées pour générer une phase suisse.");
+    }
+
+    const qualifiedTeams = await prisma.team.findMany({
+      where: { id: { in: qualifierIds } },
+      include: { members: { include: { player: { select: { eloClassic: true } } } } },
+    });
+    const eloByTeam = new Map(
+      qualifiedTeams.map((t) => {
+        const elos = t.members
+          .map((m) => m.player.eloClassic)
+          .filter((elo): elo is number => elo != null);
+        const average = elos.length > 0 ? elos.reduce((a, b) => a + b, 0) / elos.length : null;
+        return [t.id, average];
+      })
+    );
+    standingsForPairing = seedFirstSwissRound(
+      qualifierIds.map((playerId) => ({ playerId, matchPoints: 0 })),
+      tournament.swissSeeding,
+      eloByTeam
+    );
+  } else {
+    const standings = await computeClassicTeamSwissPhaseStandings(tournamentId);
+    qualifierIds = standings.map((s) => s.teamId);
+    standingsForPairing = standings.map((s) => ({ playerId: s.teamId, matchPoints: s.matchPoints }));
+  }
+
+  const teams = await prisma.team.findMany({
+    where: { id: { in: qualifierIds } },
+    include: { members: { orderBy: { board: "asc" } } },
+  });
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const boardCount = teams[0]?.members.length ?? 0;
+  if (boardCount === 0) throw new Error("Chaque équipe qualifiée doit avoir au moins un joueur.");
+
+  const previousOpponents = new Map<string, Set<string>>();
+  const teamsWithBye = new Set<string>();
+  for (const m of previousSwissMatches) {
+    if (m.isBye) {
+      if (m.homeTeamId) teamsWithBye.add(m.homeTeamId);
+      continue;
+    }
+    if (!m.homeTeamId || !m.awayTeamId) continue;
+    if (!previousOpponents.has(m.homeTeamId)) previousOpponents.set(m.homeTeamId, new Set());
+    if (!previousOpponents.has(m.awayTeamId)) previousOpponents.set(m.awayTeamId, new Set());
+    previousOpponents.get(m.homeTeamId)!.add(m.awayTeamId);
+    previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
+  }
+
+  const pairings = generateSwissRound(standingsForPairing, previousOpponents, teamsWithBye);
+
+  const last = await prisma.round.findFirst({
+    where: { tournamentId },
+    orderBy: { number: "desc" },
+  });
+  const round = await prisma.round.create({
+    data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
+  });
+
+  for (const pairing of pairings) {
+    const homeTeam = teamsById.get(pairing.home)!;
+
+    if (pairing.away === null) {
+      await prisma.match.create({
+        data: { roundId: round.id, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
+      });
+      continue;
+    }
+
+    const awayTeam = teamsById.get(pairing.away)!;
+    for (let board = 0; board < boardCount; board++) {
+      await prisma.match.create({
+        data: {
+          roundId: round.id,
+          table: board + 1,
+          homeTeamId: homeTeam.id,
+          awayTeamId: awayTeam.id,
+          homePlayerId: homeTeam.members[board].playerId,
+          awayPlayerId: awayTeam.members[board].playerId,
+          status: "SCHEDULED",
+        },
+      });
+    }
+  }
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  notifyTournamentUpdate(tournamentId);
+}
+export const generateTeamSwissPhaseRoundAction = safeRoundAction(generateTeamSwissPhaseRoundActionImpl);
+
 export async function updateFinalPhaseSettingsAction(
   tournamentId: string,
   formData: FormData
@@ -884,9 +1151,11 @@ export async function updateFinalPhaseSettingsAction(
   const tournament = await assertCanManage(tournamentId);
   if (
     tournament.type !== "CLASSIC" ||
-    (tournament.format !== "ROUND_ROBIN" && tournament.format !== "SWISS")
+    (tournament.format !== "ROUND_ROBIN" &&
+      tournament.format !== "SWISS" &&
+      tournament.format !== "COMBINED")
   ) {
-    throw new Error("La phase finale optionnelle ne s'applique qu'au round-robin et au suisse.");
+    throw new Error("La phase finale optionnelle ne s'applique qu'au round-robin, au suisse et au Combiné.");
   }
 
   const finalPhaseEnabled = formData.get("finalPhaseEnabled") === "on";
@@ -911,8 +1180,11 @@ export async function updateSwissRoundsSettingsAction(
   formData: FormData
 ) {
   const tournament = await assertCanManage(tournamentId);
-  if (tournament.type !== "CLASSIC" || tournament.format !== "SWISS") {
-    throw new Error("Ce réglage ne s'applique qu'au format suisse.");
+  if (
+    tournament.type !== "CLASSIC" ||
+    (tournament.format !== "SWISS" && tournament.format !== "COMBINED")
+  ) {
+    throw new Error("Ce réglage ne s'applique qu'au format suisse et au Combiné.");
   }
 
   const raw = formData.get("swissRoundsCount");
@@ -937,8 +1209,11 @@ export async function updateSwissSeedingAction(
   formData: FormData
 ) {
   const tournament = await assertCanManage(tournamentId);
-  if (tournament.type !== "CLASSIC" || tournament.format !== "SWISS") {
-    throw new Error("Ce réglage ne s'applique qu'au format suisse.");
+  if (
+    tournament.type !== "CLASSIC" ||
+    (tournament.format !== "SWISS" && tournament.format !== "COMBINED")
+  ) {
+    throw new Error("Ce réglage ne s'applique qu'au format suisse et au Combiné.");
   }
 
   const swissSeeding = formData.get("swissSeeding");
@@ -982,18 +1257,30 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
   if (
     tournament.type !== "CLASSIC" ||
     tournament.isTeamEvent ||
-    (tournament.format !== "ROUND_ROBIN" && tournament.format !== "SWISS")
+    (tournament.format !== "ROUND_ROBIN" &&
+      tournament.format !== "SWISS" &&
+      tournament.format !== "COMBINED")
   ) {
-    throw new Error("Cette action ne s'applique qu'aux tournois individuels en round-robin ou suisse.");
+    throw new Error("Cette action ne s'applique qu'aux tournois individuels en round-robin, suisse ou Combiné.");
   }
   if (!tournament.finalPhaseEnabled) {
     throw new Error("La phase finale n'est pas activée pour ce tournoi.");
   }
 
+  const isCombined = tournament.format === "COMBINED";
+  // Pour COMBINED, la "phase principale" à terminer avant la phase finale
+  // est la phase suisse (isSwissPhase), pas les poules — celles-ci ont déjà
+  // dû être terminées pour pouvoir générer la phase suisse elle-même.
   const mainPhaseMatches = await prisma.match.findMany({
-    where: { round: { tournamentId, isFinalPhase: false } },
+    where: isCombined
+      ? { round: { tournamentId, isSwissPhase: true } }
+      : { round: { tournamentId, isFinalPhase: false } },
   });
-  if (mainPhaseMatches.length === 0) throw new Error("Générez d'abord les rondes.");
+  if (mainPhaseMatches.length === 0) {
+    throw new Error(
+      isCombined ? "Générez d'abord la phase suisse." : "Générez d'abord les rondes."
+    );
+  }
   const unfinished = mainPhaseMatches.some(
     (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
   );
@@ -1001,12 +1288,20 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
     throw new Error("Terminez la saisie des résultats avant de générer la phase finale.");
   }
 
+  // Pour COMBINED, ne compter que les rondes de tableau à élimination
+  // directe déjà générées (isSwissPhase: false) — sans quoi les rondes de
+  // la phase suisse elle-même (isFinalPhase: true) feraient croire à tort
+  // que la phase finale existe déjà.
   const finalPhaseMatches = await prisma.match.count({
-    where: { round: { tournamentId, isFinalPhase: true } },
+    where: {
+      round: { tournamentId, isFinalPhase: true, ...(isCombined ? { isSwissPhase: false } : {}) },
+    },
   });
   if (finalPhaseMatches > 0) throw new Error("La phase finale a déjà été générée.");
 
-  const standings = await computeClassicStandings(tournamentId);
+  const standings = isCombined
+    ? await computeClassicSwissPhaseStandings(tournamentId)
+    : await computeClassicStandings(tournamentId);
   const qualifiers = standings.slice(0, tournament.finalPhaseQualifiers).map((s) => s.playerId);
   if (qualifiers.length < 2) {
     throw new Error("Pas assez de joueurs classés pour générer une phase finale.");
@@ -1047,18 +1342,28 @@ async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: strin
   if (
     tournament.type !== "CLASSIC" ||
     !tournament.isTeamEvent ||
-    (tournament.format !== "ROUND_ROBIN" && tournament.format !== "SWISS")
+    (tournament.format !== "ROUND_ROBIN" &&
+      tournament.format !== "SWISS" &&
+      tournament.format !== "COMBINED")
   ) {
-    throw new Error("Cette action ne s'applique qu'aux tournois par équipes en round-robin ou suisse.");
+    throw new Error("Cette action ne s'applique qu'aux tournois par équipes en round-robin, suisse ou Combiné.");
   }
   if (!tournament.finalPhaseEnabled) {
     throw new Error("La phase finale n'est pas activée pour ce tournoi.");
   }
 
+  const isCombined = tournament.format === "COMBINED";
+  // Voir les commentaires équivalents dans generateFinalPhaseFromStandingsActionImpl.
   const mainPhaseMatches = await prisma.match.findMany({
-    where: { round: { tournamentId, isFinalPhase: false } },
+    where: isCombined
+      ? { round: { tournamentId, isSwissPhase: true } }
+      : { round: { tournamentId, isFinalPhase: false } },
   });
-  if (mainPhaseMatches.length === 0) throw new Error("Générez d'abord les rondes.");
+  if (mainPhaseMatches.length === 0) {
+    throw new Error(
+      isCombined ? "Générez d'abord la phase suisse." : "Générez d'abord les rondes."
+    );
+  }
   const unfinished = mainPhaseMatches.some(
     (m) => !m.isBye && m.homePlayerId && m.awayPlayerId && m.status === "SCHEDULED"
   );
@@ -1067,11 +1372,15 @@ async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: strin
   }
 
   const finalPhaseMatches = await prisma.match.count({
-    where: { round: { tournamentId, isFinalPhase: true } },
+    where: {
+      round: { tournamentId, isFinalPhase: true, ...(isCombined ? { isSwissPhase: false } : {}) },
+    },
   });
   if (finalPhaseMatches > 0) throw new Error("La phase finale a déjà été générée.");
 
-  const teamStandings = await computeClassicTeamStandings(tournamentId);
+  const teamStandings = isCombined
+    ? await computeClassicTeamSwissPhaseStandings(tournamentId)
+    : await computeClassicTeamStandings(tournamentId);
   const qualifierIds = teamStandings.slice(0, tournament.finalPhaseQualifiers).map((s) => s.teamId);
   if (qualifierIds.length < 2) {
     throw new Error("Pas assez d'équipes classées pour générer une phase finale.");
@@ -1154,7 +1463,7 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
   if (tournament.type !== "CLASSIC" || tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas au format élimination directe.");
   }
-  const allowedFormats = ["KNOCKOUT", "GROUPS", "ROUND_ROBIN", "SWISS"];
+  const allowedFormats = ["KNOCKOUT", "GROUPS", "ROUND_ROBIN", "SWISS", "COMBINED"];
   if (!allowedFormats.includes(tournament.format ?? "")) {
     throw new Error("Ce tournoi n'est pas au format élimination directe.");
   }
@@ -1173,6 +1482,15 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
     !last.isFinalPhase
   ) {
     throw new Error("Générez d'abord la phase finale à partir du classement général.");
+  }
+  // COMBINED : le tableau à élimination directe n'a pas encore commencé
+  // tant que la dernière ronde est une ronde de poule (poolId) ou de phase
+  // suisse (isSwissPhase) — voir generateFinalPhaseFromStandingsActionImpl.
+  if (
+    tournament.format === "COMBINED" &&
+    (last.matches.some((m) => m.poolId) || last.isSwissPhase)
+  ) {
+    throw new Error("Générez d'abord la phase finale à partir du classement de la phase suisse.");
   }
 
   const winners: string[] = [];
@@ -1293,7 +1611,7 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
   if (tournament.type !== "CLASSIC" || !tournament.isTeamEvent) {
     throw new Error("Ce tournoi n'est pas une élimination directe par équipes.");
   }
-  const allowedFormats = ["KNOCKOUT", "GROUPS", "ROUND_ROBIN", "SWISS"];
+  const allowedFormats = ["KNOCKOUT", "GROUPS", "ROUND_ROBIN", "SWISS", "COMBINED"];
   if (!allowedFormats.includes(tournament.format ?? "")) {
     throw new Error("Ce tournoi n'est pas une élimination directe par équipes.");
   }
@@ -1312,6 +1630,13 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
     !last.isFinalPhase
   ) {
     throw new Error("Générez d'abord la phase finale à partir du classement général.");
+  }
+  // Voir le commentaire équivalent dans generateNextKnockoutRoundActionImpl.
+  if (
+    tournament.format === "COMBINED" &&
+    (last.matches.some((m) => m.poolId) || last.isSwissPhase)
+  ) {
+    throw new Error("Générez d'abord la phase finale à partir du classement de la phase suisse.");
   }
 
   // Regroupe les échiquiers du dernier tour par confrontation (paire

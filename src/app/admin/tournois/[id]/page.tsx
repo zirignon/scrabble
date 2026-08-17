@@ -166,7 +166,8 @@ export default async function ManageTournamentPage({
             </p>
           </Link>
         )}
-        {tournament.type === "CLASSIC" && tournament.format === "GROUPS" && (
+        {tournament.type === "CLASSIC" &&
+          (tournament.format === "GROUPS" || tournament.format === "COMBINED") && (
           <Link
             href={`/admin/tournois/${tournament.id}/poules`}
             className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"

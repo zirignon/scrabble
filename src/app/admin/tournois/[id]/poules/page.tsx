@@ -16,10 +16,12 @@ function QualifiersSettingsForm({
   tournamentId,
   qualifiersPerPool,
   canManage,
+  isCombined,
 }: {
   tournamentId: string;
   qualifiersPerPool: number;
   canManage: boolean;
+  isCombined: boolean;
 }) {
   return (
     <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
@@ -55,8 +57,9 @@ function QualifiersSettingsForm({
         </p>
       )}
       <p className="text-xs text-black/50 dark:text-white/50">
-        Une fois la phase de poules terminée, générez la phase finale
-        (élimination directe) depuis la page des rondes.
+        {isCombined
+          ? "Une fois la phase de poules terminée, générez la phase suisse entre les qualifiés depuis la page des rondes."
+          : "Une fois la phase de poules terminée, générez la phase finale (élimination directe) depuis la page des rondes."}
       </p>
     </div>
   );
@@ -84,7 +87,7 @@ export default async function PoolsPage({
       },
     },
   });
-  if (!tournament || tournament.format !== "GROUPS") notFound();
+  if (!tournament || (tournament.format !== "GROUPS" && tournament.format !== "COMBINED")) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
   const createPoolBound = createPoolAction.bind(null, tournament.id);
@@ -123,6 +126,7 @@ export default async function PoolsPage({
           tournamentId={tournament.id}
           qualifiersPerPool={tournament.qualifiersPerPool}
           canManage={canManage}
+          isCombined={tournament.format === "COMBINED"}
         />
 
         {canManage && (
@@ -284,6 +288,7 @@ export default async function PoolsPage({
         tournamentId={tournament.id}
         qualifiersPerPool={tournament.qualifiersPerPool}
         canManage={canManage}
+        isCombined={tournament.format === "COMBINED"}
       />
 
       {canManage && (
