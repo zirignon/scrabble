@@ -415,9 +415,13 @@ function RematchSettingsForm({
         Laissez vide pour ne jamais autoriser volontairement une revanche
         (deux joueurs déjà opposés) — le système peut malgré tout en imposer
         une en dernier recours si aucun adversaire inédit n&apos;est
-        disponible. Utile en fin de tournoi, quand le vivier d&apos;adversaires
-        inédits se resserre. Pour un tournoi Combiné, la ronde se compte au
-        sein de la phase suisse elle-même.
+        disponible. À partir de la ronde indiquée, l&apos;appariement suit
+        strictement le classement sans chercher à éviter les revanches, mais
+        une même paire ne se rencontrera jamais plus de deux fois au total
+        (une seule revanche possible, jamais une 3ᵉ fois). Utile en fin de
+        tournoi, quand le vivier d&apos;adversaires inédits se resserre. Pour
+        un tournoi Combiné, la ronde se compte au sein de la phase suisse
+        elle-même.
       </p>
     </div>
   );

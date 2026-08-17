@@ -387,19 +387,17 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
   const standings = await computeClassicStandings(tournamentId);
   if (standings.length < 2) throw new Error("Il faut au moins 2 joueurs inscrits.");
 
-  const previousOpponents = new Map<string, Set<string>>();
   const playersWithBye = new Set<string>();
   for (const m of previousMatches) {
-    if (m.isBye) {
-      if (m.homePlayerId) playersWithBye.add(m.homePlayerId);
-      continue;
-    }
-    if (!m.homePlayerId || !m.awayPlayerId) continue;
-    if (!previousOpponents.has(m.homePlayerId)) previousOpponents.set(m.homePlayerId, new Set());
-    if (!previousOpponents.has(m.awayPlayerId)) previousOpponents.set(m.awayPlayerId, new Set());
-    previousOpponents.get(m.homePlayerId)!.add(m.awayPlayerId);
-    previousOpponents.get(m.awayPlayerId)!.add(m.homePlayerId);
+    if (m.isBye && m.homePlayerId) playersWithBye.add(m.homePlayerId);
   }
+  const meetingCounts = buildMeetingCounts(
+    previousMatches
+      .filter((m): m is typeof m & { homePlayerId: string; awayPlayerId: string } =>
+        !m.isBye && m.homePlayerId !== null && m.awayPlayerId !== null
+      )
+      .map((m) => ({ home: m.homePlayerId, away: m.awayPlayerId }))
+  );
 
   // Avant la ronde 1, tout le monde est à 0 point de match : le classement
   // ne peut pas encore départager les joueurs pour l'appariement. On
@@ -439,14 +437,14 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
 
   const upcomingRoundNumber = (last?.number ?? 0) + 1;
   // Revanches volontairement autorisées à partir de la ronde configurée
-  // (voir Tournament.allowRematchesFromRound) : on ignore alors l'historique
-  // des adversaires déjà rencontrés pour cet appariement, plutôt que de
-  // laisser generateSwissRoundWithForfeits n'imposer une revanche qu'en
-  // dernier recours.
+  // (voir Tournament.allowRematchesFromRound) : l'appariement tolère alors
+  // une unique revanche par paire (deux rencontres au total), au lieu d'en
+  // éviter toute trace comme d'habitude — jamais une 3e rencontre pour la
+  // même paire, quelle que soit la ronde.
   const rematchesAllowed =
     tournament.allowRematchesFromRound !== null &&
     upcomingRoundNumber >= tournament.allowRematchesFromRound;
-  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+  const opponentsForPairing = deriveAvoidSet(meetingCounts, rematchesAllowed ? 2 : 1);
 
   const pairings = generateSwissRoundWithForfeits(
     standingsForPairing.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints })),
@@ -535,19 +533,23 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
     teamStandingsForPairing = seedFirstSwissRound(teamStandingsForPairing, tournament.swissSeeding, eloByTeam);
   }
 
-  const previousOpponents = new Map<string, Set<string>>();
   const teamsWithBye = new Set<string>();
   for (const m of previousMatches) {
-    if (m.isBye) {
-      if (m.homeTeamId) teamsWithBye.add(m.homeTeamId);
-      continue;
-    }
-    if (!m.homeTeamId || !m.awayTeamId) continue;
-    if (!previousOpponents.has(m.homeTeamId)) previousOpponents.set(m.homeTeamId, new Set());
-    if (!previousOpponents.has(m.awayTeamId)) previousOpponents.set(m.awayTeamId, new Set());
-    previousOpponents.get(m.homeTeamId)!.add(m.awayTeamId);
-    previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
+    if (m.isBye && m.homeTeamId) teamsWithBye.add(m.homeTeamId);
   }
+  // Une confrontation d'équipes occupe plusieurs lignes Match (un par
+  // échiquier) : on déduplique par ronde + paire d'équipes pour qu'elle ne
+  // compte que pour UNE rencontre, pas boardCount rencontres.
+  const encounterKeys = new Set<string>();
+  const teamMeetingPairs: { home: string; away: string }[] = [];
+  for (const m of previousMatches) {
+    if (m.isBye || !m.homeTeamId || !m.awayTeamId) continue;
+    const key = `${m.roundId}:${m.homeTeamId}:${m.awayTeamId}`;
+    if (encounterKeys.has(key)) continue;
+    encounterKeys.add(key);
+    teamMeetingPairs.push({ home: m.homeTeamId, away: m.awayTeamId });
+  }
+  const meetingCounts = buildMeetingCounts(teamMeetingPairs);
 
   const last = await prisma.round.findFirst({
     where: { tournamentId },
@@ -558,7 +560,7 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
   const rematchesAllowed =
     tournament.allowRematchesFromRound !== null &&
     upcomingRoundNumber >= tournament.allowRematchesFromRound;
-  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+  const opponentsForPairing = deriveAvoidSet(meetingCounts, rematchesAllowed ? 2 : 1);
 
   const pairings = generateSwissRound(teamStandingsForPairing, opponentsForPairing, teamsWithBye);
 
@@ -739,6 +741,49 @@ async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
   notifyTournamentUpdate(tournamentId);
 }
 export const generateTeamPoolsRoundRobinAction = safeRoundAction(generateTeamPoolsRoundRobinActionImpl);
+
+// Nombre de fois où chaque paire d'entrants (joueurs ou équipes) s'est déjà
+// rencontrée, à partir de la liste des confrontations déjà jouées. Sert de
+// base à deriveAvoidSet ci-dessous plutôt que d'un simple ensemble
+// "déjà affronté" (booléen), pour pouvoir distinguer une paire qui ne
+// s'est jamais rencontrée, une qui s'est rencontrée une fois (éligible à
+// une revanche, voir allowRematchesFromRound) et une qui s'est déjà
+// rencontrée deux fois (revanche déjà consommée, à éviter de nouveau).
+function buildMeetingCounts(pairs: { home: string; away: string }[]): Map<string, Map<string, number>> {
+  const counts = new Map<string, Map<string, number>>();
+  function bump(a: string, b: string) {
+    if (!counts.has(a)) counts.set(a, new Map());
+    const forA = counts.get(a)!;
+    forA.set(b, (forA.get(b) ?? 0) + 1);
+  }
+  for (const { home, away } of pairs) {
+    bump(home, away);
+    bump(away, home);
+  }
+  return counts;
+}
+
+// Dérive, à partir du décompte de rencontres, l'ensemble des adversaires à
+// éviter pour l'appariement suisse : ceux déjà rencontrés au moins
+// `maxAllowedMeetings` fois. maxAllowedMeetings=1 reproduit le
+// comportement historique (toute revanche est évitée) ; =2 tolère une
+// unique revanche par paire avant de recommencer à l'éviter — voir
+// Tournament.allowRematchesFromRound, jamais plus permissif que ça : une
+// même paire ne peut donc jamais se rencontrer une 3e fois.
+function deriveAvoidSet(
+  counts: Map<string, Map<string, number>>,
+  maxAllowedMeetings: number
+): Map<string, Set<string>> {
+  const avoid = new Map<string, Set<string>>();
+  for (const [entrant, opponents] of counts) {
+    const set = new Set<string>();
+    for (const [opponent, count] of opponents) {
+      if (count >= maxAllowedMeetings) set.add(opponent);
+    }
+    avoid.set(entrant, set);
+  }
+  return avoid;
+}
 
 // Sélectionne, pour chaque poule, ses N premiers qualifiés (N =
 // tournament.qualifiersPerPool), en intercalant les rangs entre poules
@@ -969,19 +1014,17 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
     standingsForPairing = standings.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints }));
   }
 
-  const previousOpponents = new Map<string, Set<string>>();
   const playersWithBye = new Set<string>();
   for (const m of previousSwissMatches) {
-    if (m.isBye) {
-      if (m.homePlayerId) playersWithBye.add(m.homePlayerId);
-      continue;
-    }
-    if (!m.homePlayerId || !m.awayPlayerId) continue;
-    if (!previousOpponents.has(m.homePlayerId)) previousOpponents.set(m.homePlayerId, new Set());
-    if (!previousOpponents.has(m.awayPlayerId)) previousOpponents.set(m.awayPlayerId, new Set());
-    previousOpponents.get(m.homePlayerId)!.add(m.awayPlayerId);
-    previousOpponents.get(m.awayPlayerId)!.add(m.homePlayerId);
+    if (m.isBye && m.homePlayerId) playersWithBye.add(m.homePlayerId);
   }
+  const meetingCounts = buildMeetingCounts(
+    previousSwissMatches
+      .filter((m): m is typeof m & { homePlayerId: string; awayPlayerId: string } =>
+        !m.isBye && m.homePlayerId !== null && m.awayPlayerId !== null
+      )
+      .map((m) => ({ home: m.homePlayerId, away: m.awayPlayerId }))
+  );
 
   const last = await prisma.round.findFirst({
     where: { tournamentId },
@@ -1016,7 +1059,7 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
   const rematchesAllowed =
     tournament.allowRematchesFromRound !== null &&
     upcomingSwissRoundNumber >= tournament.allowRematchesFromRound;
-  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+  const opponentsForPairing = deriveAvoidSet(meetingCounts, rematchesAllowed ? 2 : 1);
 
   const pairings = generateSwissRoundWithForfeits(
     standingsForPairing,
@@ -1120,19 +1163,22 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
   const boardCount = teams[0]?.members.length ?? 0;
   if (boardCount === 0) throw new Error("Chaque équipe qualifiée doit avoir au moins un joueur.");
 
-  const previousOpponents = new Map<string, Set<string>>();
   const teamsWithBye = new Set<string>();
   for (const m of previousSwissMatches) {
-    if (m.isBye) {
-      if (m.homeTeamId) teamsWithBye.add(m.homeTeamId);
-      continue;
-    }
-    if (!m.homeTeamId || !m.awayTeamId) continue;
-    if (!previousOpponents.has(m.homeTeamId)) previousOpponents.set(m.homeTeamId, new Set());
-    if (!previousOpponents.has(m.awayTeamId)) previousOpponents.set(m.awayTeamId, new Set());
-    previousOpponents.get(m.homeTeamId)!.add(m.awayTeamId);
-    previousOpponents.get(m.awayTeamId)!.add(m.homeTeamId);
+    if (m.isBye && m.homeTeamId) teamsWithBye.add(m.homeTeamId);
   }
+  // Voir le commentaire équivalent dans generateNextTeamSwissRoundActionImpl
+  // (déduplication par confrontation, pas par échiquier).
+  const encounterKeys = new Set<string>();
+  const teamMeetingPairs: { home: string; away: string }[] = [];
+  for (const m of previousSwissMatches) {
+    if (m.isBye || !m.homeTeamId || !m.awayTeamId) continue;
+    const key = `${m.roundId}:${m.homeTeamId}:${m.awayTeamId}`;
+    if (encounterKeys.has(key)) continue;
+    encounterKeys.add(key);
+    teamMeetingPairs.push({ home: m.homeTeamId, away: m.awayTeamId });
+  }
+  const meetingCounts = buildMeetingCounts(teamMeetingPairs);
 
   // Voir le commentaire équivalent dans generateSwissPhaseRoundActionImpl.
   const swissPhaseRoundsSoFar = await prisma.round.count({
@@ -1142,7 +1188,7 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
   const rematchesAllowed =
     tournament.allowRematchesFromRound !== null &&
     upcomingSwissRoundNumber >= tournament.allowRematchesFromRound;
-  const opponentsForPairing = rematchesAllowed ? new Map<string, Set<string>>() : previousOpponents;
+  const opponentsForPairing = deriveAvoidSet(meetingCounts, rematchesAllowed ? 2 : 1);
 
   const pairings = generateSwissRound(standingsForPairing, opponentsForPairing, teamsWithBye);
 

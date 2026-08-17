@@ -272,11 +272,15 @@ model Tournament {
   // Autorise volontairement les revanches (deux entrants déjà opposés lors
   // d'une ronde antérieure) à partir de cette ronde suisse incluse — courant
   // en fin de tournoi quand le vivier d'adversaires inédits se resserre.
-  // Laissé à null (par défaut) : aucune revanche volontaire, seulement en
-  // dernier recours si generateSwissRound n'a aucun adversaire inédit
-  // disponible pour un entrant donné. Pour un tournoi COMBINED, la ronde se
-  // compte au sein de la phase suisse elle-même (voir "Ronde suisse N"),
-  // pas dans la numérotation globale du tournoi qui inclut les poules.
+  // À partir de cette ronde, l'appariement suit strictement le classement
+  // sans chercher à éviter les revanches, mais une même paire ne se
+  // rencontre jamais plus de deux fois au total (une seule revanche
+  // possible, jamais une 3e fois). Laissé à null (par défaut) : aucune
+  // revanche volontaire, seulement en dernier recours si generateSwissRound
+  // n'a aucun adversaire inédit disponible pour un entrant donné. Pour un
+  // tournoi COMBINED, la ronde se compte au sein de la phase suisse
+  // elle-même (voir "Ronde suisse N"), pas dans la numérotation globale du
+  // tournoi qui inclut les poules.
   allowRematchesFromRound Int?
   // Méthode d'appariement de la toute première ronde suisse : tirage au
   // sort (par défaut) ou classement par Elo classique décroissant. Laisse
