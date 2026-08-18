@@ -238,23 +238,32 @@ export function computeStandingsFromMatches(
     headToHead.set(`${m.playerId}:${m.opponentId}`, m.outcome);
   }
 
-  // Ordre de départage (du plus déterminant au moins déterminant) : points
-  // de match, différence de points, Sonneborn-Berger, Buchholz, Buchholz
-  // médian, score cumulé — puis, en tout dernier recours, le total de
-  // points marqués et la confrontation directe.
   return [...rows.values()].sort((a, b) => {
-    if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
-    if (b.diff !== a.diff) return b.diff - a.diff;
-    if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
-    if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
-    if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
-    if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
-    if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+    const cmp = compareStandingRows(a, b);
+    if (cmp !== 0) return cmp;
     const outcome = headToHead.get(`${a.playerId}:${b.playerId}`);
     if (outcome === "WIN") return -1;
     if (outcome === "LOSS") return 1;
     return 0;
   });
+}
+
+// Ordre de départage (du plus déterminant au moins déterminant) : points de
+// match, différence de points, Sonneborn-Berger, Buchholz, Buchholz médian,
+// score cumulé, puis en tout dernier recours le total de points marqués.
+// Extrait de computeStandingsFromMatches pour être réutilisé par
+// computeClassicSwissPhaseStandings, qui recompose un classement par simple
+// addition de deux phases (poules + suisse) sans historique de rencontres
+// directes disponible entre les deux — la confrontation directe (dernier
+// critère ci-dessus) ne peut donc pas s'y appliquer.
+export function compareStandingRows(a: ClassicStandingRow, b: ClassicStandingRow): number {
+  if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+  if (b.diff !== a.diff) return b.diff - a.diff;
+  if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
+  if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
+  if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
+  if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
+  return b.pointsFor - a.pointsFor;
 }
 
 export async function computeClassicStandings(
@@ -286,11 +295,16 @@ export async function computeClassicStandings(
 }
 
 // Classement de la phase suisse d'un tournoi COMBINED (poules puis suisse) :
-// ne doit tenir compte ni des joueurs non qualifiés ni des matchs de poules,
-// exactement comme computeClassicPoolStandings restreint le classement à une
-// poule. Les qualifiés et leurs matchs sont retrouvés directement à partir
-// des rondes marquées isSwissPhase plutôt que recalculés depuis les poules,
-// pour rester la source de vérité unique une fois la phase suisse commencée.
+// poursuit le classement général de poules (voir
+// computeClassicGeneralPoolStandings) plutôt que de repartir d'un
+// mini-tournoi isolé à 0 partout pour les qualifiés — les statistiques
+// (J/V/N/D/Pts/Diff/départages) accumulées en poules s'ajoutent à celles de
+// la phase suisse, en continuité du même classement général. Les qualifiés
+// et leurs matchs suisses sont retrouvés directement à partir des rondes
+// marquées isSwissPhase ; la confrontation directe (dernier critère de
+// computeStandingsFromMatches) ne s'applique pas ici, l'addition de deux
+// phases ne conservant pas un historique de rencontres unique — voir
+// compareStandingRows.
 export async function computeClassicSwissPhaseStandings(
   tournamentId: string
 ): Promise<ClassicStandingRow[]> {
@@ -311,20 +325,7 @@ export async function computeClassicSwissPhaseStandings(
     include: { club: true },
   });
 
-  // Classement général de poules (fusion des poules, voir
-  // computeClassicGeneralPoolStandings) : sert d'ordre de départ pour les
-  // qualifiés qui n'ont pas encore joué de ronde suisse (tous à égalité
-  // stricte, 0 partout) — Array.prototype.sort étant stable, pré-trier les
-  // joueurs dans cet ordre en fait leur dernier critère de départage tant
-  // qu'aucun résultat suisse ne les distingue, au lieu d'un ordre arbitraire.
-  const { computeClassicGeneralPoolStandings } = await import("@/lib/classic/poolStandings");
-  const generalPoolStandings = await computeClassicGeneralPoolStandings(tournamentId);
-  const generalRank = new Map(generalPoolStandings.map((s, i) => [s.playerId, i]));
-  players.sort(
-    (a, b) => (generalRank.get(a.id) ?? Infinity) - (generalRank.get(b.id) ?? Infinity)
-  );
-
-  return computeStandingsFromMatches(
+  const swissStandings = computeStandingsFromMatches(
     players.map((p) => ({
       playerId: p.id,
       firstName: p.firstName,
@@ -336,4 +337,32 @@ export async function computeClassicSwissPhaseStandings(
     })),
     matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );
+
+  const { computeClassicGeneralPoolStandings } = await import("@/lib/classic/poolStandings");
+  const generalPoolStandings = await computeClassicGeneralPoolStandings(tournamentId);
+  const poolByPlayerId = new Map(generalPoolStandings.map((s) => [s.playerId, s]));
+
+  return swissStandings
+    .map((row): ClassicStandingRow => {
+      const poolRow = poolByPlayerId.get(row.playerId);
+      if (!poolRow) return row;
+      return {
+        ...row,
+        played: poolRow.played + row.played,
+        wins: poolRow.wins + row.wins,
+        draws: poolRow.draws + row.draws,
+        losses: poolRow.losses + row.losses,
+        forfeits: poolRow.forfeits + row.forfeits,
+        matchPoints: poolRow.matchPoints + row.matchPoints,
+        pointsFor: poolRow.pointsFor + row.pointsFor,
+        pointsAgainst: poolRow.pointsAgainst + row.pointsAgainst,
+        diff: poolRow.diff + row.diff,
+        buchholz: poolRow.buchholz + row.buchholz,
+        buchholzTruncated: poolRow.buchholzTruncated + row.buchholzTruncated,
+        buchholzMedian: poolRow.buchholzMedian + row.buchholzMedian,
+        sonnebornBerger: poolRow.sonnebornBerger + row.sonnebornBerger,
+        cumulativeScore: poolRow.cumulativeScore + row.cumulativeScore,
+      };
+    })
+    .sort(compareStandingRows);
 }

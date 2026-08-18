@@ -177,10 +177,11 @@ export async function computeClassicTeamStandings(
   );
 }
 
-// Équivalent équipes de computeClassicSwissPhaseStandings : classement de la
-// phase suisse d'un tournoi COMBINED par équipes, restreint aux équipes
-// qualifiées et à leurs matchs de la phase suisse (voir le commentaire
-// équivalent côté individuel).
+// Équivalent équipes de computeClassicSwissPhaseStandings : poursuit le
+// classement général de poules par équipes (voir
+// computeClassicTeamGeneralPoolStandings) en y ajoutant les statistiques de
+// la phase suisse, plutôt que de repartir d'un mini-tournoi isolé à 0
+// partout (voir le commentaire équivalent côté individuel).
 export async function computeClassicTeamSwissPhaseStandings(
   tournamentId: string
 ): Promise<ClassicTeamStandingRow[]> {
@@ -200,18 +201,42 @@ export async function computeClassicTeamSwissPhaseStandings(
 
   const teams = await prisma.team.findMany({ where: { id: { in: [...teamIds] } } });
 
-  // Voir le commentaire équivalent dans computeClassicSwissPhaseStandings.
+  const swissStandings = computeTeamStandingsFromMatches(
+    teams.map((t) => ({ teamId: t.id, name: t.name })),
+    matches
+  );
+
   const { computeClassicTeamGeneralPoolStandings } = await import(
     "@/lib/classic/teamPoolStandings"
   );
   const generalPoolStandings = await computeClassicTeamGeneralPoolStandings(tournamentId);
-  const generalRank = new Map(generalPoolStandings.map((s, i) => [s.teamId, i]));
-  teams.sort(
-    (a, b) => (generalRank.get(a.id) ?? Infinity) - (generalRank.get(b.id) ?? Infinity)
-  );
+  const poolByTeamId = new Map(generalPoolStandings.map((s) => [s.teamId, s]));
 
-  return computeTeamStandingsFromMatches(
-    teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches
-  );
+  return swissStandings
+    .map((row): ClassicTeamStandingRow => {
+      const poolRow = poolByTeamId.get(row.teamId);
+      if (!poolRow) return row;
+      return {
+        ...row,
+        played: poolRow.played + row.played,
+        wins: poolRow.wins + row.wins,
+        draws: poolRow.draws + row.draws,
+        losses: poolRow.losses + row.losses,
+        matchPoints: poolRow.matchPoints + row.matchPoints,
+        boardsWon: poolRow.boardsWon + row.boardsWon,
+        boardsDrawn: poolRow.boardsDrawn + row.boardsDrawn,
+        boardsLost: poolRow.boardsLost + row.boardsLost,
+        pointsFor: poolRow.pointsFor + row.pointsFor,
+        pointsAgainst: poolRow.pointsAgainst + row.pointsAgainst,
+        diff: poolRow.diff + row.diff,
+      };
+    })
+    .sort((a, b) => {
+      if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+      const aBoardDiff = a.boardsWon - a.boardsLost;
+      const bBoardDiff = b.boardsWon - b.boardsLost;
+      if (bBoardDiff !== aBoardDiff) return bBoardDiff - aBoardDiff;
+      if (b.diff !== a.diff) return b.diff - a.diff;
+      return b.pointsFor - a.pointsFor;
+    });
 }
