@@ -207,6 +207,240 @@ function MatchTable({
   );
 }
 
+type RoundWithRelations = {
+  id: string;
+  number: number;
+  isFinalPhase: boolean;
+  isSwissPhase: boolean;
+  knockoutLeg: number | null;
+  knockoutStage: number | null;
+  matches: MatchWithRelations[];
+};
+
+interface KnockoutConfrontation {
+  table: number | null;
+  isBye: boolean;
+  homePlayer: Player | null;
+  awayPlayer: Player | null;
+  // Un élément par manche existante pour ce tour (voir legLabels) : aller,
+  // retour, belle — null quand cette confrontation précise n'a pas (ou plus
+  // besoin d')une manche donnée (ex. tranchée 2-0, pas de belle générée).
+  legs: (MatchWithRelations | null)[];
+}
+
+// Regroupe les rondes d'un même tour joué en 2 manches + belle (voir
+// Tournament.knockoutTwoLegs) en une confrontation par paire de joueurs,
+// pour un affichage compact façon feuille de match (une ligne par
+// confrontation, une colonne par manche) plutôt que 2-3 tableaux distincts
+// empilés. N'est appelé que lorsque au moins 2 manches existent déjà pour
+// le tour (voir buildKnockoutRenderUnits) : avec une seule manche générée,
+// rien à regrouper, le rendu classique à ronde unique suffit.
+function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+} {
+  const leg1 = legRounds.find((r) => r.knockoutLeg === 1);
+  const leg2 = legRounds.find((r) => r.knockoutLeg === 2);
+  const belle = legRounds.find((r) => r.knockoutLeg === 3);
+  if (!leg1) return { confrontations: [], legLabels: [] };
+
+  const legLabels = belle ? ["Aller", "Retour", "Belle"] : leg2 ? ["Aller", "Retour"] : ["Aller"];
+  const confrontations = leg1.matches
+    .filter((m) => !m.isThirdPlace)
+    .map((m1): KnockoutConfrontation => {
+      if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
+        return { table: m1.table, isBye: true, homePlayer: m1.homePlayer, awayPlayer: m1.awayPlayer, legs: [] };
+      }
+      const m2 =
+        leg2?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      const mb =
+        belle?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      return {
+        table: m1.table,
+        isBye: false,
+        homePlayer: m1.homePlayer,
+        awayPlayer: m1.awayPlayer,
+        legs: [m1, m2, mb].slice(0, legLabels.length),
+      };
+    });
+  return { confrontations, legLabels };
+}
+
+type RenderUnit =
+  | { kind: "single"; round: RoundWithRelations }
+  | { kind: "stage"; knockoutStage: number; legRounds: RoundWithRelations[] };
+
+// Regroupe les rondes aller/retour/belle d'un même tour (même knockoutStage)
+// en une seule unité "stage" à condition qu'au moins 2 manches existent déjà
+// (sinon rien à regrouper — voir buildKnockoutConfrontations) ; toute autre
+// ronde (poules, phase suisse, tableau à élimination directe classique en un
+// seul match) reste une unité "single" inchangée.
+function buildKnockoutRenderUnits(rounds: RoundWithRelations[]): RenderUnit[] {
+  const units: RenderUnit[] = [];
+  const seenStages = new Set<number>();
+  for (const round of rounds) {
+    if (round.knockoutStage !== null) {
+      if (seenStages.has(round.knockoutStage)) continue;
+      seenStages.add(round.knockoutStage);
+      const legRounds = rounds.filter((r) => r.knockoutStage === round.knockoutStage);
+      if (legRounds.length >= 2) {
+        units.push({ kind: "stage", knockoutStage: round.knockoutStage, legRounds });
+        continue;
+      }
+      units.push({ kind: "single", round });
+      continue;
+    }
+    units.push({ kind: "single", round });
+  }
+  return units;
+}
+
+// Cellule de score d'une manche donnée pour une confrontation du tableau à
+// élimination directe en 2 manches + belle — un tiret tant que cette manche
+// n'existe pas encore pour cette confrontation précise (ex. tranchée 2-0,
+// pas de belle nécessaire).
+function LegScoreCell({
+  match,
+  canManage,
+  tournamentId,
+}: {
+  match: MatchWithRelations | null;
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  if (!match) {
+    return (
+      <td className="py-2 px-2 text-center text-black/30 dark:text-white/30">—</td>
+    );
+  }
+  if (!canManage) {
+    return (
+      <td className="py-2 px-2 text-center whitespace-nowrap">
+        {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
+      </td>
+    );
+  }
+  const formId = `leg-form-${match.id}`;
+  return (
+    <td className="py-2 px-2">
+      <form
+        id={formId}
+        action={recordMatchResultAction.bind(null, tournamentId, match.id)}
+        className="flex flex-col items-center gap-1"
+      >
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            name="homeScore"
+            defaultValue={match.homeScore ?? ""}
+            className="w-12 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-xs focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+          />
+          <span>-</span>
+          <input
+            type="number"
+            name="awayScore"
+            defaultValue={match.awayScore ?? ""}
+            className="w-12 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-xs focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <select
+            form={formId}
+            name="status"
+            defaultValue={match.status}
+            className="rounded border border-black/10 dark:border-white/20 px-1 py-0.5 bg-transparent text-[10px]"
+          >
+            {Object.entries(statusLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <button
+            form={formId}
+            type="submit"
+            className="rounded bg-emerald-700 text-white px-1.5 py-0.5 text-[10px]"
+          >
+            OK
+          </button>
+        </div>
+      </form>
+    </td>
+  );
+}
+
+function KnockoutConfrontationsTable({
+  confrontations,
+  legLabels,
+  canManage,
+  tournamentId,
+}: {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="text-left border-b border-black/10 dark:border-white/10">
+            <th className="py-2 pr-4">Table</th>
+            <th className="py-2 pr-4">Domicile</th>
+            {legLabels.map((label) => (
+              <th key={label} className="py-2 px-2 text-center whitespace-nowrap">
+                {label}
+              </th>
+            ))}
+            <th className="py-2 pl-3">Extérieur</th>
+          </tr>
+        </thead>
+        <tbody>
+          {confrontations.map((c, i) => {
+            const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "—";
+            const awayName = c.awayPlayer ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}` : "—";
+            return (
+              <tr key={i} className="border-b border-black/5 dark:border-white/5">
+                <td className="py-2 pr-4">{c.table ?? "—"}</td>
+                <td className="py-2 pr-4 truncate">{homeName}</td>
+                {c.isBye ? (
+                  <td
+                    colSpan={legLabels.length}
+                    className="py-2 px-2 text-center text-black/50 dark:text-white/50"
+                  >
+                    Exempt (bye)
+                  </td>
+                ) : (
+                  legLabels.map((label, i2) => (
+                    <LegScoreCell
+                      key={label}
+                      match={c.legs[i2] ?? null}
+                      canManage={canManage}
+                      tournamentId={tournamentId}
+                    />
+                  ))
+                )}
+                <td className="py-2 pl-3 truncate">{awayName}</td>
+              </tr>
+            );
+          })}
+          {confrontations.length === 0 && (
+            <tr>
+              <td colSpan={3 + legLabels.length} className="py-3 text-black/50 dark:text-white/50">
+                Aucune confrontation dans ce tour.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Affiche le vainqueur d'une confrontation d'équipes (à la majorité
 // d'échiquiers gagnés) dès que tous ses échiquiers sont décidés, sans
 // attendre que l'arbitre le calcule à la main.
@@ -657,19 +891,10 @@ export default async function RoundsPage({
     lastRound.matches.some((m) => !m.isBye)
       ? "Générer la manche retour"
       : "Générer le tour suivant";
-  // Pour un tour joué en 2 manches + belle, seule la manche aller
-  // (knockoutLeg 1) a un décompte d'entrants fiable (elle seule inclut les
-  // exempts) — la manche retour et la belle du même tour réutilisent ce
-  // décompte pour un intitulé cohérent d'une manche à l'autre.
-  const knockoutStageEntrants = new Map<number, number>();
-  for (const r of tournament.rounds) {
-    if (r.knockoutLeg === 1 && r.knockoutStage !== null) {
-      knockoutStageEntrants.set(
-        r.knockoutStage,
-        countKnockoutEntrants(r.matches.filter((m) => !m.isThirdPlace))
-      );
-    }
-  }
+  // Regroupe les rondes aller/retour/belle d'un même tour dès qu'au moins 2
+  // manches existent (voir buildKnockoutRenderUnits), pour l'affichage
+  // compact façon feuille de match ci-dessous.
+  const renderUnits = buildKnockoutRenderUnits(tournament.rounds);
   // Numéro de ronde relatif à la phase suisse (1, 2, 3...), affiché à la
   // place du numéro de ronde global du tournoi (qui inclut les rondes de
   // poules précédentes et serait donc trompeur, ex. "Ronde 6" pour la 1re
@@ -986,7 +1211,47 @@ export default async function RoundsPage({
         </div>
       )}
 
-      {tournament.rounds.map((round) => {
+      {renderUnits.map((unit) => {
+        if (unit.kind === "stage") {
+          // Tour joué en 2 manches + belle (voir Tournament.knockoutTwoLegs,
+          // individuel uniquement — les rondes par équipes n'ont jamais de
+          // knockoutStage) : une confrontation par ligne, une colonne par
+          // manche, plutôt que 2-3 tableaux distincts empilés.
+          const leg1 = unit.legRounds.find((r) => r.knockoutLeg === 1)!;
+          const { confrontations, legLabels } = buildKnockoutConfrontations(unit.legRounds);
+          const thirdPlaceMatches = unit.legRounds.flatMap((r) =>
+            r.matches.filter((m) => m.isThirdPlace)
+          );
+          return (
+            <section key={unit.knockoutStage} className="flex flex-col gap-3">
+              <h2 className="font-heading text-lg font-semibold">
+                {getKnockoutStageLabel(
+                  countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+                )}
+              </h2>
+              <KnockoutConfrontationsTable
+                confrontations={confrontations}
+                legLabels={legLabels}
+                canManage={canManage}
+                tournamentId={tournament.id}
+              />
+              {thirdPlaceMatches.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                    Match pour la 3ᵉ place
+                  </h3>
+                  <MatchTable
+                    matches={thirdPlaceMatches}
+                    canManage={canManage}
+                    tournamentId={tournament.id}
+                  />
+                </div>
+              )}
+            </section>
+          );
+        }
+
+        const round = unit.round;
         const roundHasPoolMatches = round.matches.some((m) => m.poolId);
 
         if (
@@ -1036,23 +1301,11 @@ export default async function RoundsPage({
             (round.isFinalPhase && !round.isSwissPhase);
           const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
           const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
-          const knockoutEntrants =
-            round.knockoutStage !== null
-              ? knockoutStageEntrants.get(round.knockoutStage) ?? countKnockoutEntrants(mainMatches)
-              : countKnockoutEntrants(mainMatches);
-          const knockoutLegSuffix =
-            round.knockoutLeg === 1
-              ? " — Manche aller"
-              : round.knockoutLeg === 2
-                ? " — Manche retour"
-                : round.knockoutLeg === 3
-                  ? " — Belle"
-                  : "";
           return (
             <section key={round.id} className="flex flex-col gap-3">
               <h2 className="font-heading text-lg font-semibold">
                 {isKnockoutRound
-                  ? `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`
+                  ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
                   : round.isSwissPhase
                     ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
                     : `Ronde ${round.number}`}
