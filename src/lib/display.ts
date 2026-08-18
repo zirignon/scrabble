@@ -380,9 +380,31 @@ async function buildCurrent(tournament: {
       (lastRound.isFinalPhase && !lastRound.isSwissPhase);
     let label: string;
     if (isKnockoutRound) {
-      label = getKnockoutStageLabel(
-        countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace))
-      );
+      // Voir le commentaire équivalent sur les pages rondes : pour un tour
+      // joué en 2 manches + belle (Tournament.knockoutTwoLegs), seule la
+      // manche aller a un décompte d'entrants fiable (elle seule inclut les
+      // exempts) — on va la rechercher si la ronde en cours en est une autre.
+      let knockoutEntrants: number;
+      if (lastRound.knockoutStage !== null && lastRound.knockoutLeg !== 1) {
+        const leg1Round = await prisma.round.findFirst({
+          where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage, knockoutLeg: 1 },
+          include: { matches: true },
+        });
+        knockoutEntrants = leg1Round
+          ? countKnockoutEntrants(leg1Round.matches.filter((m) => !m.isThirdPlace))
+          : countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      } else {
+        knockoutEntrants = countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      }
+      const knockoutLegSuffix =
+        lastRound.knockoutLeg === 1
+          ? " — Manche aller"
+          : lastRound.knockoutLeg === 2
+            ? " — Manche retour"
+            : lastRound.knockoutLeg === 3
+              ? " — Belle"
+              : "";
+      label = `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`;
     } else if (lastRound.isSwissPhase) {
       const swissPhaseRoundNumber = await prisma.round.count({
         where: { tournamentId: tournament.id, isSwissPhase: true, number: { lte: lastRound.number } },

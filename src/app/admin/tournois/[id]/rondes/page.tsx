@@ -24,6 +24,7 @@ import {
   recordMatchResultAction,
   updateAllowRematchesFromRoundAction,
   updateFinalPhaseSettingsAction,
+  updateKnockoutTwoLegsAction,
   updateSwissRoundsSettingsAction,
   updateSwissSeedingAction,
   updateThirdPlaceSettingsAction,
@@ -507,6 +508,50 @@ function ThirdPlaceSettingsForm({
   );
 }
 
+function KnockoutTwoLegsSettingsForm({
+  tournamentId,
+  knockoutTwoLegs,
+  canManage,
+}: {
+  tournamentId: string;
+  knockoutTwoLegs: boolean;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Confrontations à élimination directe</p>
+      {canManage ? (
+        <form
+          action={updateKnockoutTwoLegsAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="knockoutTwoLegs"
+              defaultChecked={knockoutTwoLegs}
+              className="rounded border-black/20 dark:border-white/30"
+            />
+            2 manches (aller-retour) + belle en cas d&apos;égalité
+          </label>
+          <button
+            type="submit"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {knockoutTwoLegs
+            ? "Confrontations en 2 manches + belle si égalité."
+            : "Confrontations en un seul match."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default async function RoundsPage({
   params,
 }: {
@@ -600,6 +645,31 @@ export default async function RoundsPage({
   const swissPhaseRoundLimitReached =
     tournament.swissRoundsCount !== null && swissPhaseRounds.length >= tournament.swissRoundsCount;
   const knockoutAfterSwissExists = tournament.rounds.some((r) => r.isFinalPhase && !r.isSwissPhase);
+  // Format 2 manches + belle (voir Tournament.knockoutTwoLegs) : après une
+  // manche aller (knockoutLeg 1) avec au moins une vraie confrontation (pas
+  // seulement des exempts), "générer le tour suivant" génère en réalité la
+  // manche retour — le bouton l'annonce plutôt que de laisser croire qu'il
+  // avance déjà au tour suivant du tableau.
+  const lastRound = tournament.rounds.length > 0 ? tournament.rounds[tournament.rounds.length - 1] : null;
+  const nextKnockoutRoundLabel =
+    tournament.knockoutTwoLegs &&
+    lastRound?.knockoutLeg === 1 &&
+    lastRound.matches.some((m) => !m.isBye)
+      ? "Générer la manche retour"
+      : "Générer le tour suivant";
+  // Pour un tour joué en 2 manches + belle, seule la manche aller
+  // (knockoutLeg 1) a un décompte d'entrants fiable (elle seule inclut les
+  // exempts) — la manche retour et la belle du même tour réutilisent ce
+  // décompte pour un intitulé cohérent d'une manche à l'autre.
+  const knockoutStageEntrants = new Map<number, number>();
+  for (const r of tournament.rounds) {
+    if (r.knockoutLeg === 1 && r.knockoutStage !== null) {
+      knockoutStageEntrants.set(
+        r.knockoutStage,
+        countKnockoutEntrants(r.matches.filter((m) => !m.isThirdPlace))
+      );
+    }
+  }
   // Numéro de ronde relatif à la phase suisse (1, 2, 3...), affiché à la
   // place du numéro de ronde global du tournoi (qui inclut les rondes de
   // poules précédentes et serait donc trompeur, ex. "Ronde 6" pour la 1re
@@ -705,6 +775,14 @@ export default async function RoundsPage({
         thirdPlaceMatchEnabled={tournament.thirdPlaceMatchEnabled}
         canManage={canManage}
       />
+
+      {!tournament.isTeamEvent && (
+        <KnockoutTwoLegsSettingsForm
+          tournamentId={tournament.id}
+          knockoutTwoLegs={tournament.knockoutTwoLegs}
+          canManage={canManage}
+        />
+      )}
 
       {canManage && (
         <div className="flex flex-wrap gap-3 items-start">
@@ -875,7 +953,7 @@ export default async function RoundsPage({
               (tournament.format === "COMBINED" && knockoutAfterSwissExists)) && (
               <RoundActionButton
                 action={generateNextKnockoutBound}
-                label="Générer le tour suivant"
+                label={nextKnockoutRoundLabel}
                 className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
               />
             )}
@@ -958,11 +1036,23 @@ export default async function RoundsPage({
             (round.isFinalPhase && !round.isSwissPhase);
           const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
           const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
+          const knockoutEntrants =
+            round.knockoutStage !== null
+              ? knockoutStageEntrants.get(round.knockoutStage) ?? countKnockoutEntrants(mainMatches)
+              : countKnockoutEntrants(mainMatches);
+          const knockoutLegSuffix =
+            round.knockoutLeg === 1
+              ? " — Manche aller"
+              : round.knockoutLeg === 2
+                ? " — Manche retour"
+                : round.knockoutLeg === 3
+                  ? " — Belle"
+                  : "";
           return (
             <section key={round.id} className="flex flex-col gap-3">
               <h2 className="font-heading text-lg font-semibold">
                 {isKnockoutRound
-                  ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                  ? `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`
                   : round.isSwissPhase
                     ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
                     : `Ronde ${round.number}`}

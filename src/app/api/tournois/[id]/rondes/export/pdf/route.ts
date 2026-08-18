@@ -82,6 +82,19 @@ export async function GET(
   // (voir isSwissPhase) et celles de phase finale sont regroupées dans des
   // tableaux distincts (au lieu d'un seul tableau continu), pour que la
   // transition entre phases soit visuellement nette.
+  // Voir le commentaire équivalent sur les pages rondes : pour un tour joué
+  // en 2 manches + belle (Tournament.knockoutTwoLegs), seule la manche
+  // aller a un décompte d'entrants fiable (elle seule inclut les exempts).
+  const knockoutStageEntrants = new Map<number, number>();
+  for (const r of rounds) {
+    if (r.knockoutLeg === 1 && r.knockoutStage !== null) {
+      knockoutStageEntrants.set(
+        r.knockoutStage,
+        countKnockoutEntrants(r.matches.filter((m) => !m.isThirdPlace))
+      );
+    }
+  }
+
   const mainRows: unknown[][] = [];
   const swissPhaseRows: unknown[][] = [];
   const finalRows: unknown[][] = [];
@@ -98,8 +111,20 @@ export async function GET(
       (tournament.format === "GROUPS" && !grouped) ||
       round.isFinalPhase;
     const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
+    const knockoutEntrants =
+      round.knockoutStage !== null
+        ? knockoutStageEntrants.get(round.knockoutStage) ?? countKnockoutEntrants(mainMatches)
+        : countKnockoutEntrants(mainMatches);
+    const knockoutLegSuffix =
+      round.knockoutLeg === 1
+        ? " — Manche aller"
+        : round.knockoutLeg === 2
+          ? " — Manche retour"
+          : round.knockoutLeg === 3
+            ? " — Belle"
+            : "";
     const roundLabel = isKnockoutRound
-      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+      ? `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`
       : `Ronde ${round.number}`;
     (isKnockoutRound ? finalRows : mainRows).push(...buildRows(round, roundLabel));
   }

@@ -292,6 +292,15 @@ model Tournament {
   // directe (KNOCKOUT, phase finale de poules, ou phase finale générée
   // depuis le classement général en round-robin/suisse).
   thirdPlaceMatchEnabled Boolean  @default(false)
+  // Format des confrontations de tout tableau à élimination directe
+  // individuel (KNOCKOUT, phase finale de poules, ou phase finale générée
+  // depuis un classement général/suisse) : au lieu d'un match sec, chaque
+  // confrontation se joue en 2 manches (le joueur qui débute alterne d'une
+  // manche à l'autre, voir Match.homeStarts) puis, si chacun a gagné une
+  // manche, une belle décisive — jamais plus de 3 matchs par confrontation.
+  // Sans effet sur le match pour la 3e place (toujours en un seul match) ni
+  // sur les tournois par équipes. Voir Round.knockoutLeg/knockoutStage.
+  knockoutTwoLegs        Boolean  @default(false)
   // Rondes de round-robin (format ROUND_ROBIN, hors poules) pas encore
   // matérialisées en base — révélées une par une au fur et à mesure que la
   // ronde en cours se termine, pour que l'affichage public suive la partie
@@ -419,6 +428,19 @@ model Round {
   // celles du tableau à élimination directe optionnel qui la suit
   // (isSwissPhase = false, comme toute ronde de phase finale classique).
   isSwissPhase Boolean    @default(false)
+  // Ne s'applique qu'aux tableaux à élimination directe individuels quand
+  // Tournament.knockoutTwoLegs est actif : 1 = manche aller, 2 = manche
+  // retour (mêmes confrontations que la manche aller), 3 = belle (rejoue
+  // uniquement les confrontations où chaque camp a gagné une manche). Null
+  // pour toute ronde qui ne fait pas partie d'un tel tableau (y compris un
+  // tableau à élimination directe classique en un seul match).
+  knockoutLeg   Int?
+  // Regroupe les rondes (aller/retour/belle) d'un même tour du tableau —
+  // incrémenté à chaque nouveau tour, stable au sein d'un même tour. Permet
+  // de retrouver toutes les rondes d'un tour donné pour dépouiller le
+  // vainqueur de chaque confrontation avant de générer le tour suivant.
+  // Toujours null si knockoutLeg l'est aussi.
+  knockoutStage Int?
 
   matches Match[]
 

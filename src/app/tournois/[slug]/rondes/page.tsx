@@ -173,6 +173,19 @@ export default async function TournamentRoundsPage({
     }
   }
 
+  // Voir le commentaire équivalent côté admin : pour un tour joué en 2
+  // manches + belle, seule la manche aller a un décompte d'entrants fiable
+  // (elle seule inclut les exempts).
+  const knockoutStageEntrants = new Map<number, number>();
+  for (const r of tournament.rounds) {
+    if (r.knockoutLeg === 1 && r.knockoutStage !== null) {
+      knockoutStageEntrants.set(
+        r.knockoutStage,
+        countKnockoutEntrants(r.matches.filter((m) => !m.isThirdPlace))
+      );
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-6">
       <div>
@@ -231,12 +244,24 @@ export default async function TournamentRoundsPage({
               (round.isFinalPhase && !round.isSwissPhase);
             const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
             const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
+            const knockoutEntrants =
+              round.knockoutStage !== null
+                ? knockoutStageEntrants.get(round.knockoutStage) ?? countKnockoutEntrants(mainMatches)
+                : countKnockoutEntrants(mainMatches);
+            const knockoutLegSuffix =
+              round.knockoutLeg === 1
+                ? " — Manche aller"
+                : round.knockoutLeg === 2
+                  ? " — Manche retour"
+                  : round.knockoutLeg === 3
+                    ? " — Belle"
+                    : "";
             return (
               <div key={round.id} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <h3 className={roundHeading}>
                     {isKnockoutRound
-                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                      ? `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`
                       : round.isSwissPhase
                         ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
                         : `Ronde ${round.number}`}

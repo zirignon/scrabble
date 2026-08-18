@@ -877,7 +877,11 @@ async function generateFinalPhaseFromPoolsActionImpl(tournamentId: string) {
     orderBy: { number: "desc" },
   });
   const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1 },
+    data: {
+      tournamentId,
+      number: (last?.number ?? 0) + 1,
+      ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
+    },
   });
 
   let table = 1;
@@ -1367,6 +1371,24 @@ export async function updateThirdPlaceSettingsAction(
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
 }
 
+// Active/désactive le format 2 manches + belle pour tout tableau à
+// élimination directe individuel (voir Tournament.knockoutTwoLegs) — sans
+// effet sur le match pour la 3e place, toujours en un seul match.
+export async function updateKnockoutTwoLegsAction(tournamentId: string, formData: FormData) {
+  const tournament = await assertCanManage(tournamentId);
+  if (tournament.type !== "CLASSIC" || tournament.isTeamEvent) {
+    throw new Error("Ce réglage ne s'applique qu'aux tournois individuels.");
+  }
+  const knockoutTwoLegs = formData.get("knockoutTwoLegs") === "on";
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { knockoutTwoLegs },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+}
+
 // Sélectionne les N premiers du classement général (round-robin ou
 // suisse) pour la phase finale à élimination directe optionnelle — pas
 // de notion de poule ici, contrairement à selectPoolQualifiers.
@@ -1431,7 +1453,12 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
     orderBy: { number: "desc" },
   });
   const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true },
+    data: {
+      tournamentId,
+      number: (last?.number ?? 0) + 1,
+      isFinalPhase: true,
+      ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
+    },
   });
 
   let table = 1;
@@ -1555,7 +1582,13 @@ async function generateKnockoutBracketActionImpl(tournamentId: string) {
   if (playerIds.length < 2) throw new Error("Il faut au moins 2 joueurs inscrits.");
 
   const pairings = generateKnockoutFirstRound(playerIds);
-  const round = await prisma.round.create({ data: { tournamentId, number: 1 } });
+  const round = await prisma.round.create({
+    data: {
+      tournamentId,
+      number: 1,
+      ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
+    },
+  });
 
   let table = 1;
   for (const pairing of pairings) {
@@ -1575,6 +1608,83 @@ async function generateKnockoutBracketActionImpl(tournamentId: string) {
   notifyTournamentUpdate(tournamentId);
 }
 export const generateKnockoutBracketAction = safeRoundAction(generateKnockoutBracketActionImpl);
+
+// Dépouillement d'un tour joué en 2 manches + belle (voir
+// Tournament.knockoutTwoLegs) : soit toutes ses confrontations sont
+// tranchées (resolved), soit certaines sont à une manche partout et
+// attendent une belle qui n'a pas encore été générée (resolved: false, avec
+// la liste des confrontations concernées pour la créer).
+type TwoLegStageResolution =
+  | { resolved: true; winners: string[]; losers: string[] }
+  | { resolved: false; splitPairings: { home: string; away: string; homeStarts: boolean }[] };
+
+async function resolveTwoLegStage(
+  tournamentId: string,
+  knockoutStage: number
+): Promise<TwoLegStageResolution> {
+  const stageRounds = await prisma.round.findMany({
+    where: { tournamentId, knockoutStage },
+    include: { matches: true },
+    orderBy: { knockoutLeg: "asc" },
+  });
+  const leg1 = stageRounds.find((r) => r.knockoutLeg === 1);
+  const leg2 = stageRounds.find((r) => r.knockoutLeg === 2);
+  const belle = stageRounds.find((r) => r.knockoutLeg === 3);
+  if (!leg1) throw new Error("Manche aller introuvable pour ce tour.");
+
+  const winners: string[] = [];
+  const losers: string[] = [];
+  const splitPairings: { home: string; away: string; homeStarts: boolean }[] = [];
+
+  for (const m1 of leg1.matches) {
+    const w1 = getKnockoutWinner(m1);
+    if (!w1) {
+      throw new Error(
+        `Le résultat de la table ${m1.table ?? "?"} (manche aller) n'est pas encore tranché.`
+      );
+    }
+    if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
+      winners.push(w1);
+      continue;
+    }
+    if (!leg2) throw new Error("Générez d'abord la manche retour.");
+    const m2 = leg2.matches.find(
+      (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+    );
+    if (!m2) throw new Error("Confrontation introuvable en manche retour.");
+    const w2 = getKnockoutWinner(m2);
+    if (!w2) {
+      throw new Error(
+        `Le résultat de la table ${m2.table ?? "?"} (manche retour) n'est pas encore tranché.`
+      );
+    }
+    if (w1 === w2) {
+      winners.push(w1);
+      losers.push(w1 === m1.homePlayerId ? m1.awayPlayerId : m1.homePlayerId);
+      continue;
+    }
+    // Chacun a gagné une manche : cette confrontation attend une belle.
+    if (!belle) {
+      splitPairings.push({ home: m1.homePlayerId, away: m1.awayPlayerId, homeStarts: m1.homeStarts });
+      continue;
+    }
+    const mb = belle.matches.find(
+      (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+    );
+    if (!mb) throw new Error("Confrontation introuvable en belle.");
+    const wb = getKnockoutWinner(mb);
+    if (!wb) {
+      throw new Error(`Le résultat de la table ${mb.table ?? "?"} (belle) n'est pas encore tranché.`);
+    }
+    winners.push(wb);
+    losers.push(wb === m1.homePlayerId ? m1.awayPlayerId : m1.homePlayerId);
+  }
+
+  if (splitPairings.length > 0) {
+    return { resolved: false, splitPairings };
+  }
+  return { resolved: true, winners, losers };
+}
 
 async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
   const tournament = await assertCanManage(tournamentId);
@@ -1611,21 +1721,105 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
     throw new Error("Générez d'abord la phase finale à partir du classement de la phase suisse.");
   }
 
-  const winners: string[] = [];
+  // Format 2 manches + belle (voir Tournament.knockoutTwoLegs) : après la
+  // manche aller (knockoutLeg === 1), on ne connaît pas encore les
+  // vainqueurs du tour — on génère simplement sa manche retour (mêmes
+  // confrontations, joueur qui débute inversé, voir Match.homeStarts).
+  // Sans effet si ce tour n'avait que des exempts (rien à rejouer).
+  const hasRealPairing = last.matches.some((m) => !m.isBye);
+  if (tournament.knockoutTwoLegs && last.knockoutLeg === 1 && hasRealPairing) {
+    for (const m of last.matches) {
+      if (m.isBye) continue;
+      if (!getKnockoutWinner(m)) {
+        throw new Error(
+          `Le résultat de la table ${m.table ?? "?"} n'est pas encore tranché (terminez la saisie ou résolvez l'égalité avant de continuer).`
+        );
+      }
+    }
+    const round = await prisma.round.create({
+      data: {
+        tournamentId,
+        number: last.number + 1,
+        isFinalPhase: last.isFinalPhase,
+        knockoutLeg: 2,
+        knockoutStage: last.knockoutStage,
+      },
+    });
+    let legTable = 1;
+    for (const m of last.matches) {
+      if (m.isBye) continue;
+      await prisma.match.create({
+        data: {
+          roundId: round.id,
+          table: legTable++,
+          homePlayerId: m.homePlayerId,
+          awayPlayerId: m.awayPlayerId,
+          status: "SCHEDULED",
+          homeStarts: !m.homeStarts,
+        },
+      });
+    }
+    revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+    notifyTournamentUpdate(tournamentId);
+    return;
+  }
+
+  let winners: string[];
   // Perdants de ce tour (hors byes, qui n'opposent jamais deux joueurs) —
   // utilisés uniquement pour générer le match de la 3e place quand ce tour
   // s'avère être les demi-finales (winners.length === 2 ci-dessous).
-  const losers: string[] = [];
-  for (const match of last.matches) {
-    const winner = getKnockoutWinner(match);
-    if (!winner) {
-      throw new Error(
-        `Le résultat de la table ${match.table ?? "?"} n'est pas encore tranché (terminez la saisie ou résolvez l'égalité avant de continuer).`
-      );
+  let losers: string[];
+
+  if (
+    tournament.knockoutTwoLegs &&
+    (last.knockoutLeg === 2 || last.knockoutLeg === 3) &&
+    last.knockoutStage
+  ) {
+    const resolution = await resolveTwoLegStage(tournamentId, last.knockoutStage);
+    if (!resolution.resolved) {
+      const round = await prisma.round.create({
+        data: {
+          tournamentId,
+          number: last.number + 1,
+          isFinalPhase: last.isFinalPhase,
+          knockoutLeg: 3,
+          knockoutStage: last.knockoutStage,
+        },
+      });
+      let belleTable = 1;
+      for (const pairing of resolution.splitPairings) {
+        await prisma.match.create({
+          data: {
+            roundId: round.id,
+            table: belleTable++,
+            homePlayerId: pairing.home,
+            awayPlayerId: pairing.away,
+            status: "SCHEDULED",
+            // La belle reprend le joueur qui débutait la manche aller.
+            homeStarts: pairing.homeStarts,
+          },
+        });
+      }
+      revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+      notifyTournamentUpdate(tournamentId);
+      return;
     }
-    winners.push(winner);
-    if (!match.isBye && match.homePlayerId && match.awayPlayerId) {
-      losers.push(winner === match.homePlayerId ? match.awayPlayerId : match.homePlayerId);
+    winners = resolution.winners;
+    losers = resolution.losers;
+  } else {
+    winners = [];
+    losers = [];
+    for (const match of last.matches) {
+      const winner = getKnockoutWinner(match);
+      if (!winner) {
+        throw new Error(
+          `Le résultat de la table ${match.table ?? "?"} n'est pas encore tranché (terminez la saisie ou résolvez l'égalité avant de continuer).`
+        );
+      }
+      winners.push(winner);
+      if (!match.isBye && match.homePlayerId && match.awayPlayerId) {
+        losers.push(winner === match.homePlayerId ? match.awayPlayerId : match.homePlayerId);
+      }
     }
   }
 
@@ -1648,7 +1842,14 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
 
   const pairings = pairKnockoutWinners(orderedWinners);
   const round = await prisma.round.create({
-    data: { tournamentId, number: last.number + 1, isFinalPhase: last.isFinalPhase },
+    data: {
+      tournamentId,
+      number: last.number + 1,
+      isFinalPhase: last.isFinalPhase,
+      ...(tournament.knockoutTwoLegs
+        ? { knockoutLeg: 1, knockoutStage: (last.knockoutStage ?? 0) + 1 }
+        : {}),
+    },
   });
 
   let table = 1;
@@ -1668,7 +1869,8 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
   // Match pour la 3e place, optionnel : ce tour n'est généré que si celui
   // qu'on vient de terminer était bien les demi-finales (2 vainqueurs, donc
   // 2 perdants) — jamais après un tour à byes qui ne laisserait qu'un ou
-  // zéro perdant réel.
+  // zéro perdant réel. Toujours en un seul match, même si le reste du
+  // tableau est en 2 manches + belle (voir Tournament.knockoutTwoLegs).
   if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
     await prisma.match.create({
       data: {
