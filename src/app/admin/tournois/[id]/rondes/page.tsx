@@ -958,11 +958,11 @@ export default async function RoundsPage({
         </div>
       </div>
 
-      {(tournament.format === "SWISS" || tournament.format === "COMBINED") && (
+      {tournament.format === "SWISS" && (
         <SwissSeedingSettingsForm
           tournamentId={tournament.id}
           swissSeeding={tournament.swissSeeding}
-          roundsPlayed={tournament.format === "COMBINED" ? swissPhaseRounds.length : mainPhaseRounds.length}
+          roundsPlayed={mainPhaseRounds.length}
           canManage={canManage}
         />
       )}

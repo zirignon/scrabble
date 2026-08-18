@@ -200,6 +200,16 @@ export async function computeClassicTeamSwissPhaseStandings(
 
   const teams = await prisma.team.findMany({ where: { id: { in: [...teamIds] } } });
 
+  // Voir le commentaire équivalent dans computeClassicSwissPhaseStandings.
+  const { computeClassicTeamGeneralPoolStandings } = await import(
+    "@/lib/classic/teamPoolStandings"
+  );
+  const generalPoolStandings = await computeClassicTeamGeneralPoolStandings(tournamentId);
+  const generalRank = new Map(generalPoolStandings.map((s, i) => [s.teamId, i]));
+  teams.sort(
+    (a, b) => (generalRank.get(a.id) ?? Infinity) - (generalRank.get(b.id) ?? Infinity)
+  );
+
   return computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
     matches

@@ -37,3 +37,35 @@ export async function computeClassicPoolStandings(
     ),
   }));
 }
+
+// Classement général obtenu en fusionnant les classements de toutes les
+// poules en un seul classement trié selon les mêmes critères de départage
+// (la confrontation directe ne pouvant naturellement départager que des
+// joueurs d'une même poule, puisqu'ils ne se sont jamais affrontés
+// autrement). Sert de point de départ à la phase suisse d'un tournoi
+// Combiné (voir generateSwissPhaseRoundActionImpl et
+// computeClassicSwissPhaseStandings) : la phase de poules qualifie, mais
+// c'est ce classement général qui détermine le point de départ du système
+// suisse plutôt qu'un tirage au sort ou un classement Elo.
+export async function computeClassicGeneralPoolStandings(
+  tournamentId: string
+): Promise<ClassicStandingRow[]> {
+  const pools = await prisma.pool.findMany({
+    where: { tournamentId },
+    include: {
+      members: { include: { player: true } },
+      matches: { include: { round: true } },
+    },
+  });
+
+  return computeStandingsFromMatches(
+    pools.flatMap((pool) =>
+      pool.members.map((m) => ({
+        playerId: m.playerId,
+        firstName: m.player.firstName,
+        lastName: m.player.lastName,
+      }))
+    ),
+    pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })))
+  );
+}

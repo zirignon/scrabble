@@ -285,7 +285,10 @@ model Tournament {
   // Méthode d'appariement de la toute première ronde suisse : tirage au
   // sort (par défaut) ou classement par Elo classique décroissant. Laisse
   // le choix à l'organisateur, qui peut préférer l'un ou l'autre selon le
-  // tournoi (amical vs compétitif, Elo fiable ou non).
+  // tournoi (amical vs compétitif, Elo fiable ou non). Sans effet pour un
+  // tournoi COMBINED (poules puis suisse) : sa phase suisse démarre
+  // toujours du classement général de poules (voir
+  // computeClassicGeneralPoolStandings), pas de ce réglage.
   swissSeeding          SwissSeeding @default(RANDOM)
   // Match de classement pour la 3e place, optionnel, entre les deux
   // perdants de demi-finale — s'applique à tout tableau à élimination

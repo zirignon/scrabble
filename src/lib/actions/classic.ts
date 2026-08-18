@@ -12,8 +12,11 @@ import {
   computeClassicTeamStandings,
   computeClassicTeamSwissPhaseStandings,
 } from "@/lib/classic/teamStandings";
-import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
-import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
+import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
+import {
+  computeClassicTeamGeneralPoolStandings,
+  computeClassicTeamPoolStandings,
+} from "@/lib/classic/teamPoolStandings";
 import {
   crossSeedTwoPools,
   generateKnockoutFirstRound,
@@ -1003,16 +1006,16 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
       throw new Error("Pas assez de qualifiés pour générer une phase suisse.");
     }
 
-    const registrations = await prisma.registration.findMany({
-      where: { tournamentId, playerId: { in: qualifierIds } },
-      select: { playerId: true, player: { select: { eloClassic: true } } },
-    });
-    const eloByPlayer = new Map(registrations.map((r) => [r.playerId, r.player.eloClassic]));
-    standingsForPairing = seedFirstSwissRound(
-      qualifierIds.map((playerId) => ({ playerId, matchPoints: 0 })),
-      tournament.swissSeeding,
-      eloByPlayer
-    );
+    // La phase suisse part du classement général de poules (fusion des
+    // poules, voir computeClassicGeneralPoolStandings) plutôt que d'un
+    // tirage au sort ou d'un classement Elo (seedFirstSwissRound) : la
+    // phase de poules qualifie, mais c'est sa hiérarchie qui amorce le
+    // système suisse.
+    const generalStandings = await computeClassicGeneralPoolStandings(tournamentId);
+    const qualifierSet = new Set(qualifierIds);
+    standingsForPairing = generalStandings
+      .filter((s) => qualifierSet.has(s.playerId))
+      .map((s) => ({ playerId: s.playerId, matchPoints: 0 }));
   } else {
     const standings = await computeClassicSwissPhaseStandings(tournamentId);
     standingsForPairing = standings.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints }));
@@ -1135,24 +1138,12 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
       throw new Error("Pas assez d'équipes qualifiées pour générer une phase suisse.");
     }
 
-    const qualifiedTeams = await prisma.team.findMany({
-      where: { id: { in: qualifierIds } },
-      include: { members: { include: { player: { select: { eloClassic: true } } } } },
-    });
-    const eloByTeam = new Map(
-      qualifiedTeams.map((t) => {
-        const elos = t.members
-          .map((m) => m.player.eloClassic)
-          .filter((elo): elo is number => elo != null);
-        const average = elos.length > 0 ? elos.reduce((a, b) => a + b, 0) / elos.length : null;
-        return [t.id, average];
-      })
-    );
-    standingsForPairing = seedFirstSwissRound(
-      qualifierIds.map((playerId) => ({ playerId, matchPoints: 0 })),
-      tournament.swissSeeding,
-      eloByTeam
-    );
+    // Voir le commentaire équivalent dans generateSwissPhaseRoundActionImpl.
+    const generalStandings = await computeClassicTeamGeneralPoolStandings(tournamentId);
+    const qualifierSet = new Set(qualifierIds);
+    standingsForPairing = generalStandings
+      .filter((s) => qualifierSet.has(s.teamId))
+      .map((s) => ({ playerId: s.teamId, matchPoints: 0 }));
   } else {
     const standings = await computeClassicTeamSwissPhaseStandings(tournamentId);
     qualifierIds = standings.map((s) => s.teamId);

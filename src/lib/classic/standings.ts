@@ -311,6 +311,19 @@ export async function computeClassicSwissPhaseStandings(
     include: { club: true },
   });
 
+  // Classement général de poules (fusion des poules, voir
+  // computeClassicGeneralPoolStandings) : sert d'ordre de départ pour les
+  // qualifiés qui n'ont pas encore joué de ronde suisse (tous à égalité
+  // stricte, 0 partout) — Array.prototype.sort étant stable, pré-trier les
+  // joueurs dans cet ordre en fait leur dernier critère de départage tant
+  // qu'aucun résultat suisse ne les distingue, au lieu d'un ordre arbitraire.
+  const { computeClassicGeneralPoolStandings } = await import("@/lib/classic/poolStandings");
+  const generalPoolStandings = await computeClassicGeneralPoolStandings(tournamentId);
+  const generalRank = new Map(generalPoolStandings.map((s, i) => [s.playerId, i]));
+  players.sort(
+    (a, b) => (generalRank.get(a.id) ?? Infinity) - (generalRank.get(b.id) ?? Infinity)
+  );
+
   return computeStandingsFromMatches(
     players.map((p) => ({
       playerId: p.id,

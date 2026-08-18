@@ -34,3 +34,21 @@ export async function computeClassicTeamPoolStandings(
     ),
   }));
 }
+
+// Voir le commentaire équivalent dans poolStandings.ts (computeClassicGeneralPoolStandings).
+export async function computeClassicTeamGeneralPoolStandings(
+  tournamentId: string
+): Promise<ClassicTeamStandingRow[]> {
+  const pools = await prisma.pool.findMany({
+    where: { tournamentId },
+    include: {
+      teams: true,
+      matches: true,
+    },
+  });
+
+  return computeTeamStandingsFromMatches(
+    pools.flatMap((pool) => pool.teams.map((t) => ({ teamId: t.id, name: t.name }))),
+    pools.flatMap((pool) => pool.matches)
+  );
+}
