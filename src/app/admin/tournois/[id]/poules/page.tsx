@@ -16,12 +16,10 @@ function QualifiersSettingsForm({
   tournamentId,
   qualifiersPerPool,
   canManage,
-  isCombined,
 }: {
   tournamentId: string;
   qualifiersPerPool: number;
   canManage: boolean;
-  isCombined: boolean;
 }) {
   return (
     <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
@@ -56,11 +54,6 @@ function QualifiersSettingsForm({
           {qualifiersPerPool} qualifié(s) par poule.
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        {isCombined
-          ? "Une fois la phase de poules terminée, générez la phase suisse entre les qualifiés depuis la page des rondes."
-          : "Une fois la phase de poules terminée, générez la phase finale (élimination directe) depuis la page des rondes."}
-      </p>
     </div>
   );
 }
@@ -107,11 +100,6 @@ export default async function PoolsPage({
           <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
             Poules — {tournament.name}
           </h1>
-          <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-            Chaque poule doit compter au moins 2 équipes avant de générer les
-            rondes. Créez les équipes sur la page « Équipes » avant de les
-            affecter ici.
-          </p>
           <Link
             href={`/tournois/${tournament.slug}`}
             target="_blank"
@@ -126,7 +114,6 @@ export default async function PoolsPage({
           tournamentId={tournament.id}
           qualifiersPerPool={tournament.qualifiersPerPool}
           canManage={canManage}
-          isCombined={tournament.format === "COMBINED"}
         />
 
         {canManage && (
@@ -270,10 +257,6 @@ export default async function PoolsPage({
         <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Poules — {tournament.name}
         </h1>
-        <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-          Chaque poule doit compter au moins 2 joueurs avant de générer les
-          rondes (round-robin interne à chaque poule).
-        </p>
         <Link
           href={`/tournois/${tournament.slug}`}
           target="_blank"
@@ -288,7 +271,6 @@ export default async function PoolsPage({
         tournamentId={tournament.id}
         qualifiersPerPool={tournament.qualifiersPerPool}
         canManage={canManage}
-        isCombined={tournament.format === "COMBINED"}
       />
 
       {canManage && (

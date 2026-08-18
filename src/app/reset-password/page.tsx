@@ -40,10 +40,6 @@ export default async function ResetPasswordPage({
       <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mb-2">
         Nouveau mot de passe
       </h1>
-      <p className="text-sm text-black/60 dark:text-white/60 mb-6">
-        Choisissez un nouveau mot de passe (8 caractères minimum) pour votre
-        compte.
-      </p>
       <ResetPasswordForm token={token} />
     </div>
   );

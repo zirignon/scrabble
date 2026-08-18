@@ -295,11 +295,6 @@ function FinalPhaseSettingsForm({
             : "Pas de phase finale pour ce tournoi."}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Une fois activée, la phase finale (élimination directe entre les N
-        premiers du classement général) se génère depuis les boutons
-        ci-dessous, une fois la phase principale terminée.
-      </p>
     </div>
   );
 }
@@ -356,12 +351,6 @@ function SwissRoundsSettingsForm({
             : `${roundsPlayed} ronde(s) générée(s), sans limite prédéfinie.`}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Laissez vide pour générer les rondes une par une sans limite, comme
-        avant. Une fois le nombre indiqué atteint, générez la phase finale
-        (si activée) — vous pouvez toujours ajouter une ronde manuelle en
-        plus si besoin.
-      </p>
     </div>
   );
 }
@@ -411,18 +400,6 @@ function RematchSettingsForm({
             : "Aucune revanche volontaire."}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Laissez vide pour ne jamais autoriser volontairement une revanche
-        (deux joueurs déjà opposés) — le système peut malgré tout en imposer
-        une en dernier recours si aucun adversaire inédit n&apos;est
-        disponible. À partir de la ronde indiquée, l&apos;appariement suit
-        strictement le classement sans chercher à éviter les revanches, mais
-        une même paire ne se rencontrera jamais plus de deux fois au total
-        (une seule revanche possible, jamais une 3ᵉ fois). Utile en fin de
-        tournoi, quand le vivier d&apos;adversaires inédits se resserre. Pour
-        un tournoi Combiné, la ronde se compte au sein de la phase suisse
-        elle-même.
-      </p>
     </div>
   );
 }
@@ -482,13 +459,6 @@ function SwissSeedingSettingsForm({
           {roundOneGenerated && " — ronde 1 déjà générée, réglage figé."}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Avant la ronde 1, le classement (0 point partout) ne permet pas
-        encore de départager les joueurs pour l&apos;appariement : tirage au
-        sort équitable, ou classement par Elo classique décroissant (les
-        joueurs sans Elo renseigné sont classés derniers). Sans effet à
-        partir de la ronde 2.
-      </p>
     </div>
   );
 }
@@ -533,10 +503,6 @@ function ThirdPlaceSettingsForm({
             : "Pas de match pour la 3e place pour ce tournoi."}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Se génère automatiquement, dans la même ronde que la finale, dès que
-        les demi-finales sont terminées.
-      </p>
     </div>
   );
 }
