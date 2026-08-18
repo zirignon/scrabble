@@ -49,6 +49,103 @@ export async function GET(
     return new Response("Non autorisé", { status: 403 });
   }
   const rounds = tournament.rounds;
+  type RoundRow = (typeof rounds)[number];
+  type MatchRow = RoundRow["matches"][number];
+
+  interface KnockoutConfrontation {
+    table: number | null;
+    isBye: boolean;
+    homePlayer: MatchRow["homePlayer"];
+    awayPlayer: MatchRow["awayPlayer"];
+    legs: (MatchRow | null)[];
+  }
+
+  // Voir le commentaire équivalent sur les pages rondes.
+  function buildKnockoutConfrontations(legRounds: RoundRow[]): {
+    confrontations: KnockoutConfrontation[];
+    legLabels: string[];
+  } {
+    const leg1 = legRounds.find((r) => r.knockoutLeg === 1);
+    const leg2 = legRounds.find((r) => r.knockoutLeg === 2);
+    const belle = legRounds.find((r) => r.knockoutLeg === 3);
+    if (!leg1) return { confrontations: [], legLabels: [] };
+
+    const legLabels = belle ? ["Aller", "Retour", "Belle"] : leg2 ? ["Aller", "Retour"] : ["Aller"];
+    const confrontations = leg1.matches
+      .filter((m) => !m.isThirdPlace)
+      .map((m1): KnockoutConfrontation => {
+        if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
+          return {
+            table: m1.table,
+            isBye: true,
+            homePlayer: m1.homePlayer,
+            awayPlayer: m1.awayPlayer,
+            legs: [],
+          };
+        }
+        const m2 =
+          leg2?.matches.find(
+            (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+          ) ?? null;
+        const mb =
+          belle?.matches.find(
+            (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+          ) ?? null;
+        return {
+          table: m1.table,
+          isBye: false,
+          homePlayer: m1.homePlayer,
+          awayPlayer: m1.awayPlayer,
+          legs: [m1, m2, mb].slice(0, legLabels.length),
+        };
+      });
+    return { confrontations, legLabels };
+  }
+
+  type RenderUnit =
+    | { kind: "single"; round: RoundRow }
+    | { kind: "stage"; knockoutStage: number; legRounds: RoundRow[] };
+
+  // Voir le commentaire équivalent sur les pages rondes.
+  function buildKnockoutRenderUnits(allRounds: RoundRow[]): RenderUnit[] {
+    const units: RenderUnit[] = [];
+    const seenStages = new Set<number>();
+    for (const round of allRounds) {
+      if (round.knockoutStage !== null) {
+        if (seenStages.has(round.knockoutStage)) continue;
+        seenStages.add(round.knockoutStage);
+        const legRounds = allRounds.filter((r) => r.knockoutStage === round.knockoutStage);
+        if (legRounds.length >= 2) {
+          units.push({ kind: "stage", knockoutStage: round.knockoutStage, legRounds });
+          continue;
+        }
+        units.push({ kind: "single", round });
+        continue;
+      }
+      units.push({ kind: "single", round });
+    }
+    return units;
+  }
+
+  function legCellText(m: MatchRow | null): string {
+    if (!m) return "—";
+    if (m.status === "SCHEDULED") return "-";
+    if (m.status !== "PLAYED") return statusLabel[m.status];
+    return `${m.homeScore ?? "-"} - ${m.awayScore ?? "-"}`;
+  }
+
+  // Une ligne par confrontation, une colonne par manche — voir le
+  // commentaire équivalent sur les pages rondes.
+  function buildStageRows(confrontations: KnockoutConfrontation[], legLabels: string[]) {
+    return confrontations.map((c) => {
+      const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "";
+      const awayName = c.awayPlayer ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}` : "";
+      if (c.isBye) {
+        return [c.table ?? "", homeName, `Exempt (${homeName})`, ...legLabels.slice(1).map(() => ""), ""];
+      }
+      return [c.table ?? "", homeName, ...c.legs.map((leg) => legCellText(leg)), awayName];
+    });
+  }
 
   function buildRows(round: (typeof rounds)[number], roundLabel: string) {
     return round.matches.map((match) => {
@@ -81,25 +178,58 @@ export async function GET(
   // de phase principale, celles de la phase suisse d'un tournoi Combiné
   // (voir isSwissPhase) et celles de phase finale sont regroupées dans des
   // tableaux distincts (au lieu d'un seul tableau continu), pour que la
-  // transition entre phases soit visuellement nette.
-  // Voir le commentaire équivalent sur les pages rondes : pour un tour joué
-  // en 2 manches + belle (Tournament.knockoutTwoLegs), seule la manche
-  // aller a un décompte d'entrants fiable (elle seule inclut les exempts).
-  const knockoutStageEntrants = new Map<number, number>();
-  for (const r of rounds) {
-    if (r.knockoutLeg === 1 && r.knockoutStage !== null) {
-      knockoutStageEntrants.set(
-        r.knockoutStage,
-        countKnockoutEntrants(r.matches.filter((m) => !m.isThirdPlace))
-      );
-    }
-  }
-
+  // transition entre phases soit visuellement nette. Un tour joué en 2
+  // manches + belle (voir Tournament.knockoutTwoLegs) devient sa propre
+  // section à colonnes dynamiques (une par manche) plutôt que de rejoindre
+  // le tableau "Phase finale" à colonnes fixes.
+  // Les rondes de phase finale sont collectées dans l'ordre de rencontre
+  // (numéro de ronde croissant) en "chunks" — soit des lignes de rondes
+  // classiques à fusionner dans un même tableau "Phase finale", soit les
+  // sections dédiées d'un tour en 2 manches + belle — plutôt que dans un
+  // seul tableau fusionné, pour que l'ordre d'impression (Demi-finales
+  // avant Finale, etc.) reste correct même quand certains tours utilisent
+  // le format 2 manches + belle et d'autres non (ex. la Finale tant que sa
+  // manche retour n'a pas encore été générée).
+  type FinalPhaseChunk = { kind: "single"; rows: unknown[][] } | { kind: "stage"; sections: PdfSection[] };
   const mainRows: unknown[][] = [];
   const swissPhaseRows: unknown[][] = [];
-  const finalRows: unknown[][] = [];
+  const finalPhaseChunks: FinalPhaseChunk[] = [];
+  let pendingFinalRows: unknown[][] = [];
   let swissPhaseRoundNumber = 0;
-  for (const round of rounds) {
+  for (const unit of buildKnockoutRenderUnits(rounds)) {
+    if (unit.kind === "stage") {
+      if (pendingFinalRows.length > 0) {
+        finalPhaseChunks.push({ kind: "single", rows: pendingFinalRows });
+        pendingFinalRows = [];
+      }
+      const leg1 = unit.legRounds.find((r) => r.knockoutLeg === 1)!;
+      const { confrontations, legLabels } = buildKnockoutConfrontations(unit.legRounds);
+      const thirdPlaceMatches = unit.legRounds.flatMap((r) => r.matches.filter((m) => m.isThirdPlace));
+      const stageSections: PdfSection[] = [
+        {
+          heading: getKnockoutStageLabel(
+            countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+          ),
+          headers: ["Table", "Domicile", ...legLabels, "Extérieur"],
+          rows: buildStageRows(confrontations, legLabels),
+          columnWeights: [0.6, 1.6, ...legLabels.map(() => 1.1), 1.6],
+        },
+      ];
+      if (thirdPlaceMatches.length > 0) {
+        stageSections.push({
+          heading: "Match pour la 3ᵉ place",
+          headers: ["Table", "Domicile", "Score dom.", "Score ext.", "Extérieur", "Statut"],
+          rows: buildRows({ ...leg1, matches: thirdPlaceMatches }, "").map(
+            ([, table, home, homeScore, awayScore, away, status]) => [table, home, homeScore, awayScore, away, status]
+          ),
+          columnWeights: [0.6, 1.6, 0.9, 0.9, 1.6, 1.3],
+        });
+      }
+      finalPhaseChunks.push({ kind: "stage", sections: stageSections });
+      continue;
+    }
+
+    const round = unit.round;
     if (round.isSwissPhase) {
       swissPhaseRoundNumber += 1;
       swissPhaseRows.push(...buildRows(round, `Ronde suisse ${swissPhaseRoundNumber}`));
@@ -111,33 +241,32 @@ export async function GET(
       (tournament.format === "GROUPS" && !grouped) ||
       round.isFinalPhase;
     const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
-    const knockoutEntrants =
-      round.knockoutStage !== null
-        ? knockoutStageEntrants.get(round.knockoutStage) ?? countKnockoutEntrants(mainMatches)
-        : countKnockoutEntrants(mainMatches);
-    const knockoutLegSuffix =
-      round.knockoutLeg === 1
-        ? " — Manche aller"
-        : round.knockoutLeg === 2
-          ? " — Manche retour"
-          : round.knockoutLeg === 3
-            ? " — Belle"
-            : "";
     const roundLabel = isKnockoutRound
-      ? `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`
+      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
       : `Ronde ${round.number}`;
-    (isKnockoutRound ? finalRows : mainRows).push(...buildRows(round, roundLabel));
+    if (isKnockoutRound) {
+      pendingFinalRows.push(...buildRows(round, roundLabel));
+    } else {
+      mainRows.push(...buildRows(round, roundLabel));
+    }
+  }
+  if (pendingFinalRows.length > 0) {
+    finalPhaseChunks.push({ kind: "single", rows: pendingFinalRows });
   }
 
   const sections: PdfSection[] = [];
   // Le titre de chaque section n'est utile que s'il y a bien plusieurs
   // phases distinctes à distinguer ; sinon (tournoi entièrement en
   // round-robin/suisse, ou entièrement en élimination directe), un seul
-  // tableau sans sous-titre suffit, comme avant.
-  const phaseCount = [mainRows.length > 0, swissPhaseRows.length > 0, finalRows.length > 0].filter(
+  // tableau sans sous-titre suffit, comme avant. Dès qu'un tour en 2
+  // manches + belle existe, les intitulés sont toujours affichés (sans quoi
+  // un tableau "Phase finale" voisin resterait sans titre à côté de
+  // "Demi-finales"/"Finale").
+  const hasStage = finalPhaseChunks.some((c) => c.kind === "stage");
+  const phaseCount = [mainRows.length > 0, swissPhaseRows.length > 0, finalPhaseChunks.length > 0].filter(
     Boolean
   ).length;
-  const showHeadings = phaseCount > 1;
+  const showHeadings = phaseCount > 1 || hasStage;
   if (mainRows.length > 0) {
     sections.push({
       heading: showHeadings
@@ -158,13 +287,17 @@ export async function GET(
       columnWeights,
     });
   }
-  if (finalRows.length > 0) {
-    sections.push({
-      heading: showHeadings ? "Phase finale" : undefined,
-      headers,
-      rows: finalRows,
-      columnWeights,
-    });
+  for (const chunk of finalPhaseChunks) {
+    if (chunk.kind === "stage") {
+      sections.push(...chunk.sections);
+    } else {
+      sections.push({
+        heading: showHeadings ? "Phase finale" : undefined,
+        headers,
+        rows: chunk.rows,
+        columnWeights,
+      });
+    }
   }
 
   const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;

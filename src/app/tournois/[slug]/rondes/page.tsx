@@ -126,6 +126,138 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
   );
 }
 
+type RoundWithRelations = {
+  id: string;
+  number: number;
+  isFinalPhase: boolean;
+  isSwissPhase: boolean;
+  knockoutLeg: number | null;
+  knockoutStage: number | null;
+  matches: RoundMatch[];
+};
+
+interface KnockoutConfrontation {
+  isBye: boolean;
+  homePlayer: RoundMatch["homePlayer"];
+  awayPlayer: RoundMatch["awayPlayer"];
+  legs: (RoundMatch | null)[];
+}
+
+// Voir le commentaire équivalent côté admin.
+function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+} {
+  const leg1 = legRounds.find((r) => r.knockoutLeg === 1);
+  const leg2 = legRounds.find((r) => r.knockoutLeg === 2);
+  const belle = legRounds.find((r) => r.knockoutLeg === 3);
+  if (!leg1) return { confrontations: [], legLabels: [] };
+
+  const legLabels = belle ? ["Aller", "Retour", "Belle"] : leg2 ? ["Aller", "Retour"] : ["Aller"];
+  const confrontations = leg1.matches
+    .filter((m) => !m.isThirdPlace)
+    .map((m1): KnockoutConfrontation => {
+      if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
+        return { isBye: true, homePlayer: m1.homePlayer, awayPlayer: m1.awayPlayer, legs: [] };
+      }
+      const m2 =
+        leg2?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      const mb =
+        belle?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      return {
+        isBye: false,
+        homePlayer: m1.homePlayer,
+        awayPlayer: m1.awayPlayer,
+        legs: [m1, m2, mb].slice(0, legLabels.length),
+      };
+    });
+  return { confrontations, legLabels };
+}
+
+type RenderUnit =
+  | { kind: "single"; round: RoundWithRelations }
+  | { kind: "stage"; knockoutStage: number; legRounds: RoundWithRelations[] };
+
+// Voir le commentaire équivalent côté admin.
+function buildKnockoutRenderUnits(rounds: RoundWithRelations[]): RenderUnit[] {
+  const units: RenderUnit[] = [];
+  const seenStages = new Set<number>();
+  for (const round of rounds) {
+    if (round.knockoutStage !== null) {
+      if (seenStages.has(round.knockoutStage)) continue;
+      seenStages.add(round.knockoutStage);
+      const legRounds = rounds.filter((r) => r.knockoutStage === round.knockoutStage);
+      if (legRounds.length >= 2) {
+        units.push({ kind: "stage", knockoutStage: round.knockoutStage, legRounds });
+        continue;
+      }
+      units.push({ kind: "single", round });
+      continue;
+    }
+    units.push({ kind: "single", round });
+  }
+  return units;
+}
+
+// Version en lecture seule de la table de confrontations aller-retour-belle
+// (voir l'équivalent interactif côté admin) : une ligne par confrontation,
+// une colonne par manche.
+function KnockoutConfrontationsTable({
+  confrontations,
+  legLabels,
+}: {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+}) {
+  return (
+    <div className={`overflow-hidden overflow-x-auto ${card}`}>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className={headRow}>
+            <th className={`${th} pl-4`}>Domicile</th>
+            {legLabels.map((label) => (
+              <th key={label} className={`${th} text-center`}>
+                {label}
+              </th>
+            ))}
+            <th className={`${th} pr-4`}>Extérieur</th>
+          </tr>
+        </thead>
+        <tbody>
+          {confrontations.map((c, i) => {
+            const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "—";
+            const awayName = c.awayPlayer ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}` : "—";
+            return (
+              <tr key={i} className={matchRow}>
+                <td className={`${matchCell} pl-4 truncate`}>{homeName}</td>
+                {c.isBye ? (
+                  <td colSpan={legLabels.length} className={`${matchCell} text-center`}>
+                    —
+                  </td>
+                ) : (
+                  legLabels.map((label, i2) => {
+                    const m = c.legs[i2];
+                    return (
+                      <td key={label} className={`${scoreCell} text-center whitespace-nowrap`}>
+                        {m ? `${m.homeScore ?? "-"} - ${m.awayScore ?? "-"}` : "—"}
+                      </td>
+                    );
+                  })
+                )}
+                <td className={`${matchCell} pr-4 truncate`}>{awayName}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function TournamentRoundsPage({
   params,
 }: {
@@ -173,18 +305,10 @@ export default async function TournamentRoundsPage({
     }
   }
 
-  // Voir le commentaire équivalent côté admin : pour un tour joué en 2
-  // manches + belle, seule la manche aller a un décompte d'entrants fiable
-  // (elle seule inclut les exempts).
-  const knockoutStageEntrants = new Map<number, number>();
-  for (const r of tournament.rounds) {
-    if (r.knockoutLeg === 1 && r.knockoutStage !== null) {
-      knockoutStageEntrants.set(
-        r.knockoutStage,
-        countKnockoutEntrants(r.matches.filter((m) => !m.isThirdPlace))
-      );
-    }
-  }
+  // Regroupe les rondes aller/retour/belle d'un même tour dès qu'au moins 2
+  // manches existent (voir buildKnockoutRenderUnits), pour l'affichage
+  // compact façon feuille de match ci-dessous.
+  const renderUnits = buildKnockoutRenderUnits(tournament.rounds);
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-6">
@@ -204,7 +328,36 @@ export default async function TournamentRoundsPage({
       </div>
 
       <div className="flex flex-col gap-6">
-        {tournament.rounds.map((round) => {
+        {renderUnits.map((unit) => {
+          if (unit.kind === "stage") {
+            const leg1 = unit.legRounds.find((r) => r.knockoutLeg === 1)!;
+            const { confrontations, legLabels } = buildKnockoutConfrontations(unit.legRounds);
+            const thirdPlaceMatches = unit.legRounds.flatMap((r) =>
+              r.matches.filter((m) => m.isThirdPlace)
+            );
+            return (
+              <div key={unit.knockoutStage} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <h3 className={roundHeading}>
+                    {getKnockoutStageLabel(
+                      countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+                    )}
+                  </h3>
+                  <KnockoutConfrontationsTable confrontations={confrontations} legLabels={legLabels} />
+                </div>
+                {thirdPlaceMatches.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                      Match pour la 3ᵉ place
+                    </h3>
+                    <MatchTable matches={thirdPlaceMatches} />
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          const round = unit.round;
           const roundHasPoolMatches = round.matches.some((m) => m.pool);
 
           if (
@@ -244,24 +397,12 @@ export default async function TournamentRoundsPage({
               (round.isFinalPhase && !round.isSwissPhase);
             const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
             const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
-            const knockoutEntrants =
-              round.knockoutStage !== null
-                ? knockoutStageEntrants.get(round.knockoutStage) ?? countKnockoutEntrants(mainMatches)
-                : countKnockoutEntrants(mainMatches);
-            const knockoutLegSuffix =
-              round.knockoutLeg === 1
-                ? " — Manche aller"
-                : round.knockoutLeg === 2
-                  ? " — Manche retour"
-                  : round.knockoutLeg === 3
-                    ? " — Belle"
-                    : "";
             return (
               <div key={round.id} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <h3 className={roundHeading}>
                     {isKnockoutRound
-                      ? `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`
+                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
                       : round.isSwissPhase
                         ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
                         : `Ronde ${round.number}`}
