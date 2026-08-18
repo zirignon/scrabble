@@ -788,6 +788,27 @@ function deriveAvoidSet(
   return avoid;
 }
 
+// Étend un ensemble d'adversaires à éviter en y ajoutant, pour chaque
+// entrant, tous les autres entrants partageant la même poule d'origine —
+// empêche deux joueurs (ou équipes) déjà réunis en poule de se recroiser
+// dès la phase suisse d'un tournoi Combiné, tant que les revanches ne sont
+// pas autorisées (voir Tournament.allowRematchesFromRound). Une fois les
+// revanches autorisées, l'origine de poule redevient sans importance : seul
+// le nombre réel de rencontres suisses (voir deriveAvoidSet) compte alors —
+// à l'appelant de ne pas appeler cette fonction dans ce cas.
+function addSamePoolAvoidance(
+  avoidSet: Map<string, Set<string>>,
+  poolByEntrant: Map<string, string>
+): void {
+  for (const [entrantId, poolId] of poolByEntrant) {
+    if (!avoidSet.has(entrantId)) avoidSet.set(entrantId, new Set());
+    const set = avoidSet.get(entrantId)!;
+    for (const [otherId, otherPoolId] of poolByEntrant) {
+      if (otherId !== entrantId && otherPoolId === poolId) set.add(otherId);
+    }
+  }
+}
+
 // Sélectionne, pour chaque poule, ses N premiers qualifiés (N =
 // tournament.qualifiersPerPool), en intercalant les rangs entre poules
 // (tous les 1ers, puis tous les 2èmes...) plutôt qu'en les mettant bout à
@@ -1067,6 +1088,17 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
     tournament.allowRematchesFromRound !== null &&
     upcomingSwissRoundNumber >= tournament.allowRematchesFromRound;
   const opponentsForPairing = deriveAvoidSet(meetingCounts, rematchesAllowed ? 2 : 1);
+  // Tant que les revanches ne sont pas autorisées, deux joueurs déjà réunis
+  // dans la même poule ne se recroisent pas en phase suisse — l'origine de
+  // poule n'a en revanche plus d'importance une fois les revanches
+  // autorisées (voir addSamePoolAvoidance).
+  if (!rematchesAllowed) {
+    const poolMembers = await prisma.poolMember.findMany({
+      where: { pool: { tournamentId } },
+      select: { playerId: true, poolId: true },
+    });
+    addSamePoolAvoidance(opponentsForPairing, new Map(poolMembers.map((m) => [m.playerId, m.poolId])));
+  }
 
   const pairings = generateSwissRoundWithForfeits(
     standingsForPairing,
@@ -1184,6 +1216,17 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
     tournament.allowRematchesFromRound !== null &&
     upcomingSwissRoundNumber >= tournament.allowRematchesFromRound;
   const opponentsForPairing = deriveAvoidSet(meetingCounts, rematchesAllowed ? 2 : 1);
+  // Voir le commentaire équivalent dans generateSwissPhaseRoundActionImpl.
+  if (!rematchesAllowed) {
+    const teamsWithPool = await prisma.team.findMany({
+      where: { tournamentId, poolId: { not: null } },
+      select: { id: true, poolId: true },
+    });
+    addSamePoolAvoidance(
+      opponentsForPairing,
+      new Map(teamsWithPool.map((t) => [t.id, t.poolId as string]))
+    );
+  }
 
   const pairings = generateSwissRound(standingsForPairing, opponentsForPairing, teamsWithBye);
 
