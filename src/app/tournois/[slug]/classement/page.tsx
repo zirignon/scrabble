@@ -93,7 +93,10 @@ export default async function TournamentStandingsPage({
   // suisse) : la ronde à élimination directe optionnelle qui la suit ne
   // produit pas de "classement" à part entière (l'issue se lit directement
   // sur le tableau, comme pour GROUPS+knockout), donc rien de plus à
-  // calculer au-delà de cette phase.
+  // calculer au-delà de cette phase. Avant que la 1re ronde suisse ne soit
+  // générée, ces fonctions retombent déjà sur le classement général de
+  // poules restreint aux qualifiés plutôt qu'un classement vide (voir
+  // computeClassicSwissPhaseStandings/computeClassicTeamSwissPhaseStandings).
   const swissPhaseStandings =
     tournament.type === "CLASSIC" && tournament.format === "COMBINED" && !tournament.isTeamEvent
       ? await computeClassicSwissPhaseStandings(tournament.id)

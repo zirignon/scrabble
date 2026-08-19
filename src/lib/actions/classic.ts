@@ -12,7 +12,11 @@ import {
   computeClassicTeamStandings,
   computeClassicTeamSwissPhaseStandings,
 } from "@/lib/classic/teamStandings";
-import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
+import {
+  computeClassicGeneralPoolStandings,
+  computeClassicPoolStandings,
+  selectPoolQualifiers,
+} from "@/lib/classic/poolStandings";
 import {
   computeClassicTeamGeneralPoolStandings,
   computeClassicTeamPoolStandings,
@@ -807,27 +811,6 @@ function addSamePoolAvoidance(
       if (otherId !== entrantId && otherPoolId === poolId) set.add(otherId);
     }
   }
-}
-
-// Sélectionne, pour chaque poule, ses N premiers qualifiés (N =
-// tournament.qualifiersPerPool), en intercalant les rangs entre poules
-// (tous les 1ers, puis tous les 2èmes...) plutôt qu'en les mettant bout à
-// bout, pour limiter les rencontres entre équipes/joueurs de la même
-// poule dès le premier tour de la phase finale.
-function selectPoolQualifiers<T extends { standings: { playerId?: string; teamId?: string }[] }>(
-  pools: T[],
-  qualifiersPerPool: number,
-  idKey: "playerId" | "teamId"
-): string[] {
-  const qualifiers: string[] = [];
-  for (let rank = 0; rank < qualifiersPerPool; rank++) {
-    for (const pool of pools) {
-      const row = pool.standings[rank];
-      const id = row?.[idKey];
-      if (id) qualifiers.push(id);
-    }
-  }
-  return qualifiers;
 }
 
 // Construit les appariements du 1er tour de la phase finale de poules.

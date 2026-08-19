@@ -69,3 +69,24 @@ export async function computeClassicGeneralPoolStandings(
     pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })))
   );
 }
+
+// Sélectionne, pour chaque poule, ses N premiers qualifiés (N =
+// tournament.qualifiersPerPool), en intercalant les rangs entre poules
+// (tous les 1ers, puis tous les 2èmes...) plutôt qu'en les mettant bout à
+// bout, pour limiter les rencontres entre équipes/joueurs de la même
+// poule dès le premier tour de la phase finale.
+export function selectPoolQualifiers<T extends { standings: { playerId?: string; teamId?: string }[] }>(
+  pools: T[],
+  qualifiersPerPool: number,
+  idKey: "playerId" | "teamId"
+): string[] {
+  const qualifiers: string[] = [];
+  for (let rank = 0; rank < qualifiersPerPool; rank++) {
+    for (const pool of pools) {
+      const row = pool.standings[rank];
+      const id = row?.[idKey];
+      if (id) qualifiers.push(id);
+    }
+  }
+  return qualifiers;
+}
