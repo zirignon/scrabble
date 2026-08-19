@@ -198,24 +198,11 @@ export async function computeClassicTeamSwissPhaseStandings(
     if (m.awayTeamId) teamIds.add(m.awayTeamId);
   }
 
-  const { computeClassicTeamGeneralPoolStandings, computeClassicTeamPoolStandings } = await import(
-    "@/lib/classic/teamPoolStandings"
-  );
+  const { computeClassicTeamGeneralPoolStandings } = await import("@/lib/classic/teamPoolStandings");
 
   if (teamIds.size === 0) {
     // Voir le commentaire équivalent dans computeClassicSwissPhaseStandings.
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: tournamentId },
-      select: { qualifiersPerPool: true },
-    });
-    if (!tournament) return [];
-    const { selectPoolQualifiers } = await import("@/lib/classic/poolStandings");
-    const poolStandings = await computeClassicTeamPoolStandings(tournamentId);
-    const qualifierIds = new Set(
-      selectPoolQualifiers(poolStandings, tournament.qualifiersPerPool, "teamId")
-    );
-    const general = await computeClassicTeamGeneralPoolStandings(tournamentId);
-    return general.filter((s) => qualifierIds.has(s.teamId));
+    return computeClassicTeamGeneralPoolStandings(tournamentId);
   }
 
   const teams = await prisma.team.findMany({ where: { id: { in: [...teamIds] } } });

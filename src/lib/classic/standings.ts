@@ -319,29 +319,16 @@ export async function computeClassicSwissPhaseStandings(
     if (m.awayPlayerId) playerIds.add(m.awayPlayerId);
   }
 
-  const {
-    computeClassicGeneralPoolStandings,
-    computeClassicPoolStandings,
-    selectPoolQualifiers,
-  } = await import("@/lib/classic/poolStandings");
+  const { computeClassicGeneralPoolStandings } = await import("@/lib/classic/poolStandings");
 
   if (playerIds.size === 0) {
     // Avant que la 1re ronde suisse ne soit générée, il n'y a encore aucun
     // match à partir duquel calculer quoi que ce soit : on affiche déjà le
-    // classement général de poules restreint aux qualifiés — c'est de toute
-    // façon lui qui amorce la phase suisse (voir
-    // generateSwissPhaseRoundActionImpl) — plutôt qu'un classement vide.
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: tournamentId },
-      select: { qualifiersPerPool: true },
-    });
-    if (!tournament) return [];
-    const poolStandings = await computeClassicPoolStandings(tournamentId);
-    const qualifierIds = new Set(
-      selectPoolQualifiers(poolStandings, tournament.qualifiersPerPool, "playerId")
-    );
-    const general = await computeClassicGeneralPoolStandings(tournamentId);
-    return general.filter((s) => qualifierIds.has(s.playerId));
+    // classement général de poules (tous les participants, pas seulement
+    // les qualifiés — la qualification ne filtre qui entre effectivement en
+    // phase suisse qu'au moment de generateSwissPhaseRoundActionImpl)
+    // plutôt qu'un classement vide.
+    return computeClassicGeneralPoolStandings(tournamentId);
   }
 
   const players = await prisma.player.findMany({
