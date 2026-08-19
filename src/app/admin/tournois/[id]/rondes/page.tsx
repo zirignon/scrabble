@@ -595,11 +595,17 @@ function RematchSettingsForm({
   tournamentId,
   allowRematchesFromRound,
   canManage,
+  isCombined,
 }: {
   tournamentId: string;
   allowRematchesFromRound: number | null;
   canManage: boolean;
+  isCombined: boolean;
 }) {
+  // Le numéro de ronde ci-dessous est toujours celui affiché à l'écran
+  // ("Ronde N"), donc pour un tournoi Combiné les rondes de poules
+  // comptent aussi dans ce numéro (voir Tournament.allowRematchesFromRound).
+  const numberingHint = isCombined ? " (numérotation globale, poules incluses)" : "";
   return (
     <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
       <p className="text-sm font-medium">Revanches (suisse)</p>
@@ -610,7 +616,7 @@ function RematchSettingsForm({
         >
           <div className="flex flex-col gap-1">
             <label htmlFor="allowRematchesFromRound" className="text-xs font-medium">
-              Autoriser les revanches à partir de la ronde
+              Autoriser les revanches à partir de la ronde{numberingHint}
             </label>
             <input
               id="allowRematchesFromRound"
@@ -632,7 +638,7 @@ function RematchSettingsForm({
       ) : (
         <p className="text-sm text-black/60 dark:text-white/60">
           {allowRematchesFromRound
-            ? `Revanches autorisées à partir de la ronde ${allowRematchesFromRound}.`
+            ? `Revanches autorisées à partir de la ronde ${allowRematchesFromRound}${numberingHint}.`
             : "Aucune revanche volontaire."}
         </p>
       )}
@@ -968,6 +974,7 @@ export default async function RoundsPage({
           tournamentId={tournament.id}
           allowRematchesFromRound={tournament.allowRematchesFromRound}
           canManage={canManage}
+          isCombined={tournament.format === "COMBINED"}
         />
       )}
 

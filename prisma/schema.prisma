@@ -286,9 +286,9 @@ model Tournament {
   // possible, jamais une 3e fois). Laissé à null (par défaut) : aucune
   // revanche volontaire, seulement en dernier recours si generateSwissRound
   // n'a aucun adversaire inédit disponible pour un entrant donné. Pour un
-  // tournoi COMBINED, la ronde se compte au sein de la phase suisse
-  // elle-même (voir "Ronde suisse N"), pas dans la numérotation globale du
-  // tournoi qui inclut les poules. Toujours pour COMBINED : avant cette
+  // tournoi COMBINED, la ronde se compte dans la numérotation globale du
+  // tournoi (celle affichée à l'écran, "Ronde N"), poules incluses — comme
+  // pour le format SWISS classique. Toujours pour COMBINED : avant cette
   // ronde, deux entrants déjà réunis dans la même poule ne se recroisent
   // pas non plus en phase suisse (voir addSamePoolAvoidance) — à partir de
   // cette ronde, l'origine de poule n'a plus d'importance, comme les
