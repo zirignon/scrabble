@@ -268,7 +268,10 @@ model Tournament {
   // que le format poules) : activable/désactivable, avec le nombre de
   // qualifiés (au classement général, tous confondus) configurable.
   finalPhaseEnabled     Boolean   @default(false)
-  finalPhaseQualifiers  Int       @default(4)
+  // Laissé à null tant que finalPhaseEnabled n'est pas activé (aucune
+  // valeur pré-remplie trompeuse dans le formulaire) — un nombre est
+  // exigé au moment même où l'organisateur active la case.
+  finalPhaseQualifiers  Int?
   // Nombre de rondes suisses (format SWISS uniquement) que l'organisateur
   // prévoit de jouer avant de passer à la phase finale — laissé à null,
   // les rondes se génèrent une par une sans limite prédéfinie comme

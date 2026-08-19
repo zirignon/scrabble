@@ -483,7 +483,7 @@ function FinalPhaseSettingsForm({
 }: {
   tournamentId: string;
   finalPhaseEnabled: boolean;
-  finalPhaseQualifiers: number;
+  finalPhaseQualifiers: number | null;
   canManage: boolean;
 }) {
   return (
@@ -512,7 +512,8 @@ function FinalPhaseSettingsForm({
               name="finalPhaseQualifiers"
               type="number"
               min={2}
-              defaultValue={finalPhaseQualifiers}
+              defaultValue={finalPhaseQualifiers ?? ""}
+              placeholder="4"
               className="w-24 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
             />
           </div>

@@ -1268,8 +1268,18 @@ export async function updateFinalPhaseSettingsAction(
 
   const finalPhaseEnabled = formData.get("finalPhaseEnabled") === "on";
   const raw = formData.get("finalPhaseQualifiers");
-  const finalPhaseQualifiers = Number(raw);
-  if (!Number.isInteger(finalPhaseQualifiers) || finalPhaseQualifiers < 2) return;
+  const finalPhaseQualifiers = raw && String(raw).trim() ? Number(raw) : null;
+  // Un nombre de qualifiés valide est exigé pour activer la phase finale ;
+  // sans elle (case décochée), le champ peut rester vide.
+  if (finalPhaseEnabled || finalPhaseQualifiers !== null) {
+    if (
+      finalPhaseQualifiers === null ||
+      !Number.isInteger(finalPhaseQualifiers) ||
+      finalPhaseQualifiers < 2
+    ) {
+      return;
+    }
+  }
 
   await prisma.tournament.update({
     where: { id: tournamentId },
@@ -1423,6 +1433,11 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
   if (!tournament.finalPhaseEnabled) {
     throw new Error("La phase finale n'est pas activée pour ce tournoi.");
   }
+  // Garanti non-null par updateFinalPhaseSettingsAction dès que
+  // finalPhaseEnabled est activé.
+  if (tournament.finalPhaseQualifiers === null) {
+    throw new Error("Nombre de qualifiés non configuré pour la phase finale.");
+  }
 
   const isCombined = tournament.format === "COMBINED";
   // Pour COMBINED, la "phase principale" à terminer avant la phase finale
@@ -1512,6 +1527,11 @@ async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: strin
   }
   if (!tournament.finalPhaseEnabled) {
     throw new Error("La phase finale n'est pas activée pour ce tournoi.");
+  }
+  // Garanti non-null par updateFinalPhaseSettingsAction dès que
+  // finalPhaseEnabled est activé.
+  if (tournament.finalPhaseQualifiers === null) {
+    throw new Error("Nombre de qualifiés non configuré pour la phase finale.");
   }
 
   const isCombined = tournament.format === "COMBINED";
