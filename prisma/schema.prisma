@@ -257,7 +257,12 @@ model Tournament {
   type         TournamentType
   format       ClassicFormat?
   isTeamEvent  Boolean           @default(false)
-  qualifiersPerPool Int          @default(2)
+  // Nombre de qualifiés retenus par poule pour la suite (phase finale à
+  // élimination directe pour GROUPS, phase suisse pour COMBINED) — laissé à
+  // null (par défaut) : la qualification est optionnelle, tous les membres
+  // de chaque poule continuent sans filtrage. Un nombre positif restreint
+  // effectivement à ce rang par poule (voir selectPoolQualifiers).
+  qualifiersPerPool Int?
   // Phase finale à élimination directe optionnelle après un round-robin ou
   // un système suisse (indépendante de qualifiersPerPool, qui ne concerne
   // que le format poules) : activable/désactivable, avec le nombre de

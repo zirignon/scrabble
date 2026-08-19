@@ -96,12 +96,14 @@ export async function updateQualifiersPerPoolAction(
 ) {
   await assertCanManage(tournamentId);
   const raw = formData.get("qualifiersPerPool");
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) return;
+  const qualifiersPerPool = raw && String(raw).trim() ? Number(raw) : null;
+  if (qualifiersPerPool !== null && (!Number.isInteger(qualifiersPerPool) || qualifiersPerPool < 1)) {
+    return;
+  }
 
   await prisma.tournament.update({
     where: { id: tournamentId },
-    data: { qualifiersPerPool: value },
+    data: { qualifiersPerPool },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);

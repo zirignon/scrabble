@@ -18,7 +18,7 @@ function QualifiersSettingsForm({
   canManage,
 }: {
   tournamentId: string;
-  qualifiersPerPool: number;
+  qualifiersPerPool: number | null;
   canManage: boolean;
 }) {
   return (
@@ -38,7 +38,8 @@ function QualifiersSettingsForm({
               name="qualifiersPerPool"
               type="number"
               min={1}
-              defaultValue={qualifiersPerPool}
+              defaultValue={qualifiersPerPool ?? ""}
+              placeholder="Tous"
               className="w-24 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
             />
           </div>
@@ -51,7 +52,7 @@ function QualifiersSettingsForm({
         </form>
       ) : (
         <p className="text-sm text-black/60 dark:text-white/60">
-          {qualifiersPerPool} qualifié(s) par poule.
+          {qualifiersPerPool ? `${qualifiersPerPool} qualifié(s) par poule.` : "Tous les joueurs de chaque poule qualifient."}
         </p>
       )}
     </div>

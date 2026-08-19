@@ -825,12 +825,12 @@ function addSamePoolAvoidance(
 //   comportement, qualifiés intercalés par rang puis appariés dans l'ordre.
 function buildPoolFinalPhasePairings<T extends { standings: { playerId?: string; teamId?: string }[] }>(
   pools: T[],
-  qualifiersPerPool: number,
+  qualifiersPerPool: number | null,
   idKey: "playerId" | "teamId"
 ): Pairing[] {
   const poolQualifiers = pools.map((pool) =>
     pool.standings
-      .slice(0, qualifiersPerPool)
+      .slice(0, qualifiersPerPool ?? pool.standings.length)
       .map((row) => row[idKey])
       .filter((id): id is string => Boolean(id))
   );

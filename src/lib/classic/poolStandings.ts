@@ -74,14 +74,17 @@ export async function computeClassicGeneralPoolStandings(
 // tournament.qualifiersPerPool), en intercalant les rangs entre poules
 // (tous les 1ers, puis tous les 2èmes...) plutôt qu'en les mettant bout à
 // bout, pour limiter les rencontres entre équipes/joueurs de la même
-// poule dès le premier tour de la phase finale.
+// poule dès le premier tour de la phase finale. qualifiersPerPool à null
+// (qualification non activée, par défaut) : tous les membres de chaque
+// poule qualifient, jusqu'au rang de la plus grande poule.
 export function selectPoolQualifiers<T extends { standings: { playerId?: string; teamId?: string }[] }>(
   pools: T[],
-  qualifiersPerPool: number,
+  qualifiersPerPool: number | null,
   idKey: "playerId" | "teamId"
 ): string[] {
+  const maxRank = qualifiersPerPool ?? Math.max(0, ...pools.map((pool) => pool.standings.length));
   const qualifiers: string[] = [];
-  for (let rank = 0; rank < qualifiersPerPool; rank++) {
+  for (let rank = 0; rank < maxRank; rank++) {
     for (const pool of pools) {
       const row = pool.standings[rank];
       const id = row?.[idKey];
