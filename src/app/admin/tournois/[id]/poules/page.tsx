@@ -9,6 +9,7 @@ import {
   deletePoolAction,
   removePoolMemberAction,
   removeTeamFromPoolAction,
+  updatePoolRoundsCountAction,
   updateQualifiersPerPoolAction,
 } from "@/lib/actions/pools";
 
@@ -53,6 +54,55 @@ function QualifiersSettingsForm({
       ) : (
         <p className="text-sm text-black/60 dark:text-white/60">
           {qualifiersPerPool ? `${qualifiersPerPool} qualifié(s) par poule.` : "Tous les joueurs de chaque poule qualifient."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PoolRoundsSettingsForm({
+  tournamentId,
+  poolRoundsCount,
+  canManage,
+}: {
+  tournamentId: string;
+  poolRoundsCount: number | null;
+  canManage: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
+      <p className="text-sm font-medium">Rondes de poules</p>
+      {canManage ? (
+        <form
+          action={updatePoolRoundsCountAction.bind(null, tournamentId)}
+          className="flex items-end gap-3"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="poolRoundsCount" className="text-xs font-medium">
+              Nombre de rondes
+            </label>
+            <input
+              id="poolRoundsCount"
+              name="poolRoundsCount"
+              type="number"
+              min={1}
+              defaultValue={poolRoundsCount ?? ""}
+              placeholder="Round-robin complet"
+              className="w-40 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
+          >
+            Mettre à jour
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-black/60 dark:text-white/60">
+          {poolRoundsCount
+            ? `${poolRoundsCount} ronde(s) de poules.`
+            : "Round-robin complet (chaque poule rencontre tous ses membres)."}
         </p>
       )}
     </div>
@@ -114,6 +164,12 @@ export default async function PoolsPage({
         <QualifiersSettingsForm
           tournamentId={tournament.id}
           qualifiersPerPool={tournament.qualifiersPerPool}
+          canManage={canManage}
+        />
+
+        <PoolRoundsSettingsForm
+          tournamentId={tournament.id}
+          poolRoundsCount={tournament.poolRoundsCount}
           canManage={canManage}
         />
 
@@ -271,6 +327,12 @@ export default async function PoolsPage({
       <QualifiersSettingsForm
         tournamentId={tournament.id}
         qualifiersPerPool={tournament.qualifiersPerPool}
+        canManage={canManage}
+      />
+
+      <PoolRoundsSettingsForm
+        tournamentId={tournament.id}
+        poolRoundsCount={tournament.poolRoundsCount}
         canManage={canManage}
       />
 

@@ -263,6 +263,18 @@ model Tournament {
   // de chaque poule continuent sans filtrage. Un nombre positif restreint
   // effectivement à ce rang par poule (voir selectPoolQualifiers).
   qualifiersPerPool Int?
+  // Nombre de rondes de la phase de poules choisi par l'organisateur, à la
+  // place du round-robin complet automatique (chaque poule joue alors
+  // exactement ce nombre de rondes, tirées des premières rondes de son
+  // calendrier round-robin naturel — voir generateRoundRobinRounds). Laissé
+  // à null (par défaut) : round-robin complet automatique comme avant,
+  // chaque poule joue son propre nombre de rondes naturel selon son
+  // effectif (une poule plus petite peut alors terminer plus tôt que les
+  // autres). Ne doit jamais dépasser le nombre de rondes du round-robin
+  // complet d'une poule, ce qui obligerait à rejouer une rencontre déjà
+  // programmée — refusé à la génération plutôt que d'introduire une
+  // revanche non voulue (voir generatePoolsRoundRobinActionImpl).
+  poolRoundsCount Int?
   // Phase finale à élimination directe optionnelle après un round-robin ou
   // un système suisse (indépendante de qualifiersPerPool, qui ne concerne
   // que le format poules) : activable/désactivable, avec le nombre de

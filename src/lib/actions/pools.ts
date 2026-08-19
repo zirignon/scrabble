@@ -108,3 +108,22 @@ export async function updateQualifiersPerPoolAction(
 
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);
 }
+
+export async function updatePoolRoundsCountAction(
+  tournamentId: string,
+  formData: FormData
+) {
+  await assertCanManage(tournamentId);
+  const raw = formData.get("poolRoundsCount");
+  const poolRoundsCount = raw && String(raw).trim() ? Number(raw) : null;
+  if (poolRoundsCount !== null && (!Number.isInteger(poolRoundsCount) || poolRoundsCount < 1)) {
+    return;
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { poolRoundsCount },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/poules`);
+}

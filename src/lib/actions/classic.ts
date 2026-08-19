@@ -635,6 +635,25 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
     throw new Error("Chaque poule doit compter au moins 2 joueurs.");
   }
 
+  // Calendrier complet de chaque poule, calculé avant toute écriture en
+  // base : si Tournament.poolRoundsCount est fixé par l'organisateur, on
+  // vérifie qu'aucune poule n'est trop petite pour fournir ce nombre de
+  // rondes sans devoir rejouer une rencontre (voir le commentaire sur ce
+  // champ dans schema.prisma) avant de créer quoi que ce soit.
+  const poolRoundsById = new Map(
+    pools.map((pool) => [pool.id, generateRoundRobinRounds(pool.members.map((m) => m.playerId))])
+  );
+  if (tournament.poolRoundsCount !== null) {
+    const tooSmall = pools.find(
+      (pool) => poolRoundsById.get(pool.id)!.length < tournament.poolRoundsCount!
+    );
+    if (tooSmall) {
+      throw new Error(
+        `La poule "${tooSmall.name}" ne permet que ${poolRoundsById.get(tooSmall.id)!.length} ronde(s) au maximum (round-robin complet) : impossible d'en programmer ${tournament.poolRoundsCount}.`
+      );
+    }
+  }
+
   async function getOrCreateRound(number: number) {
     return prisma.round.upsert({
       where: { tournamentId_number: { tournamentId, number } },
@@ -646,7 +665,9 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
   // Chaque poule joue son propre round-robin interne ; la ronde N d'une
   // poule partage le même numéro de ronde tournoi que la ronde N des
   // autres poules (elles se jouent en parallèle). Une poule plus petite
-  // termine simplement plus tôt, sans matchs dans les rondes suivantes.
+  // termine simplement plus tôt, sans matchs dans les rondes suivantes —
+  // sauf si poolRoundsCount est fixé, auquel cas toutes les poules jouent
+  // exactement ce nombre de rondes (voir la validation ci-dessus).
   // Seule la ronde 1 est matérialisée tout de suite, le reste révélé
   // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin.
   const round1 = await getOrCreateRound(1);
@@ -654,7 +675,11 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
   // remise à 1 à chaque poule — même tournoi, mêmes tables physiques.
   let table = 1;
   for (const pool of pools) {
-    const poolRounds = generateRoundRobinRounds(pool.members.map((m) => m.playerId));
+    const fullPoolRounds = poolRoundsById.get(pool.id)!;
+    const poolRounds =
+      tournament.poolRoundsCount !== null
+        ? fullPoolRounds.slice(0, tournament.poolRoundsCount)
+        : fullPoolRounds;
     for (const pairing of poolRounds[0]) {
       await prisma.match.create({
         data: {
@@ -712,6 +737,21 @@ async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
     throw new Error("Toutes les équipes doivent avoir le même nombre de joueurs.");
   }
 
+  // Voir le commentaire équivalent côté individuel.
+  const teamPoolRoundsById = new Map(
+    pools.map((pool) => [pool.id, generateRoundRobinRounds(pool.teams.map((t) => t.id))])
+  );
+  if (tournament.poolRoundsCount !== null) {
+    const tooSmall = pools.find(
+      (pool) => teamPoolRoundsById.get(pool.id)!.length < tournament.poolRoundsCount!
+    );
+    if (tooSmall) {
+      throw new Error(
+        `La poule "${tooSmall.name}" ne permet que ${teamPoolRoundsById.get(tooSmall.id)!.length} ronde(s) au maximum (round-robin complet) : impossible d'en programmer ${tournament.poolRoundsCount}.`
+      );
+    }
+  }
+
   async function getOrCreateRound(number: number) {
     return prisma.round.upsert({
       where: { tournamentId_number: { tournamentId, number } },
@@ -728,7 +768,11 @@ async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
   const tableCounter = createTableCounter();
   for (const pool of pools) {
     const teamsById = new Map(pool.teams.map((t) => [t.id, t]));
-    const teamRounds = generateRoundRobinRounds(pool.teams.map((t) => t.id));
+    const fullTeamRounds = teamPoolRoundsById.get(pool.id)!;
+    const teamRounds =
+      tournament.poolRoundsCount !== null
+        ? fullTeamRounds.slice(0, tournament.poolRoundsCount)
+        : fullTeamRounds;
     for (const pairing of teamRounds[0]) {
       const homeTeam = teamsById.get(pairing.home)!;
       const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
