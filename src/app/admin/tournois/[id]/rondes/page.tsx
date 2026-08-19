@@ -896,20 +896,6 @@ export default async function RoundsPage({
   // manches existent (voir buildKnockoutRenderUnits), pour l'affichage
   // compact façon feuille de match ci-dessous.
   const renderUnits = buildKnockoutRenderUnits(tournament.rounds);
-  // Numéro de ronde relatif à la phase suisse (1, 2, 3...), affiché à la
-  // place du numéro de ronde global du tournoi (qui inclut les rondes de
-  // poules précédentes et serait donc trompeur, ex. "Ronde 6" pour la 1re
-  // ronde suisse après 5 rondes de poules).
-  const swissPhaseRoundNumberById = new Map<string, number>();
-  {
-    let n = 0;
-    for (const r of tournament.rounds) {
-      if (r.isSwissPhase) {
-        n += 1;
-        swissPhaseRoundNumberById.set(r.id, n);
-      }
-    }
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -1307,9 +1293,7 @@ export default async function RoundsPage({
               <h2 className="font-heading text-lg font-semibold">
                 {isKnockoutRound
                   ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                  : round.isSwissPhase
-                    ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
-                    : `Ronde ${round.number}`}
+                  : `Ronde ${round.number}`}
               </h2>
               <MatchTable
                 matches={mainMatches}
@@ -1499,9 +1483,7 @@ export default async function RoundsPage({
                 ? getKnockoutStageLabel(
                     countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
                   )
-                : round.isSwissPhase
-                  ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
-                  : `Ronde ${round.number}`}
+                : `Ronde ${round.number}`}
             </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (

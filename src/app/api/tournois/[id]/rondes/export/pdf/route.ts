@@ -195,7 +195,6 @@ export async function GET(
   const swissPhaseRows: unknown[][] = [];
   const finalPhaseChunks: FinalPhaseChunk[] = [];
   let pendingFinalRows: unknown[][] = [];
-  let swissPhaseRoundNumber = 0;
   for (const unit of buildKnockoutRenderUnits(rounds)) {
     if (unit.kind === "stage") {
       if (pendingFinalRows.length > 0) {
@@ -231,8 +230,7 @@ export async function GET(
 
     const round = unit.round;
     if (round.isSwissPhase) {
-      swissPhaseRoundNumber += 1;
-      swissPhaseRows.push(...buildRows(round, `Ronde suisse ${swissPhaseRoundNumber}`));
+      swissPhaseRows.push(...buildRows(round, `Ronde ${round.number}`));
       continue;
     }
     const grouped = round.matches.some((m) => m.poolId);

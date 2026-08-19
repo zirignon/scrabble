@@ -292,19 +292,6 @@ export default async function TournamentRoundsPage({
   });
   if (!tournament || tournament.type !== "CLASSIC") notFound();
 
-  // Numéro de ronde relatif à la phase suisse d'un tournoi COMBINED (poules
-  // puis suisse) — voir le commentaire équivalent côté admin.
-  const swissPhaseRoundNumberById = new Map<string, number>();
-  {
-    let n = 0;
-    for (const r of tournament.rounds) {
-      if (r.isSwissPhase) {
-        n += 1;
-        swissPhaseRoundNumberById.set(r.id, n);
-      }
-    }
-  }
-
   // Regroupe les rondes aller/retour/belle d'un même tour dès qu'au moins 2
   // manches existent (voir buildKnockoutRenderUnits), pour l'affichage
   // compact façon feuille de match ci-dessous.
@@ -403,9 +390,7 @@ export default async function TournamentRoundsPage({
                   <h3 className={roundHeading}>
                     {isKnockoutRound
                       ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                      : round.isSwissPhase
-                        ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
-                        : `Ronde ${round.number}`}
+                      : `Ronde ${round.number}`}
                   </h3>
                   <MatchTable matches={mainMatches} />
                 </div>
@@ -546,9 +531,7 @@ export default async function TournamentRoundsPage({
                   ? getKnockoutStageLabel(
                       countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
                     )
-                  : round.isSwissPhase
-                    ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
-                    : `Ronde ${round.number}`}
+                  : `Ronde ${round.number}`}
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">

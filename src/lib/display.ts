@@ -405,11 +405,6 @@ async function buildCurrent(tournament: {
               ? " — Belle"
               : "";
       label = `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`;
-    } else if (lastRound.isSwissPhase) {
-      const swissPhaseRoundNumber = await prisma.round.count({
-        where: { tournamentId: tournament.id, isSwissPhase: true, number: { lte: lastRound.number } },
-      });
-      label = `Ronde suisse ${swissPhaseRoundNumber}`;
     } else {
       label = `Ronde ${lastRound.number}`;
     }
