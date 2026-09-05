@@ -836,11 +836,17 @@ export default async function RoundsPage({
             r.matches.filter((m) => m.isThirdPlace)
           );
           return (
-            <section key={unit.knockoutStage} className="flex flex-col gap-3">
+            <section
+              key={unit.knockoutStage}
+              id={`ronde-${leg1.number}`}
+              className="flex flex-col gap-3 scroll-mt-20"
+            >
               <h2 className="font-heading text-lg font-semibold">
-                {getKnockoutStageLabel(
-                  countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
-                )}
+                <a href={`#ronde-${leg1.number}`} className="hover:underline">
+                  {getKnockoutStageLabel(
+                    countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+                  )}
+                </a>
               </h2>
               <KnockoutConfrontationsTable
                 confrontations={confrontations}
@@ -886,8 +892,12 @@ export default async function RoundsPage({
           }
 
           return (
-            <section key={round.id} className="flex flex-col gap-5">
-              <h2 className="font-heading text-lg font-semibold">Ronde {round.number}</h2>
+            <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
+              <h2 className="font-heading text-lg font-semibold">
+                <a href={`#ronde-${round.number}`} className="hover:underline">
+                  Ronde {round.number}
+                </a>
+              </h2>
               {[...byPool.values()].map(({ pool, matches }) => (
                 <div key={pool.id} className="flex flex-col gap-2">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -915,11 +925,13 @@ export default async function RoundsPage({
           const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
           const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
           return (
-            <section key={round.id} className="flex flex-col gap-3">
+            <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-3 scroll-mt-20">
               <h2 className="font-heading text-lg font-semibold">
-                {isKnockoutRound
-                  ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                  : `Ronde ${round.number}`}
+                <a href={`#ronde-${round.number}`} className="hover:underline">
+                  {isKnockoutRound
+                    ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                    : `Ronde ${round.number}`}
+                </a>
               </h2>
               <MatchTable
                 matches={mainMatches}
@@ -1025,8 +1037,12 @@ export default async function RoundsPage({
           }
 
           return (
-            <section key={round.id} className="flex flex-col gap-6">
-              <h2 className="font-heading text-lg font-semibold">Ronde {round.number}</h2>
+            <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-6 scroll-mt-20">
+              <h2 className="font-heading text-lg font-semibold">
+                <a href={`#ronde-${round.number}`} className="hover:underline">
+                  Ronde {round.number}
+                </a>
+              </h2>
               {[...byPool.values()].map(({ pool, encounters, byes }) => (
                 <div key={pool.id} className="flex flex-col gap-4">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -1103,13 +1119,15 @@ export default async function RoundsPage({
           tournament.format === "GROUPS" ||
           (round.isFinalPhase && !round.isSwissPhase);
         return (
-          <section key={round.id} className="flex flex-col gap-5">
+          <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
             <h2 className="font-heading text-lg font-semibold">
-              {isKnockoutRound
-                ? getKnockoutStageLabel(
-                    countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
-                  )
-                : `Ronde ${round.number}`}
+              <a href={`#ronde-${round.number}`} className="hover:underline">
+                {isKnockoutRound
+                  ? getKnockoutStageLabel(
+                      countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                    )
+                  : `Ronde ${round.number}`}
+              </a>
             </h2>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
