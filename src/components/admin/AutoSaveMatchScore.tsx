@@ -2,10 +2,26 @@
 
 import { useFormStatus } from "react-dom";
 
-// Enregistre automatiquement le score dès que l'organisateur quitte le champ
-// (Tab, clic ailleurs) ou appuie sur Entrée, au lieu d'exiger un clic sur un
-// bouton "OK" séparé. requestSubmit() déclenche la même soumission de
-// formulaire (donc la même Server Action recordMatchResultAction) que
+// Un élément associé à un <form> (input/select/button/textarea), qu'il soit
+// imbriqué dans le DOM ou simplement rattaché via l'attribut form= — les
+// deux cas se rencontrent ici (voir MatchRow où le statut vit dans une
+// cellule séparée, contrairement à LegScoreCell). La propriété .form reflète
+// toujours le formulaire logique, peu importe la position dans le DOM.
+function isSameForm(target: EventTarget | null, form: HTMLFormElement | null): boolean {
+  if (!form || !target) return false;
+  return (target as { form?: HTMLFormElement | null }).form === form;
+}
+
+// Enregistre automatiquement le score dès que l'organisateur quitte tout le
+// groupe de saisie (score + statut, même si tabuler entre les champs) — pas
+// à chaque changement de focus interne, sinon tabuler du score domicile vers
+// le score extérieur déclenche un enregistrement (avec l'ancien score
+// extérieur) dont le rafraîchissement de page peut retomber en pleine
+// frappe du nouveau score extérieur et en effacer les premiers chiffres.
+// Voir isSameForm ci-dessus : le prochain élément focalisé (relatedTarget)
+// est comparé par formulaire logique, pas par position DOM. Remplace le
+// clic sur un bouton "OK" séparé ; requestSubmit() déclenche la même
+// soumission (donc la même Server Action recordMatchResultAction) que
 // l'ancien bouton — aucun changement côté serveur.
 export function AutoSubmitScoreInput({
   name,
@@ -23,13 +39,19 @@ export function AutoSubmitScoreInput({
       defaultValue={defaultValue}
       className={className}
       onBlur={(e) => {
-        e.currentTarget.form?.requestSubmit();
+        const form = e.currentTarget.form;
+        if (!isSameForm(e.relatedTarget, form)) {
+          form?.requestSubmit();
+        }
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           // Empêche la soumission native immédiate (avant que le champ
           // n'ait perdu le focus) : on déclenche le blur, qui se charge lui
           // même de l'enregistrement ci-dessus, pour un seul chemin commun.
+          // Contrairement à Tab, cela équivaut à quitter tout le groupe
+          // (aucun autre champ de ce match ne reçoit le focus) : Entrée
+          // enregistre donc toujours, même en cours de saisie du domicile.
           e.preventDefault();
           e.currentTarget.blur();
         }
@@ -38,8 +60,12 @@ export function AutoSubmitScoreInput({
   );
 }
 
-// Voir le commentaire équivalent ci-dessus : enregistre dès le changement de
-// statut plutôt qu'au clic sur "OK".
+// Enregistre au changement de statut (sélection atomique, pas de saisie
+// caractère par caractère à protéger) ET en quittant le groupe de saisie
+// (voir le commentaire équivalent sur AutoSubmitScoreInput) — le statut est
+// en général le dernier champ du groupe, donc c'est souvent ce blur qui
+// déclenche l'enregistrement final après avoir tabulé domicile → extérieur
+// → statut.
 export function AutoSubmitStatusSelect({
   formId,
   defaultValue,
@@ -59,6 +85,12 @@ export function AutoSubmitStatusSelect({
       className={className}
       onChange={(e) => {
         e.currentTarget.form?.requestSubmit();
+      }}
+      onBlur={(e) => {
+        const form = e.currentTarget.form;
+        if (!isSameForm(e.relatedTarget, form)) {
+          form?.requestSubmit();
+        }
       }}
     >
       {children}
