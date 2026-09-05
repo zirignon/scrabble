@@ -70,6 +70,10 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
         <tbody>
           {matches.map((match) => {
             const isBye = match.isBye && !forceNotBye;
+            // Un exempt est un vrai appariement contre X (voir
+            // BYE_HOME_SCORE dans classic.ts) : "X" plutôt qu'un tiret pour
+            // le côté sans adversaire réel.
+            const opponentPlaceholder = isBye ? "X" : "—";
             // Par équipes, homeStarts alterne d'un échiquier à l'autre au
             // sein d'une même confrontation (voir createTeamEncounterMatches)
             // pour équilibrer qui débute la partie ; le joueur qui débute
@@ -78,40 +82,32 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
             const leftName = match.homeStarts
               ? match.homePlayer
                 ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                : "—"
+                : opponentPlaceholder
               : match.awayPlayer
                 ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                : "—";
+                : opponentPlaceholder;
             const rightName = match.homeStarts
               ? match.awayPlayer
                 ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                : "—"
+                : opponentPlaceholder
               : match.homePlayer
                 ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                : "—";
+                : opponentPlaceholder;
             const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
             const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
-            const leftWins =
-              !isBye && leftScore != null && rightScore != null && leftScore > rightScore;
-            const rightWins =
-              !isBye && leftScore != null && rightScore != null && rightScore > leftScore;
+            const leftWins = leftScore != null && rightScore != null && leftScore > rightScore;
+            const rightWins = leftScore != null && rightScore != null && rightScore > leftScore;
             return (
               <tr key={match.id} className={matchRow}>
                 <td className={`${matchCell} pl-4 truncate`}>{leftName}</td>
                 <td className={`${scoreCell} text-center`}>
-                  {isBye ? (
-                    "—"
-                  ) : (
-                    <>
-                      <span className={leftWins ? "text-moss dark:text-moss-light" : ""}>
-                        {leftScore ?? "-"}
-                      </span>
-                      {" - "}
-                      <span className={rightWins ? "text-moss dark:text-moss-light" : ""}>
-                        {rightScore ?? "-"}
-                      </span>
-                    </>
-                  )}
+                  <span className={leftWins ? "text-moss dark:text-moss-light" : ""}>
+                    {leftScore ?? "-"}
+                  </span>
+                  {" - "}
+                  <span className={rightWins ? "text-moss dark:text-moss-light" : ""}>
+                    {rightScore ?? "-"}
+                  </span>
                 </td>
                 <td className={`${matchCell} truncate`}>{rightName}</td>
                 <td className={`${matchCell} pr-4`}>
@@ -140,6 +136,9 @@ interface KnockoutConfrontation {
   isBye: boolean;
   homePlayer: RoundMatch["homePlayer"];
   awayPlayer: RoundMatch["awayPlayer"];
+  // Score de l'exempt contre X (voir BYE_HOME_SCORE dans classic.ts) —
+  // uniquement renseigné quand isBye est vrai.
+  byeScore?: { home: number | null; away: number | null };
   legs: (RoundMatch | null)[];
 }
 
@@ -158,7 +157,13 @@ function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
     .filter((m) => !m.isThirdPlace)
     .map((m1): KnockoutConfrontation => {
       if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
-        return { isBye: true, homePlayer: m1.homePlayer, awayPlayer: m1.awayPlayer, legs: [] };
+        return {
+          isBye: true,
+          homePlayer: m1.homePlayer,
+          awayPlayer: m1.awayPlayer,
+          byeScore: { home: m1.homeScore, away: m1.awayScore },
+          legs: [],
+        };
       }
       const m2 =
         leg2?.matches.find(
@@ -230,13 +235,17 @@ function KnockoutConfrontationsTable({
         <tbody>
           {confrontations.map((c, i) => {
             const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "—";
-            const awayName = c.awayPlayer ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}` : "—";
+            const awayName = c.awayPlayer
+              ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}`
+              : c.isBye
+                ? "X"
+                : "—";
             return (
               <tr key={i} className={matchRow}>
                 <td className={`${matchCell} pl-4 truncate`}>{homeName}</td>
                 {c.isBye ? (
                   <td colSpan={legLabels.length} className={`${matchCell} text-center`}>
-                    —
+                    {c.byeScore?.home ?? "-"} - {c.byeScore?.away ?? "-"} (exempt)
                   </td>
                 ) : (
                   legLabels.map((label, i2) => {
@@ -425,7 +434,7 @@ export default async function TournamentRoundsPage({
               {
                 poolName: string;
                 encounters: Map<string, { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }>;
-                byeTeamNames: string[];
+                byes: { name: string; homeScore: number | null; awayScore: number | null }[];
               }
             >();
 
@@ -435,12 +444,18 @@ export default async function TournamentRoundsPage({
                 byPool.set(match.pool.id, {
                   poolName: match.pool.name,
                   encounters: new Map(),
-                  byeTeamNames: [],
+                  byes: [],
                 });
               }
               const entry = byPool.get(match.pool.id)!;
               if (match.isBye) {
-                if (match.homeTeam) entry.byeTeamNames.push(match.homeTeam.name);
+                if (match.homeTeam) {
+                  entry.byes.push({
+                    name: match.homeTeam.name,
+                    homeScore: match.homeScore,
+                    awayScore: match.awayScore,
+                  });
+                }
                 continue;
               }
               if (!match.homeTeam || !match.awayTeam) continue;
@@ -462,7 +477,7 @@ export default async function TournamentRoundsPage({
                     Ronde {round.number}
                   </a>
                 </h3>
-                {[...byPool.values()].map(({ poolName, encounters, byeTeamNames }) => (
+                {[...byPool.values()].map(({ poolName, encounters, byes }) => (
                   <div key={poolName} className="flex flex-col gap-3">
                     <PoolBadge name={poolName} />
                     {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
@@ -481,9 +496,9 @@ export default async function TournamentRoundsPage({
                         <MatchTable matches={matches} forceNotBye />
                       </div>
                     ))}
-                    {byeTeamNames.map((name) => (
+                    {byes.map(({ name, homeScore, awayScore }) => (
                       <p key={name} className="text-sm text-black/50 dark:text-white/50 pl-4">
-                        {name} : équipe exempte pour cette ronde.
+                        {name} vs X : {homeScore ?? "-"} - {awayScore ?? "-"} (exempt)
                       </p>
                     ))}
                   </div>
@@ -500,13 +515,15 @@ export default async function TournamentRoundsPage({
             string,
             { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }
           >();
-          const byeTeamNames: string[] = [];
+          const byes: { name: string; homeScore: number | null; awayScore: number | null }[] = [];
           let thirdPlaceEncounter: { homeTeamName: string; awayTeamName: string; matches: typeof round.matches } | null =
             null;
 
           for (const match of round.matches) {
             if (match.isBye) {
-              if (match.homeTeam) byeTeamNames.push(match.homeTeam.name);
+              if (match.homeTeam) {
+                byes.push({ name: match.homeTeam.name, homeScore: match.homeScore, awayScore: match.awayScore });
+              }
               continue;
             }
             if (!match.homeTeam || !match.awayTeam) continue;
@@ -562,9 +579,9 @@ export default async function TournamentRoundsPage({
                   <MatchTable matches={matches} forceNotBye />
                 </div>
               ))}
-              {byeTeamNames.map((name) => (
+              {byes.map(({ name, homeScore, awayScore }) => (
                 <p key={name} className="text-sm text-black/50 dark:text-white/50">
-                  {name} : équipe exempte pour cette ronde.
+                  {name} vs X : {homeScore ?? "-"} - {awayScore ?? "-"} (exempt)
                 </p>
               ))}
               {thirdPlaceEncounter && (

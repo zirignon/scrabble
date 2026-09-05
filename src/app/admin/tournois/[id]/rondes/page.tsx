@@ -88,20 +88,24 @@ function MatchRow({
       className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
     />
   );
+  // Un exempt est un vrai appariement contre X (voir BYE_HOME_SCORE dans
+  // classic.ts) : on affiche "X" plutôt qu'un tiret pour le côté sans
+  // adversaire réel.
+  const opponentPlaceholder = match.isBye ? "X" : "—";
   const leftName = match.homeStarts
     ? match.homePlayer
       ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-      : "—"
+      : opponentPlaceholder
     : match.awayPlayer
       ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-      : "—";
+      : opponentPlaceholder;
   const rightName = match.homeStarts
     ? match.awayPlayer
       ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-      : "—"
+      : opponentPlaceholder
     : match.homePlayer
       ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-      : "—";
+      : opponentPlaceholder;
   const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
   const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
   return (
@@ -110,7 +114,9 @@ function MatchRow({
         <td className="py-2 pr-4 truncate">{leftName}</td>
         <td className="py-2 pr-4 text-center">
           {match.isBye ? (
-            <span className="text-black/50 dark:text-white/50">—</span>
+            <span className="text-black/50 dark:text-white/50">
+              {leftScore ?? "-"} - {rightScore ?? "-"}
+            </span>
           ) : canManage ? (
             <form
               id={formId}
@@ -214,6 +220,9 @@ interface KnockoutConfrontation {
   isBye: boolean;
   homePlayer: Player | null;
   awayPlayer: Player | null;
+  // Score de l'exempt contre X (voir BYE_HOME_SCORE dans classic.ts) —
+  // uniquement renseigné quand isBye est vrai.
+  byeScore?: { home: number | null; away: number | null };
   // Un élément par manche existante pour ce tour (voir legLabels) : aller,
   // retour, belle — null quand cette confrontation précise n'a pas (ou plus
   // besoin d')une manche donnée (ex. tranchée 2-0, pas de belle générée).
@@ -241,7 +250,14 @@ function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
     .filter((m) => !m.isThirdPlace)
     .map((m1): KnockoutConfrontation => {
       if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
-        return { table: m1.table, isBye: true, homePlayer: m1.homePlayer, awayPlayer: m1.awayPlayer, legs: [] };
+        return {
+          table: m1.table,
+          isBye: true,
+          homePlayer: m1.homePlayer,
+          awayPlayer: m1.awayPlayer,
+          byeScore: { home: m1.homeScore, away: m1.awayScore },
+          legs: [],
+        };
       }
       const m2 =
         leg2?.matches.find(
@@ -385,7 +401,11 @@ function KnockoutConfrontationsTable({
         <tbody>
           {confrontations.map((c, i) => {
             const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "—";
-            const awayName = c.awayPlayer ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}` : "—";
+            const awayName = c.awayPlayer
+              ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}`
+              : c.isBye
+                ? "X"
+                : "—";
             return (
               <tr key={i} className="border-b border-black/5 dark:border-white/5">
                 <td className="py-2 pr-4">{c.table ?? "—"}</td>
@@ -395,7 +415,7 @@ function KnockoutConfrontationsTable({
                     colSpan={legLabels.length}
                     className="py-2 px-2 text-center text-black/50 dark:text-white/50"
                   >
-                    Exempt (bye)
+                    {c.byeScore?.home ?? "-"} - {c.byeScore?.away ?? "-"} (exempt)
                   </td>
                 ) : (
                   legLabels.map((label, i2) => (
@@ -1063,7 +1083,7 @@ export default async function RoundsPage({
                   ))}
                   {byes.map((match) => (
                     <p key={match.id} className="text-sm text-black/50 dark:text-white/50 pl-4">
-                      {match.homeTeam?.name} : équipe exempte pour cette ronde.
+                      {match.homeTeam?.name} vs X : {match.homeScore ?? "-"} - {match.awayScore ?? "-"} (exempt)
                     </p>
                   ))}
                 </div>
@@ -1169,7 +1189,7 @@ export default async function RoundsPage({
 
             {byes.map((match) => (
               <p key={match.id} className="text-sm text-black/50 dark:text-white/50">
-                {match.homeTeam?.name} : équipe exempte pour cette ronde.
+                {match.homeTeam?.name} vs X : {match.homeScore ?? "-"} - {match.awayScore ?? "-"} (exempt)
               </p>
             ))}
 

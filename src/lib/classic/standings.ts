@@ -168,6 +168,13 @@ export function computeStandingsFromMatches(
           row.played += 1;
           row.wins += 1;
           row.matchPoints += 3;
+          // Score conventionnel de l'exempt (50-0, voir BYE_HOME_SCORE dans
+          // classic.ts) : compte dans la différence de points comme un vrai
+          // résultat, pour ne pas geler l'exempté sur ce critère de
+          // départage pendant que les autres joueurs de la ronde avancent.
+          row.pointsFor += match.homeScore ?? 0;
+          row.pointsAgainst += match.awayScore ?? 0;
+          row.diff += (match.homeScore ?? 0) - (match.awayScore ?? 0);
           participantsThisRound.add(match.homePlayerId);
         }
         continue;

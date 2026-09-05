@@ -31,6 +31,17 @@ import {
 import type { Pairing } from "@/lib/classic/pairing";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
 
+// Score conventionnel attribué à un exempt (bye) : l'exempté "bat" le
+// joueur/l'équipe virtuel(le) X 50 à 0, plutôt que de laisser le match sans
+// score. Sans cela, la différence de points et la moyenne de l'exempté
+// restent inchangées sur cette ronde alors que tous les autres avancent
+// (positivement ou négativement) sur ces mêmes critères de départage — un
+// biais lié uniquement au tirage du bye, pas à la performance. X se
+// comporte comme un joueur absent (aucune ligne créée pour lui : il n'a pas
+// d'inscription, donc aucun impact sur son propre classement).
+const BYE_HOME_SCORE = 50;
+const BYE_AWAY_SCORE = 0;
+
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
   const tournament = await prisma.tournament.findUniqueOrThrow({
@@ -93,7 +104,15 @@ async function createTeamEncounterMatches(
 ) {
   if (!awayTeam) {
     await db.match.create({
-      data: { roundId, poolId, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
+      data: {
+        roundId,
+        poolId,
+        homeTeamId: homeTeam.id,
+        isBye: true,
+        status: "PLAYED",
+        homeScore: BYE_HOME_SCORE,
+        awayScore: BYE_AWAY_SCORE,
+      },
     });
     return;
   }
@@ -206,6 +225,8 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
               awayPlayerId: pairing.away,
               isBye: pairing.away === null,
               status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+              homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+              awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
             },
           });
         }
@@ -277,6 +298,8 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
               awayPlayerId: pairing.away,
               isBye: pairing.away === null,
               status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+              homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+              awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
             },
           });
         }
@@ -324,6 +347,8 @@ async function generateRoundRobinActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }
@@ -493,6 +518,8 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }
@@ -606,6 +633,8 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
             homeTeamId: homeTeam.id,
             isBye: true,
             status: "PLAYED",
+            homeScore: BYE_HOME_SCORE,
+            awayScore: BYE_AWAY_SCORE,
           },
         });
         continue;
@@ -711,6 +740,8 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
             awayPlayerId: pairing.away,
             isBye: pairing.away === null,
             status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+            homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+            awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
           },
         });
       }
@@ -967,6 +998,8 @@ async function generateFinalPhaseFromPoolsActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }
@@ -1170,6 +1203,8 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }
@@ -1291,7 +1326,14 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
 
       if (pairing.away === null) {
         await tx.match.create({
-          data: { roundId: round.id, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
+          data: {
+            roundId: round.id,
+            homeTeamId: homeTeam.id,
+            isBye: true,
+            status: "PLAYED",
+            homeScore: BYE_HOME_SCORE,
+            awayScore: BYE_AWAY_SCORE,
+          },
         });
         continue;
       }
@@ -1570,6 +1612,8 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }
@@ -1708,6 +1752,8 @@ async function generateKnockoutBracketActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }
@@ -1976,6 +2022,8 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
           awayPlayerId: pairing.away,
           isBye: pairing.away === null,
           status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          homeScore: pairing.away === null ? BYE_HOME_SCORE : null,
+          awayScore: pairing.away === null ? BYE_AWAY_SCORE : null,
         },
       });
     }

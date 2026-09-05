@@ -340,6 +340,24 @@ test("classement individuel : un exempt déjà résolu ne compte pas tant que le
   assert.equal(byIdAfter.get("c")!.played, 3);
 });
 
+test("classement individuel : l'exempt compte pour un score conventionnel de 50-0 contre X (différence de points)", () => {
+  // Voir BYE_HOME_SCORE/BYE_AWAY_SCORE dans classic.ts : le bye est un vrai
+  // appariement contre X plutôt qu'un match sans score, pour ne pas geler
+  // la différence de points de l'exempté sur cette ronde.
+  const players = [
+    { playerId: "a", firstName: "A", lastName: "A" },
+    { playerId: "b", firstName: "B", lastName: "B" },
+  ];
+  const rows = computeStandingsFromMatches(players, [
+    { isBye: true, homePlayerId: "a", awayPlayerId: null, homeScore: 50, awayScore: 0, status: "PLAYED", roundNumber: 1 },
+  ]);
+  const a = rows.find((r) => r.playerId === "a")!;
+  assert.equal(a.matchPoints, 3);
+  assert.equal(a.pointsFor, 50);
+  assert.equal(a.pointsAgainst, 0);
+  assert.equal(a.diff, 50);
+});
+
 test("classement équipes : un exempt déjà résolu ne compte pas tant que le reste de sa ronde est encore programmé", () => {
   const teams = [
     { teamId: "a", name: "A" },
@@ -374,4 +392,19 @@ test("classement équipes : un exempt déjà résolu ne compte pas tant que le r
   assert.equal(byIdAfter.get("a")!.played, 2);
   assert.equal(byIdAfter.get("b")!.played, 2);
   assert.equal(byIdAfter.get("c")!.played, 2);
+});
+
+test("classement équipes : l'exempté compte pour un score conventionnel de 50-0 contre X (différence de points)", () => {
+  const teams = [
+    { teamId: "a", name: "A" },
+    { teamId: "b", name: "B" },
+  ];
+  const rows = computeTeamStandingsFromMatches(teams, [
+    { roundId: "r1", roundNumber: 1, isBye: true, homeTeamId: "a", awayTeamId: null, homeScore: 50, awayScore: 0, status: "PLAYED" },
+  ]);
+  const a = rows.find((r) => r.teamId === "a")!;
+  assert.equal(a.matchPoints, 3);
+  assert.equal(a.pointsFor, 50);
+  assert.equal(a.pointsAgainst, 0);
+  assert.equal(a.diff, 50);
 });

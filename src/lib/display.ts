@@ -326,7 +326,7 @@ async function buildCurrent(tournament: {
         ? "Match pour la 3ᵉ place"
         : isTeamRound
           ? `${poolPrefix}${m.homeTeam?.name ?? "?"}${
-              m.isBye ? " (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
+              m.isBye ? " vs X (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
             }`
           : grouped
             ? m.pool?.name ?? "—"
@@ -342,7 +342,7 @@ async function buildCurrent(tournament: {
               ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
               : "?";
       const rawAwayName = m.isBye
-        ? null
+        ? "X"
         : isTeamRound
           ? m.awayPlayer
             ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
@@ -357,7 +357,7 @@ async function buildCurrent(tournament: {
       // joueur qui débute est toujours affiché à gauche, sans toucher
       // homeTeamId/awayTeamId (utilisés pour le classement par équipes).
       const swapForDisplay = isTeamRound && !m.isBye && !m.homeStarts;
-      // rawAwayName n'est null que pour un bye, exclu de swapForDisplay.
+      // rawAwayName vaut toujours "X" pour un bye (exclu de swapForDisplay).
       const leftName = swapForDisplay ? (rawAwayName as string) : rawHomeName;
       const rightName = swapForDisplay ? rawHomeName : rawAwayName;
       const leftScore = swapForDisplay ? m.awayScore : m.homeScore;

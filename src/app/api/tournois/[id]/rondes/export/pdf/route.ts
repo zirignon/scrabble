@@ -57,6 +57,9 @@ export async function GET(
     isBye: boolean;
     homePlayer: MatchRow["homePlayer"];
     awayPlayer: MatchRow["awayPlayer"];
+    // Score de l'exempt contre X (voir BYE_HOME_SCORE dans classic.ts) —
+    // uniquement renseigné quand isBye est vrai.
+    byeScore?: { home: number | null; away: number | null };
     legs: (MatchRow | null)[];
   }
 
@@ -80,6 +83,7 @@ export async function GET(
             isBye: true,
             homePlayer: m1.homePlayer,
             awayPlayer: m1.awayPlayer,
+            byeScore: { home: m1.homeScore, away: m1.awayScore },
             legs: [],
           };
         }
@@ -141,7 +145,13 @@ export async function GET(
       const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "";
       const awayName = c.awayPlayer ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}` : "";
       if (c.isBye) {
-        return [c.table ?? "", homeName, `Exempt (${homeName})`, ...legLabels.slice(1).map(() => ""), ""];
+        return [
+          c.table ?? "",
+          homeName,
+          `${c.byeScore?.home ?? "-"} - ${c.byeScore?.away ?? "-"} (exempt)`,
+          ...legLabels.slice(1).map(() => ""),
+          "X",
+        ];
       }
       return [c.table ?? "", homeName, ...c.legs.map((leg) => legCellText(leg)), awayName];
     });
@@ -154,7 +164,11 @@ export async function GET(
       // toujours listé en "Domicile" — voir le commentaire équivalent sur
       // les pages rondes.
       const homeName = match.homePlayer ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}` : "";
-      const awayName = match.awayPlayer ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}` : "";
+      const awayName = match.awayPlayer
+        ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
+        : match.isBye
+          ? "X"
+          : "";
       const leftName = match.homeStarts ? homeName : awayName;
       const rightName = match.homeStarts ? awayName : homeName;
       const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
@@ -162,11 +176,11 @@ export async function GET(
       return [
         match.isThirdPlace ? "Match pour la 3ᵉ place" : roundLabel,
         match.table ?? "",
-        match.isBye ? "" : leftName,
-        match.isBye ? "" : (leftScore ?? ""),
-        match.isBye ? "" : (rightScore ?? ""),
-        match.isBye ? "" : rightName,
-        match.isBye ? `Exempt (${homeName})` : statusLabel[match.status],
+        leftName,
+        leftScore ?? "",
+        rightScore ?? "",
+        rightName,
+        match.isBye ? "Exempt" : statusLabel[match.status],
       ];
     });
   }

@@ -99,6 +99,11 @@ export function computeTeamStandingsFromMatches(
         row.played += 1;
         row.wins += 1;
         row.matchPoints += 3;
+        // Score conventionnel de l'équipe exemptée (50-0, voir BYE_HOME_SCORE
+        // dans classic.ts) — voir le commentaire équivalent côté individuel
+        // (computeStandingsFromMatches).
+        row.pointsFor += m.homeScore ?? 0;
+        row.pointsAgainst += m.awayScore ?? 0;
       }
       continue;
     }
