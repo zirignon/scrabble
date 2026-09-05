@@ -3,8 +3,12 @@ import { prisma } from "@/lib/prisma";
 import {
   computeClassicTeamStandings,
   computeClassicTeamSwissPhaseStandings,
+  type ClassicTeamStandingRow,
 } from "@/lib/classic/teamStandings";
-import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
+import {
+  computeClassicTeamGeneralPoolStandings,
+  computeClassicTeamPoolStandings,
+} from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
@@ -49,57 +53,85 @@ export async function GET(
     if (isPoolFormat) {
       // Poules : chaque poule joue son propre round-robin interne, donc son
       // classement n'a de sens que par poule — voir le commentaire
-      // équivalent côté classement individuel. Le classement général
-      // (toutes poules mélangées) reste inclus après, pour l'état des lieux
-      // une fois la phase finale entamée.
+      // équivalent côté classement individuel.
+      const teamRowMapper = (row: ClassicTeamStandingRow, i: number) => [
+        i + 1,
+        row.name,
+        row.played,
+        row.wins,
+        row.draws,
+        row.losses,
+        row.matchPoints,
+        row.boardsWon,
+        row.boardsDrawn,
+        row.boardsLost,
+        row.diff,
+      ];
       const pools = await computeClassicTeamPoolStandings(tournament.id);
       const poolSections: PdfSection[] = pools.map((pool) => ({
         heading: `Poule ${pool.poolName}`,
         headers: teamColumns,
-        rows: pool.standings.map((row, i) => [
-          i + 1,
-          row.name,
-          row.played,
-          row.wins,
-          row.draws,
-          row.losses,
-          row.matchPoints,
-          row.boardsWon,
-          row.boardsDrawn,
-          row.boardsLost,
-          row.diff,
-        ]),
+        rows: pool.standings.map(teamRowMapper),
         columnWeights: teamWeights,
       }));
-      // Combiné (poules puis suisse) : ajoute le classement de la phase
-      // suisse entre les tableaux par poule et le classement général.
-      const swissPhaseSections: PdfSection[] = [];
+
       if (tournament.format === "COMBINED") {
-        const swissPhaseStandings = await computeClassicTeamSwissPhaseStandings(tournament.id);
-        swissPhaseSections.push({
-          heading: "Phase suisse",
-          headers: teamColumns,
-          rows: swissPhaseStandings.map((row, i) => [
-            i + 1,
-            row.name,
-            row.played,
-            row.wins,
-            row.draws,
-            row.losses,
-            row.matchPoints,
-            row.boardsWon,
-            row.boardsDrawn,
-            row.boardsLost,
-            row.diff,
-          ]),
-          columnWeights: teamWeights,
+        // Voir le commentaire équivalent côté classement individuel : une
+        // fois la 1re ronde suisse générée, les classements par poule
+        // n'ont plus lieu d'être affichés à côté du classement combiné, qui
+        // les remplace entièrement.
+        const lastRound = await prisma.round.findFirst({
+          where: { tournamentId: tournament.id },
+          orderBy: { number: "desc" },
         });
+        const swissPhaseStarted =
+          (await prisma.round.count({
+            where: { tournamentId: tournament.id, isSwissPhase: true },
+          })) > 0;
+
+        if (swissPhaseStarted) {
+          const swissPhaseStandings = await computeClassicTeamSwissPhaseStandings(tournament.id);
+          pdf = await renderMultiTablePdf(
+            `Classement par équipes — ${tournament.name}`,
+            subtitle,
+            [
+              {
+                heading: `Classement après la ronde ${lastRound?.number}`,
+                headers: teamColumns,
+                rows: swissPhaseStandings.map(teamRowMapper),
+                columnWeights: teamWeights,
+              },
+            ]
+          );
+        } else {
+          // Après la phase de poules, un classement général (fusion de
+          // toutes les poules) s'ajoute à la suite — c'est ce même
+          // classement qui amorce la phase suisse.
+          const generalStandings = await computeClassicTeamGeneralPoolStandings(tournament.id);
+          const generalPoolSection: PdfSection[] =
+            generalStandings.length > 0
+              ? [
+                  {
+                    heading: "Classement général",
+                    headers: teamColumns,
+                    rows: generalStandings.map(teamRowMapper),
+                    columnWeights: teamWeights,
+                  },
+                ]
+              : [];
+          pdf = await renderMultiTablePdf(
+            `Classement par équipes — ${tournament.name}`,
+            subtitle,
+            [...poolSections, ...generalPoolSection]
+          );
+        }
+      } else {
+        pdf = await renderMultiTablePdf(
+          `Classement par équipes — ${tournament.name}`,
+          subtitle,
+          [...poolSections, generalSection]
+        );
       }
-      pdf = await renderMultiTablePdf(
-        `Classement par équipes — ${tournament.name}`,
-        subtitle,
-        [...poolSections, ...swissPhaseSections, generalSection]
-      );
     } else {
       pdf = await renderTablePdf(
         `Classement par équipes — ${tournament.name}`,
