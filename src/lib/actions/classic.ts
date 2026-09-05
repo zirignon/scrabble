@@ -82,6 +82,7 @@ function createTableCounter(start = 1): TableCounter {
 }
 
 async function createTeamEncounterMatches(
+  db: Prisma.TransactionClient,
   roundId: string,
   homeTeam: TeamWithMembers,
   awayTeam: TeamWithMembers | null,
@@ -91,14 +92,14 @@ async function createTeamEncounterMatches(
   isThirdPlace = false
 ) {
   if (!awayTeam) {
-    await prisma.match.create({
+    await db.match.create({
       data: { roundId, poolId, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
     });
     return;
   }
 
   for (let board = 0; board < boardCount; board++) {
-    await prisma.match.create({
+    await db.match.create({
       data: {
         roundId,
         poolId,
@@ -172,42 +173,48 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
     if (schedule.length === 0) return;
     const [nextPairings, ...rest] = schedule;
 
-    const nextRound = await prisma.round.create({
-      data: { tournamentId, number: round.number + 1 },
-    });
-
-    if (tournament.isTeamEvent) {
-      const teams = await prisma.team.findMany({
-        where: { tournamentId },
-        include: { members: { orderBy: { board: "asc" } } },
+    // Toute la matérialisation de la ronde suivante (création + matchs +
+    // mise à jour du calendrier restant) dans une seule transaction : en cas
+    // d'erreur en cours de route, la base ne doit jamais rester avec une
+    // ronde à moitié remplie.
+    await prisma.$transaction(async (tx) => {
+      const nextRound = await tx.round.create({
+        data: { tournamentId, number: round.number + 1 },
       });
-      const teamsById = new Map(teams.map((t) => [t.id, t]));
-      const boardCount = teams[0]?.members.length ?? 0;
-      const tableCounter = createTableCounter();
-      for (const pairing of nextPairings) {
-        const homeTeam = teamsById.get(pairing.home)!;
-        const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-        await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount, tableCounter);
-      }
-    } else {
-      let table = 1;
-      for (const pairing of nextPairings) {
-        await prisma.match.create({
-          data: {
-            roundId: nextRound.id,
-            table: pairing.away ? table++ : null,
-            homePlayerId: pairing.home,
-            awayPlayerId: pairing.away,
-            isBye: pairing.away === null,
-            status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-          },
-        });
-      }
-    }
 
-    await prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { pendingRoundRobinSchedule: schedulePending(rest) ?? Prisma.JsonNull },
+      if (tournament.isTeamEvent) {
+        const teams = await tx.team.findMany({
+          where: { tournamentId },
+          include: { members: { orderBy: { board: "asc" } } },
+        });
+        const teamsById = new Map(teams.map((t) => [t.id, t]));
+        const boardCount = teams[0]?.members.length ?? 0;
+        const tableCounter = createTableCounter();
+        for (const pairing of nextPairings) {
+          const homeTeam = teamsById.get(pairing.home)!;
+          const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+          await createTeamEncounterMatches(tx, nextRound.id, homeTeam, awayTeam, boardCount, tableCounter);
+        }
+      } else {
+        let table = 1;
+        for (const pairing of nextPairings) {
+          await tx.match.create({
+            data: {
+              roundId: nextRound.id,
+              table: pairing.away ? table++ : null,
+              homePlayerId: pairing.home,
+              awayPlayerId: pairing.away,
+              isBye: pairing.away === null,
+              status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+            },
+          });
+        }
+      }
+
+      await tx.tournament.update({
+        where: { id: tournamentId },
+        data: { pendingRoundRobinSchedule: schedulePending(rest) ?? Prisma.JsonNull },
+      });
     });
     return;
   }
@@ -224,57 +231,62 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
   });
   if (poolsWithPending.length === 0) return;
 
-  let nextRound: { id: string } | null = null;
-  let teamsById: Map<string, TeamWithMembers> | null = null;
-  let boardCount = 0;
-  if (tournament.isTeamEvent) {
-    const teams = await prisma.team.findMany({
-      where: { tournamentId },
-      include: { members: { orderBy: { board: "asc" } } },
-    });
-    teamsById = new Map(teams.map((t) => [t.id, t]));
-    boardCount = teams[0]?.members.length ?? 0;
-  }
-
-  // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
-  // remise à 1 à chaque poule (ni, en équipes, à chaque confrontation) —
-  // même tournoi, mêmes tables physiques.
-  let table = 1;
-  const tableCounter = createTableCounter();
-  for (const pool of poolsWithPending) {
-    const schedule = pool.pendingRoundRobinSchedule as PendingSchedule;
-    const [nextPairings, ...rest] = schedule;
-    if (!nextRound) {
-      nextRound = await prisma.round.create({
-        data: { tournamentId, number: round.number + 1 },
-      });
-    }
+  // Voir le commentaire équivalent ci-dessus : toute la matérialisation
+  // (rondes + matchs de toutes les poules concernées + calendriers restants)
+  // dans une seule transaction.
+  await prisma.$transaction(async (tx) => {
+    let teamsById: Map<string, TeamWithMembers> | null = null;
+    let boardCount = 0;
     if (tournament.isTeamEvent) {
-      for (const pairing of nextPairings) {
-        const homeTeam = teamsById!.get(pairing.home)!;
-        const awayTeam = pairing.away ? teamsById!.get(pairing.away)! : null;
-        await createTeamEncounterMatches(nextRound.id, homeTeam, awayTeam, boardCount, tableCounter, pool.id);
-      }
-    } else {
-      for (const pairing of nextPairings) {
-        await prisma.match.create({
-          data: {
-            roundId: nextRound.id,
-            poolId: pool.id,
-            table: pairing.away ? table++ : null,
-            homePlayerId: pairing.home,
-            awayPlayerId: pairing.away,
-            isBye: pairing.away === null,
-            status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-          },
+      const teams = await tx.team.findMany({
+        where: { tournamentId },
+        include: { members: { orderBy: { board: "asc" } } },
+      });
+      teamsById = new Map(teams.map((t) => [t.id, t]));
+      boardCount = teams[0]?.members.length ?? 0;
+    }
+
+    let nextRound: { id: string } | null = null;
+    // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
+    // remise à 1 à chaque poule (ni, en équipes, à chaque confrontation) —
+    // même tournoi, mêmes tables physiques.
+    let table = 1;
+    const tableCounter = createTableCounter();
+    for (const pool of poolsWithPending) {
+      const schedule = pool.pendingRoundRobinSchedule as PendingSchedule;
+      const [nextPairings, ...rest] = schedule;
+      if (!nextRound) {
+        nextRound = await tx.round.create({
+          data: { tournamentId, number: round.number + 1 },
         });
       }
+      if (tournament.isTeamEvent) {
+        for (const pairing of nextPairings) {
+          const homeTeam = teamsById!.get(pairing.home)!;
+          const awayTeam = pairing.away ? teamsById!.get(pairing.away)! : null;
+          await createTeamEncounterMatches(tx, nextRound.id, homeTeam, awayTeam, boardCount, tableCounter, pool.id);
+        }
+      } else {
+        for (const pairing of nextPairings) {
+          await tx.match.create({
+            data: {
+              roundId: nextRound.id,
+              poolId: pool.id,
+              table: pairing.away ? table++ : null,
+              homePlayerId: pairing.home,
+              awayPlayerId: pairing.away,
+              isBye: pairing.away === null,
+              status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+            },
+          });
+        }
+      }
+      await tx.pool.update({
+        where: { id: pool.id },
+        data: { pendingRoundRobinSchedule: schedulePending(rest) ?? Prisma.JsonNull },
+      });
     }
-    await prisma.pool.update({
-      where: { id: pool.id },
-      data: { pendingRoundRobinSchedule: schedulePending(rest) ?? Prisma.JsonNull },
-    });
-  }
+  });
 }
 
 async function generateRoundRobinActionImpl(tournamentId: string) {
@@ -298,29 +310,32 @@ async function generateRoundRobinActionImpl(tournamentId: string) {
 
   // Ronde 1 matérialisée tout de suite, le reste du calendrier révélé
   // automatiquement ronde après ronde au fur et à mesure des résultats —
-  // voir maybeAdvanceRoundRobin.
-  const round1 = await prisma.round.create({ data: { tournamentId, number: 1 } });
-  let table = 1;
-  for (const pairing of rounds[0]) {
-    await prisma.match.create({
-      data: {
-        roundId: round1.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-      },
-    });
-  }
+  // voir maybeAdvanceRoundRobin. Toute la création (ronde + matchs +
+  // calendrier restant) dans une seule transaction.
+  await prisma.$transaction(async (tx) => {
+    const round1 = await tx.round.create({ data: { tournamentId, number: 1 } });
+    let table = 1;
+    for (const pairing of rounds[0]) {
+      await tx.match.create({
+        data: {
+          roundId: round1.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
 
-  const pending = schedulePending(rounds.slice(1));
-  if (pending) {
-    await prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { pendingRoundRobinSchedule: pending },
-    });
-  }
+    const pending = schedulePending(rounds.slice(1));
+    if (pending) {
+      await tx.tournament.update({
+        where: { id: tournamentId },
+        data: { pendingRoundRobinSchedule: pending },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -352,22 +367,25 @@ async function generateTeamRoundRobinActionImpl(tournamentId: string) {
   const teamRounds = generateRoundRobinRounds(teams.map((t) => t.id));
 
   // Ronde 1 matérialisée tout de suite, le reste révélé automatiquement au
-  // fur et à mesure — voir maybeAdvanceRoundRobin.
-  const round1 = await prisma.round.create({ data: { tournamentId, number: 1 } });
-  const tableCounter = createTableCounter();
-  for (const pairing of teamRounds[0]) {
-    const homeTeam = teamsById.get(pairing.home)!;
-    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round1.id, homeTeam, awayTeam, boardCount, tableCounter);
-  }
+  // fur et à mesure — voir maybeAdvanceRoundRobin. Voir le commentaire
+  // équivalent dans generateRoundRobinActionImpl pour la transaction.
+  await prisma.$transaction(async (tx) => {
+    const round1 = await tx.round.create({ data: { tournamentId, number: 1 } });
+    const tableCounter = createTableCounter();
+    for (const pairing of teamRounds[0]) {
+      const homeTeam = teamsById.get(pairing.home)!;
+      const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round1.id, homeTeam, awayTeam, boardCount, tableCounter);
+    }
 
-  const pending = schedulePending(teamRounds.slice(1));
-  if (pending) {
-    await prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { pendingRoundRobinSchedule: pending },
-    });
-  }
+    const pending = schedulePending(teamRounds.slice(1));
+    if (pending) {
+      await tx.tournament.update({
+        where: { id: tournamentId },
+        data: { pendingRoundRobinSchedule: pending },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -460,23 +478,25 @@ async function generateNextSwissRoundActionImpl(tournamentId: string) {
     forfeitedLastRound
   );
 
-  const round = await prisma.round.create({
-    data: { tournamentId, number: upcomingRoundNumber },
-  });
-
-  let table = 1;
-  for (const pairing of pairings) {
-    await prisma.match.create({
-      data: {
-        roundId: round.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-      },
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: upcomingRoundNumber },
     });
-  }
+
+    let table = 1;
+    for (const pairing of pairings) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -571,40 +591,42 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
 
   const pairings = generateSwissRound(teamStandingsForPairing, opponentsForPairing, teamsWithBye);
 
-  const round = await prisma.round.create({
-    data: { tournamentId, number: upcomingRoundNumber },
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: upcomingRoundNumber },
+    });
+
+    for (const pairing of pairings) {
+      const homeTeam = teamsById.get(pairing.home)!;
+
+      if (pairing.away === null) {
+        await tx.match.create({
+          data: {
+            roundId: round.id,
+            homeTeamId: homeTeam.id,
+            isBye: true,
+            status: "PLAYED",
+          },
+        });
+        continue;
+      }
+
+      const awayTeam = teamsById.get(pairing.away)!;
+      for (let board = 0; board < boardCount; board++) {
+        await tx.match.create({
+          data: {
+            roundId: round.id,
+            table: board + 1,
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id,
+            homePlayerId: homeTeam.members[board].playerId,
+            awayPlayerId: awayTeam.members[board].playerId,
+            status: "SCHEDULED",
+          },
+        });
+      }
+    }
   });
-
-  for (const pairing of pairings) {
-    const homeTeam = teamsById.get(pairing.home)!;
-
-    if (pairing.away === null) {
-      await prisma.match.create({
-        data: {
-          roundId: round.id,
-          homeTeamId: homeTeam.id,
-          isBye: true,
-          status: "PLAYED",
-        },
-      });
-      continue;
-    }
-
-    const awayTeam = teamsById.get(pairing.away)!;
-    for (let board = 0; board < boardCount; board++) {
-      await prisma.match.create({
-        data: {
-          roundId: round.id,
-          table: board + 1,
-          homeTeamId: homeTeam.id,
-          awayTeamId: awayTeam.id,
-          homePlayerId: homeTeam.members[board].playerId,
-          awayPlayerId: awayTeam.members[board].playerId,
-          status: "SCHEDULED",
-        },
-      });
-    }
-  }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -654,14 +676,6 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
     }
   }
 
-  async function getOrCreateRound(number: number) {
-    return prisma.round.upsert({
-      where: { tournamentId_number: { tournamentId, number } },
-      update: {},
-      create: { tournamentId, number },
-    });
-  }
-
   // Chaque poule joue son propre round-robin interne ; la ronde N d'une
   // poule partage le même numéro de ronde tournoi que la ronde N des
   // autres poules (elles se jouent en parallèle). Une poule plus petite
@@ -669,39 +683,47 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
   // sauf si poolRoundsCount est fixé, auquel cas toutes les poules jouent
   // exactement ce nombre de rondes (voir la validation ci-dessus).
   // Seule la ronde 1 est matérialisée tout de suite, le reste révélé
-  // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin.
-  const round1 = await getOrCreateRound(1);
-  // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
-  // remise à 1 à chaque poule — même tournoi, mêmes tables physiques.
-  let table = 1;
-  for (const pool of pools) {
-    const fullPoolRounds = poolRoundsById.get(pool.id)!;
-    const poolRounds =
-      tournament.poolRoundsCount !== null
-        ? fullPoolRounds.slice(0, tournament.poolRoundsCount)
-        : fullPoolRounds;
-    for (const pairing of poolRounds[0]) {
-      await prisma.match.create({
-        data: {
-          roundId: round1.id,
-          poolId: pool.id,
-          table: pairing.away ? table++ : null,
-          homePlayerId: pairing.home,
-          awayPlayerId: pairing.away,
-          isBye: pairing.away === null,
-          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-        },
-      });
-    }
+  // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin. Tout
+  // dans une seule transaction pour ne jamais laisser une poule sans matchs
+  // pendant qu'une autre en a déjà reçu.
+  await prisma.$transaction(async (tx) => {
+    const round1 = await tx.round.upsert({
+      where: { tournamentId_number: { tournamentId, number: 1 } },
+      update: {},
+      create: { tournamentId, number: 1 },
+    });
+    // Numérotation de table continue sur toute la ronde (1, 2, 3...), pas
+    // remise à 1 à chaque poule — même tournoi, mêmes tables physiques.
+    let table = 1;
+    for (const pool of pools) {
+      const fullPoolRounds = poolRoundsById.get(pool.id)!;
+      const poolRounds =
+        tournament.poolRoundsCount !== null
+          ? fullPoolRounds.slice(0, tournament.poolRoundsCount)
+          : fullPoolRounds;
+      for (const pairing of poolRounds[0]) {
+        await tx.match.create({
+          data: {
+            roundId: round1.id,
+            poolId: pool.id,
+            table: pairing.away ? table++ : null,
+            homePlayerId: pairing.home,
+            awayPlayerId: pairing.away,
+            isBye: pairing.away === null,
+            status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+          },
+        });
+      }
 
-    const pending = schedulePending(poolRounds.slice(1));
-    if (pending) {
-      await prisma.pool.update({
-        where: { id: pool.id },
-        data: { pendingRoundRobinSchedule: pending },
-      });
+      const pending = schedulePending(poolRounds.slice(1));
+      if (pending) {
+        await tx.pool.update({
+          where: { id: pool.id },
+          data: { pendingRoundRobinSchedule: pending },
+        });
+      }
     }
-  }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -752,41 +774,40 @@ async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
     }
   }
 
-  async function getOrCreateRound(number: number) {
-    return prisma.round.upsert({
-      where: { tournamentId_number: { tournamentId, number } },
-      update: {},
-      create: { tournamentId, number },
-    });
-  }
-
   // Seule la ronde 1 est matérialisée tout de suite, le reste révélé
-  // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin.
-  const round1 = await getOrCreateRound(1);
-  // Numérotation de table continue sur toute la ronde, partagée entre les
-  // poules — voir le commentaire équivalent côté individuel.
-  const tableCounter = createTableCounter();
-  for (const pool of pools) {
-    const teamsById = new Map(pool.teams.map((t) => [t.id, t]));
-    const fullTeamRounds = teamPoolRoundsById.get(pool.id)!;
-    const teamRounds =
-      tournament.poolRoundsCount !== null
-        ? fullTeamRounds.slice(0, tournament.poolRoundsCount)
-        : fullTeamRounds;
-    for (const pairing of teamRounds[0]) {
-      const homeTeam = teamsById.get(pairing.home)!;
-      const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-      await createTeamEncounterMatches(round1.id, homeTeam, awayTeam, boardCount, tableCounter, pool.id);
-    }
+  // automatiquement au fur et à mesure — voir maybeAdvanceRoundRobin. Voir
+  // le commentaire équivalent côté individuel pour la transaction.
+  await prisma.$transaction(async (tx) => {
+    const round1 = await tx.round.upsert({
+      where: { tournamentId_number: { tournamentId, number: 1 } },
+      update: {},
+      create: { tournamentId, number: 1 },
+    });
+    // Numérotation de table continue sur toute la ronde, partagée entre les
+    // poules — voir le commentaire équivalent côté individuel.
+    const tableCounter = createTableCounter();
+    for (const pool of pools) {
+      const teamsById = new Map(pool.teams.map((t) => [t.id, t]));
+      const fullTeamRounds = teamPoolRoundsById.get(pool.id)!;
+      const teamRounds =
+        tournament.poolRoundsCount !== null
+          ? fullTeamRounds.slice(0, tournament.poolRoundsCount)
+          : fullTeamRounds;
+      for (const pairing of teamRounds[0]) {
+        const homeTeam = teamsById.get(pairing.home)!;
+        const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+        await createTeamEncounterMatches(tx, round1.id, homeTeam, awayTeam, boardCount, tableCounter, pool.id);
+      }
 
-    const pending = schedulePending(teamRounds.slice(1));
-    if (pending) {
-      await prisma.pool.update({
-        where: { id: pool.id },
-        data: { pendingRoundRobinSchedule: pending },
-      });
+      const pending = schedulePending(teamRounds.slice(1));
+      if (pending) {
+        await tx.pool.update({
+          where: { id: pool.id },
+          data: { pendingRoundRobinSchedule: pending },
+        });
+      }
     }
-  }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -927,27 +948,29 @@ async function generateFinalPhaseFromPoolsActionImpl(tournamentId: string) {
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
-  const round = await prisma.round.create({
-    data: {
-      tournamentId,
-      number: (last?.number ?? 0) + 1,
-      ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
-    },
-  });
-
-  let table = 1;
-  for (const pairing of pairings) {
-    await prisma.match.create({
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
       data: {
-        roundId: round.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        tournamentId,
+        number: (last?.number ?? 0) + 1,
+        ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
       },
     });
-  }
+
+    let table = 1;
+    for (const pairing of pairings) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -995,16 +1018,18 @@ async function generateTeamFinalPhaseFromPoolsActionImpl(tournamentId: string) {
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
-  const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1 },
-  });
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: (last?.number ?? 0) + 1 },
+    });
 
-  const tableCounter = createTableCounter();
-  for (const pairing of pairings) {
-    const homeTeam = teamsById.get(pairing.home)!;
-    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
-  }
+    const tableCounter = createTableCounter();
+    for (const pairing of pairings) {
+      const homeTeam = teamsById.get(pairing.home)!;
+      const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round.id, homeTeam, awayTeam, boardCount, tableCounter);
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1130,23 +1155,25 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
     forfeitedLastRound
   );
 
-  const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
-  });
-
-  let table = 1;
-  for (const pairing of pairings) {
-    await prisma.match.create({
-      data: {
-        roundId: round.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-      },
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
     });
-  }
+
+    let table = 1;
+    for (const pairing of pairings) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1254,35 +1281,37 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
 
   const pairings = generateSwissRound(standingsForPairing, opponentsForPairing, teamsWithBye);
 
-  const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
+    });
+
+    for (const pairing of pairings) {
+      const homeTeam = teamsById.get(pairing.home)!;
+
+      if (pairing.away === null) {
+        await tx.match.create({
+          data: { roundId: round.id, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
+        });
+        continue;
+      }
+
+      const awayTeam = teamsById.get(pairing.away)!;
+      for (let board = 0; board < boardCount; board++) {
+        await tx.match.create({
+          data: {
+            roundId: round.id,
+            table: board + 1,
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id,
+            homePlayerId: homeTeam.members[board].playerId,
+            awayPlayerId: awayTeam.members[board].playerId,
+            status: "SCHEDULED",
+          },
+        });
+      }
+    }
   });
-
-  for (const pairing of pairings) {
-    const homeTeam = teamsById.get(pairing.home)!;
-
-    if (pairing.away === null) {
-      await prisma.match.create({
-        data: { roundId: round.id, homeTeamId: homeTeam.id, isBye: true, status: "PLAYED" },
-      });
-      continue;
-    }
-
-    const awayTeam = teamsById.get(pairing.away)!;
-    for (let board = 0; board < boardCount; board++) {
-      await prisma.match.create({
-        data: {
-          roundId: round.id,
-          table: board + 1,
-          homeTeamId: homeTeam.id,
-          awayTeamId: awayTeam.id,
-          homePlayerId: homeTeam.members[board].playerId,
-          awayPlayerId: awayTeam.members[board].playerId,
-          status: "SCHEDULED",
-        },
-      });
-    }
-  }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1521,28 +1550,30 @@ async function generateFinalPhaseFromStandingsActionImpl(tournamentId: string) {
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
-  const round = await prisma.round.create({
-    data: {
-      tournamentId,
-      number: (last?.number ?? 0) + 1,
-      isFinalPhase: true,
-      ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
-    },
-  });
-
-  let table = 1;
-  for (const pairing of pairings) {
-    await prisma.match.create({
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
       data: {
-        roundId: round.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        tournamentId,
+        number: (last?.number ?? 0) + 1,
+        isFinalPhase: true,
+        ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
       },
     });
-  }
+
+    let table = 1;
+    for (const pairing of pairings) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1618,16 +1649,18 @@ async function generateTeamFinalPhaseFromStandingsActionImpl(tournamentId: strin
     where: { tournamentId },
     orderBy: { number: "desc" },
   });
-  const round = await prisma.round.create({
-    data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true },
-  });
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true },
+    });
 
-  const tableCounter = createTableCounter();
-  for (const pairing of pairings) {
-    const homeTeam = teamsById.get(pairing.home)!;
-    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
-  }
+    const tableCounter = createTableCounter();
+    for (const pairing of pairings) {
+      const homeTeam = teamsById.get(pairing.home)!;
+      const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round.id, homeTeam, awayTeam, boardCount, tableCounter);
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1656,27 +1689,29 @@ async function generateKnockoutBracketActionImpl(tournamentId: string) {
   if (playerIds.length < 2) throw new Error("Il faut au moins 2 joueurs inscrits.");
 
   const pairings = generateKnockoutFirstRound(playerIds);
-  const round = await prisma.round.create({
-    data: {
-      tournamentId,
-      number: 1,
-      ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
-    },
-  });
-
-  let table = 1;
-  for (const pairing of pairings) {
-    await prisma.match.create({
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
       data: {
-        roundId: round.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        tournamentId,
+        number: 1,
+        ...(tournament.knockoutTwoLegs ? { knockoutLeg: 1, knockoutStage: 1 } : {}),
       },
     });
-  }
+
+    let table = 1;
+    for (const pairing of pairings) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1810,29 +1845,31 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
         );
       }
     }
-    const round = await prisma.round.create({
-      data: {
-        tournamentId,
-        number: last.number + 1,
-        isFinalPhase: last.isFinalPhase,
-        knockoutLeg: 2,
-        knockoutStage: last.knockoutStage,
-      },
-    });
-    let legTable = 1;
-    for (const m of last.matches) {
-      if (m.isBye) continue;
-      await prisma.match.create({
+    await prisma.$transaction(async (tx) => {
+      const round = await tx.round.create({
         data: {
-          roundId: round.id,
-          table: legTable++,
-          homePlayerId: m.homePlayerId,
-          awayPlayerId: m.awayPlayerId,
-          status: "SCHEDULED",
-          homeStarts: !m.homeStarts,
+          tournamentId,
+          number: last.number + 1,
+          isFinalPhase: last.isFinalPhase,
+          knockoutLeg: 2,
+          knockoutStage: last.knockoutStage,
         },
       });
-    }
+      let legTable = 1;
+      for (const m of last.matches) {
+        if (m.isBye) continue;
+        await tx.match.create({
+          data: {
+            roundId: round.id,
+            table: legTable++,
+            homePlayerId: m.homePlayerId,
+            awayPlayerId: m.awayPlayerId,
+            status: "SCHEDULED",
+            homeStarts: !m.homeStarts,
+          },
+        });
+      }
+    });
     revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
     notifyTournamentUpdate(tournamentId);
     return;
@@ -1851,29 +1888,31 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
   ) {
     const resolution = await resolveTwoLegStage(tournamentId, last.knockoutStage);
     if (!resolution.resolved) {
-      const round = await prisma.round.create({
-        data: {
-          tournamentId,
-          number: last.number + 1,
-          isFinalPhase: last.isFinalPhase,
-          knockoutLeg: 3,
-          knockoutStage: last.knockoutStage,
-        },
-      });
-      let belleTable = 1;
-      for (const pairing of resolution.splitPairings) {
-        await prisma.match.create({
+      await prisma.$transaction(async (tx) => {
+        const round = await tx.round.create({
           data: {
-            roundId: round.id,
-            table: belleTable++,
-            homePlayerId: pairing.home,
-            awayPlayerId: pairing.away,
-            status: "SCHEDULED",
-            // La belle reprend le joueur qui débutait la manche aller.
-            homeStarts: pairing.homeStarts,
+            tournamentId,
+            number: last.number + 1,
+            isFinalPhase: last.isFinalPhase,
+            knockoutLeg: 3,
+            knockoutStage: last.knockoutStage,
           },
         });
-      }
+        let belleTable = 1;
+        for (const pairing of resolution.splitPairings) {
+          await tx.match.create({
+            data: {
+              roundId: round.id,
+              table: belleTable++,
+              homePlayerId: pairing.home,
+              awayPlayerId: pairing.away,
+              status: "SCHEDULED",
+              // La belle reprend le joueur qui débutait la manche aller.
+              homeStarts: pairing.homeStarts,
+            },
+          });
+        }
+      });
       revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
       notifyTournamentUpdate(tournamentId);
       return;
@@ -1915,48 +1954,50 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
       : winners;
 
   const pairings = pairKnockoutWinners(orderedWinners);
-  const round = await prisma.round.create({
-    data: {
-      tournamentId,
-      number: last.number + 1,
-      isFinalPhase: last.isFinalPhase,
-      ...(tournament.knockoutTwoLegs
-        ? { knockoutLeg: 1, knockoutStage: (last.knockoutStage ?? 0) + 1 }
-        : {}),
-    },
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: {
+        tournamentId,
+        number: last.number + 1,
+        isFinalPhase: last.isFinalPhase,
+        ...(tournament.knockoutTwoLegs
+          ? { knockoutLeg: 1, knockoutStage: (last.knockoutStage ?? 0) + 1 }
+          : {}),
+      },
+    });
+
+    let table = 1;
+    for (const pairing of pairings) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: pairing.away ? table++ : null,
+          homePlayerId: pairing.home,
+          awayPlayerId: pairing.away,
+          isBye: pairing.away === null,
+          status: pairing.away === null ? "PLAYED" : "SCHEDULED",
+        },
+      });
+    }
+
+    // Match pour la 3e place, optionnel : ce tour n'est généré que si celui
+    // qu'on vient de terminer était bien les demi-finales (2 vainqueurs, donc
+    // 2 perdants) — jamais après un tour à byes qui ne laisserait qu'un ou
+    // zéro perdant réel. Toujours en un seul match, même si le reste du
+    // tableau est en 2 manches + belle (voir Tournament.knockoutTwoLegs).
+    if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
+      await tx.match.create({
+        data: {
+          roundId: round.id,
+          table: table++,
+          homePlayerId: losers[0],
+          awayPlayerId: losers[1],
+          status: "SCHEDULED",
+          isThirdPlace: true,
+        },
+      });
+    }
   });
-
-  let table = 1;
-  for (const pairing of pairings) {
-    await prisma.match.create({
-      data: {
-        roundId: round.id,
-        table: pairing.away ? table++ : null,
-        homePlayerId: pairing.home,
-        awayPlayerId: pairing.away,
-        isBye: pairing.away === null,
-        status: pairing.away === null ? "PLAYED" : "SCHEDULED",
-      },
-    });
-  }
-
-  // Match pour la 3e place, optionnel : ce tour n'est généré que si celui
-  // qu'on vient de terminer était bien les demi-finales (2 vainqueurs, donc
-  // 2 perdants) — jamais après un tour à byes qui ne laisserait qu'un ou
-  // zéro perdant réel. Toujours en un seul match, même si le reste du
-  // tableau est en 2 manches + belle (voir Tournament.knockoutTwoLegs).
-  if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
-    await prisma.match.create({
-      data: {
-        roundId: round.id,
-        table: table++,
-        homePlayerId: losers[0],
-        awayPlayerId: losers[1],
-        status: "SCHEDULED",
-        isThirdPlace: true,
-      },
-    });
-  }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -1986,14 +2027,16 @@ async function generateTeamKnockoutBracketActionImpl(tournamentId: string) {
 
   const teamsById = new Map(teams.map((t) => [t.id, t]));
   const pairings = generateKnockoutFirstRound(teams.map((t) => t.id));
-  const round = await prisma.round.create({ data: { tournamentId, number: 1 } });
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({ data: { tournamentId, number: 1 } });
 
-  const tableCounter = createTableCounter();
-  for (const pairing of pairings) {
-    const homeTeam = teamsById.get(pairing.home)!;
-    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
-  }
+    const tableCounter = createTableCounter();
+    for (const pairing of pairings) {
+      const homeTeam = teamsById.get(pairing.home)!;
+      const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round.id, homeTeam, awayTeam, boardCount, tableCounter);
+    }
+  });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
@@ -2110,26 +2153,28 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
       : winners;
 
   const pairings = pairKnockoutWinners(orderedWinners);
-  const round = await prisma.round.create({
-    data: { tournamentId, number: last.number + 1, isFinalPhase: last.isFinalPhase },
+  await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: { tournamentId, number: last.number + 1, isFinalPhase: last.isFinalPhase },
+    });
+
+    const tableCounter = createTableCounter();
+    for (const pairing of pairings) {
+      const homeTeam = teamsById.get(pairing.home)!;
+      const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round.id, homeTeam, awayTeam, boardCount, tableCounter);
+    }
+
+    // Match pour la 3e place, optionnel : voir le commentaire équivalent côté
+    // individuel — uniquement si ce tour est bien les demi-finales (2
+    // vainqueurs et donc 2 perdants réels, aucun bye). Numérotation de table
+    // qui continue celle du tableau principal plutôt que de repartir de 1.
+    if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
+      const loserHomeTeam = teamsById.get(losers[0])!;
+      const loserAwayTeam = teamsById.get(losers[1])!;
+      await createTeamEncounterMatches(tx, round.id, loserHomeTeam, loserAwayTeam, boardCount, tableCounter, undefined, true);
+    }
   });
-
-  const tableCounter = createTableCounter();
-  for (const pairing of pairings) {
-    const homeTeam = teamsById.get(pairing.home)!;
-    const awayTeam = pairing.away ? teamsById.get(pairing.away)! : null;
-    await createTeamEncounterMatches(round.id, homeTeam, awayTeam, boardCount, tableCounter);
-  }
-
-  // Match pour la 3e place, optionnel : voir le commentaire équivalent côté
-  // individuel — uniquement si ce tour est bien les demi-finales (2
-  // vainqueurs et donc 2 perdants réels, aucun bye). Numérotation de table
-  // qui continue celle du tableau principal plutôt que de repartir de 1.
-  if (winners.length === 2 && tournament.thirdPlaceMatchEnabled && losers.length === 2) {
-    const loserHomeTeam = teamsById.get(losers[0])!;
-    const loserAwayTeam = teamsById.get(losers[1])!;
-    await createTeamEncounterMatches(round.id, loserHomeTeam, loserAwayTeam, boardCount, tableCounter, undefined, true);
-  }
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
   notifyTournamentUpdate(tournamentId);
