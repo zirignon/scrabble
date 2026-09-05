@@ -21,7 +21,7 @@ export async function computeClassicTeamPoolStandings(
     orderBy: { createdAt: "asc" },
     include: {
       teams: true,
-      matches: true,
+      matches: { include: { round: { select: { number: true } } } },
     },
   });
 
@@ -30,7 +30,7 @@ export async function computeClassicTeamPoolStandings(
     poolName: pool.name,
     standings: computeTeamStandingsFromMatches(
       pool.teams.map((t) => ({ teamId: t.id, name: t.name })),
-      pool.matches
+      pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))
     ),
   }));
 }
@@ -43,12 +43,12 @@ export async function computeClassicTeamGeneralPoolStandings(
     where: { tournamentId },
     include: {
       teams: true,
-      matches: true,
+      matches: { include: { round: { select: { number: true } } } },
     },
   });
 
   return computeTeamStandingsFromMatches(
     pools.flatMap((pool) => pool.teams.map((t) => ({ teamId: t.id, name: t.name }))),
-    pools.flatMap((pool) => pool.matches)
+    pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })))
   );
 }

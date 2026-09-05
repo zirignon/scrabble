@@ -18,6 +18,7 @@ export interface ClassicTeamStandingRow {
 
 export interface TeamStandingsMatchLike {
   roundId: string;
+  roundNumber: number;
   isBye: boolean;
   homeTeamId: string | null;
   awayTeamId: string | null;
@@ -62,12 +63,36 @@ export function computeTeamStandingsFromMatches(
   }
   for (const team of teams) ensure(team.teamId, team.name);
 
+  // Une ronde ne doit compter dans le classement qu'une fois entièrement
+  // décidée pour toutes les équipes — voir le garde-fou équivalent dans
+  // computeStandingsFromMatches (classement individuel) : sans lui, une
+  // équipe exemptée (échiquiers créés directement "PLAYED" à la génération
+  // de la ronde) saute en avance pendant que les rencontres réelles de la
+  // même ronde restent "SCHEDULED" en attente de saisie.
+  const matchesByRound = new Map<number, TeamStandingsMatchLike[]>();
+  for (const m of matches) {
+    const list = matchesByRound.get(m.roundNumber) ?? [];
+    list.push(m);
+    matchesByRound.set(m.roundNumber, list);
+  }
+  let cutoffRound = Infinity;
+  for (const roundNumber of [...matchesByRound.keys()].sort((a, b) => a - b)) {
+    const hasPendingRealMatch = matchesByRound
+      .get(roundNumber)!
+      .some((m) => !m.isBye && m.status === "SCHEDULED");
+    if (hasPendingRealMatch) {
+      cutoffRound = roundNumber - 1;
+      break;
+    }
+  }
+
   const encounters = new Map<
     string,
     { homeTeamId: string; awayTeamId: string; matches: TeamStandingsMatchLike[] }
   >();
 
   for (const m of matches) {
+    if (m.roundNumber > cutoffRound) continue;
     if (m.isBye) {
       if (m.homeTeamId) {
         const row = ensure(m.homeTeamId, rows.get(m.homeTeamId)?.name ?? "");
@@ -168,12 +193,13 @@ export async function computeClassicTeamStandings(
         round: { tournamentId },
         OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
       },
+      include: { round: { select: { number: true } } },
     }),
   ]);
 
   return computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches
+    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );
 }
 
@@ -190,6 +216,7 @@ export async function computeClassicTeamSwissPhaseStandings(
       round: { tournamentId, isSwissPhase: true },
       OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
     },
+    include: { round: { select: { number: true } } },
   });
 
   const teamIds = new Set<string>();
@@ -209,7 +236,7 @@ export async function computeClassicTeamSwissPhaseStandings(
 
   const swissStandings = computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches
+    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
   );
 
   const generalPoolStandings = await computeClassicTeamGeneralPoolStandings(tournamentId);

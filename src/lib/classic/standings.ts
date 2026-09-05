@@ -141,7 +141,24 @@ export function computeStandingsFromMatches(
   }
   const roundNumbers = [...matchesByRound.keys()].sort((a, b) => a - b);
 
+  // Une ronde ne doit compter dans le classement qu'une fois entièrement
+  // décidée pour tout le monde. Sans ce garde-fou, un match d'exempt (créé
+  // directement avec status "PLAYED" dès la génération de la ronde) fait
+  // "sauter" ce joueur en avance dans le classement pendant que les vrais
+  // matchs de la même ronde sont encore "SCHEDULED" en attente de saisie.
+  let cutoffRound = Infinity;
   for (const roundNumber of roundNumbers) {
+    const hasPendingRealMatch = matchesByRound
+      .get(roundNumber)!
+      .some((m) => !m.isBye && m.status === "SCHEDULED");
+    if (hasPendingRealMatch) {
+      cutoffRound = roundNumber - 1;
+      break;
+    }
+  }
+
+  for (const roundNumber of roundNumbers) {
+    if (roundNumber > cutoffRound) continue;
     const participantsThisRound = new Set<string>();
 
     for (const match of matchesByRound.get(roundNumber)!) {

@@ -13,6 +13,7 @@ import {
   standardBracketSeeding,
 } from "../src/lib/classic/knockout";
 import { computeStandingsFromMatches } from "../src/lib/classic/standings";
+import { computeTeamStandingsFromMatches } from "../src/lib/classic/teamStandings";
 import { selectPoolQualifiers } from "../src/lib/classic/poolStandings";
 
 test("round-robin crée une ronde par adversaire et un bye équitable", () => {
@@ -294,4 +295,83 @@ test("phase suisse d'un tournoi Combiné : un nombre impair de qualifiés de pou
   assert.equal(byes.length, 1);
   const allEntrants = pairings.flatMap((p) => [p.home, p.away]).filter((id): id is string => id !== null);
   assert.deepEqual(allEntrants.sort(), qualifierIds.sort());
+});
+
+test("classement individuel : un exempt déjà résolu ne compte pas tant que le reste de sa ronde est encore programmé", () => {
+  // Reproduit le cas signalé : une poule impaire génère sa ronde 3 avec un
+  // bye immédiatement "PLAYED" pour le joueur exempté, pendant que les vrais
+  // matchs de cette même ronde 3 restent "SCHEDULED" en attente de saisie.
+  const players = [
+    { playerId: "a", firstName: "A", lastName: "A" },
+    { playerId: "b", firstName: "B", lastName: "B" },
+    { playerId: "c", firstName: "C", lastName: "C" },
+  ];
+  const matches = [
+    // Ronde 1 : a bat b, c exempté (déjà résolu par construction).
+    { isBye: false, homePlayerId: "a", awayPlayerId: "b", homeScore: 400, awayScore: 300, status: "PLAYED", roundNumber: 1 },
+    { isBye: true, homePlayerId: "c", awayPlayerId: null, homeScore: null, awayScore: null, status: "PLAYED", roundNumber: 1 },
+    // Ronde 2 : b bat c, a exempté (déjà résolu par construction).
+    { isBye: false, homePlayerId: "b", awayPlayerId: "c", homeScore: 350, awayScore: 300, status: "PLAYED", roundNumber: 2 },
+    { isBye: true, homePlayerId: "a", awayPlayerId: null, homeScore: null, awayScore: null, status: "PLAYED", roundNumber: 2 },
+    // Ronde 3 générée : b exempté (bye "PLAYED" immédiat), mais le match
+    // réel a-c est encore "SCHEDULED" (pas encore saisi).
+    { isBye: true, homePlayerId: "b", awayPlayerId: null, homeScore: null, awayScore: null, status: "PLAYED", roundNumber: 3 },
+    { isBye: false, homePlayerId: "a", awayPlayerId: "c", homeScore: null, awayScore: null, status: "SCHEDULED", roundNumber: 3 },
+  ];
+
+  const before = computeStandingsFromMatches(players, matches);
+  const byIdBefore = new Map(before.map((r) => [r.playerId, r]));
+  // b ne doit pas encore avoir 3 matchs joués : sa ronde 3 (bye) est mise en
+  // attente tant que le match réel a-c de la même ronde n'est pas décidé.
+  assert.equal(byIdBefore.get("b")!.played, 2);
+  assert.equal(byIdBefore.get("a")!.played, 2);
+  assert.equal(byIdBefore.get("c")!.played, 2);
+
+  // Une fois le match a-c de la ronde 3 saisi, tout le monde avance ensemble.
+  const afterMatches = matches.map((m) =>
+    m.roundNumber === 3 && !m.isBye
+      ? { ...m, homeScore: 380, awayScore: 320, status: "PLAYED" }
+      : m
+  );
+  const after = computeStandingsFromMatches(players, afterMatches);
+  const byIdAfter = new Map(after.map((r) => [r.playerId, r]));
+  assert.equal(byIdAfter.get("a")!.played, 3);
+  assert.equal(byIdAfter.get("b")!.played, 3);
+  assert.equal(byIdAfter.get("c")!.played, 3);
+});
+
+test("classement équipes : un exempt déjà résolu ne compte pas tant que le reste de sa ronde est encore programmé", () => {
+  const teams = [
+    { teamId: "a", name: "A" },
+    { teamId: "b", name: "B" },
+    { teamId: "c", name: "C" },
+  ];
+  const matches = [
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 400, awayScore: 300, status: "PLAYED" },
+    { roundId: "r1", roundNumber: 1, isBye: true, homeTeamId: "c", awayTeamId: null, homeScore: null, awayScore: null, status: "PLAYED" },
+    // Ronde 2 générée : b exempté (bye "PLAYED" immédiat), mais la
+    // rencontre réelle a-c est encore "SCHEDULED" (pas encore saisie).
+    { roundId: "r2", roundNumber: 2, isBye: true, homeTeamId: "b", awayTeamId: null, homeScore: null, awayScore: null, status: "PLAYED" },
+    { roundId: "r2", roundNumber: 2, isBye: false, homeTeamId: "a", awayTeamId: "c", homeScore: null, awayScore: null, status: "SCHEDULED" },
+  ];
+
+  const before = computeTeamStandingsFromMatches(teams, matches);
+  const byIdBefore = new Map(before.map((r) => [r.teamId, r]));
+  // Ronde 1 déjà complète (a-b joué, c exempté) : chacun a 1 match joué.
+  // La ronde 2 (bye de b) ne doit pas encore compter tant que a-c est
+  // "SCHEDULED" : b reste à 1, pas 2.
+  assert.equal(byIdBefore.get("a")!.played, 1);
+  assert.equal(byIdBefore.get("b")!.played, 1);
+  assert.equal(byIdBefore.get("c")!.played, 1);
+
+  const afterMatches = matches.map((m) =>
+    m.roundNumber === 2 && !m.isBye
+      ? { ...m, homeScore: 380, awayScore: 320, status: "PLAYED" }
+      : m
+  );
+  const after = computeTeamStandingsFromMatches(teams, afterMatches);
+  const byIdAfter = new Map(after.map((r) => [r.teamId, r]));
+  assert.equal(byIdAfter.get("a")!.played, 2);
+  assert.equal(byIdAfter.get("b")!.played, 2);
+  assert.equal(byIdAfter.get("c")!.played, 2);
 });
