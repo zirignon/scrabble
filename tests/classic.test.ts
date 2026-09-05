@@ -7,10 +7,13 @@ import {
   seedFirstSwissRound,
 } from "../src/lib/classic/swiss";
 import {
+  crossSeedTwoPools,
+  generateKnockoutFirstRound,
   getKnockoutWinner,
   standardBracketSeeding,
 } from "../src/lib/classic/knockout";
 import { computeStandingsFromMatches } from "../src/lib/classic/standings";
+import { selectPoolQualifiers } from "../src/lib/classic/poolStandings";
 
 test("round-robin crée une ronde par adversaire et un bye équitable", () => {
   const rounds = generateRoundRobinRounds(["a", "b", "c", "d", "e"]);
@@ -78,6 +81,36 @@ test("tableau éliminatoire protège les deux premières têtes de série jusqu'
     { home: "4", away: "5" },
     { home: "2", away: "7" },
     { home: "3", away: "6" },
+  ]);
+});
+
+test("tirage au sort saigné : les têtes de série les mieux classées reçoivent l'exempt avec un effectif hors puissance de 2", () => {
+  const pairings = standardBracketSeeding(["1", "2", "3", "4", "5"]);
+  // Complété à 8 (prochaine puissance de 2) : les 3 têtes de série les
+  // mieux classées (1, 2, 3) reçoivent un exempt, seules 4 et 5 s'affrontent
+  // réellement au 1er tour.
+  assert.deepEqual(pairings, [
+    { home: "1", away: null },
+    { home: "4", away: "5" },
+    { home: "2", away: null },
+    { home: "3", away: null },
+  ]);
+});
+
+test("premier tour à élimination directe : un effectif hors puissance de 2 ne perd ni ne double aucun entrant", () => {
+  const pairings = generateKnockoutFirstRound(["a", "b", "c", "d", "e"]);
+  const byes = pairings.filter((p) => p.away === null);
+  assert.equal(byes.length, 1);
+  const allEntrants = pairings.flatMap((p) => [p.home, p.away]).filter((id): id is string => id !== null);
+  assert.deepEqual(allEntrants.sort(), ["a", "b", "c", "d", "e"]);
+});
+
+test("appariement en croix de 2 poules impaires : les deux qualifiés du rang médian s'affrontent entre eux", () => {
+  const pairings = crossSeedTwoPools(["A1", "A2", "A3"], ["B1", "B2", "B3"]);
+  assert.deepEqual(pairings, [
+    { home: "A1", away: "B3" },
+    { home: "B1", away: "A3" },
+    { home: "A2", away: "B2" },
   ]);
 });
 
@@ -216,4 +249,49 @@ test("un double forfait (0-0) donne 0 point aux deux camps, pas un nul", () => {
   assert.equal(byId.get("a")!.losses, 1);
   assert.equal(byId.get("b")!.matchPoints, 0);
   assert.equal(byId.get("b")!.forfeits, 1);
+});
+
+test("sélection des qualifiés de poules : un nombre impair de poules à 1 qualifié chacune donne un total impair", () => {
+  const pools = [
+    { standings: [{ playerId: "a1" }, { playerId: "a2" }] },
+    { standings: [{ playerId: "b1" }, { playerId: "b2" }] },
+    { standings: [{ playerId: "c1" }, { playerId: "c2" }] },
+  ];
+  const qualifiers = selectPoolQualifiers(pools, 1, "playerId");
+  assert.deepEqual(qualifiers, ["a1", "b1", "c1"]);
+});
+
+test("sélection des qualifiés de poules : une poule plus petite que le nombre de qualifiés demandé ne casse rien", () => {
+  const pools = [
+    { standings: [{ playerId: "a1" }] },
+    { standings: [{ playerId: "b1" }, { playerId: "b2" }] },
+  ];
+  // La poule A n'a qu'un seul membre : son 2e rang n'existe pas et est
+  // simplement ignoré, sans introduire d'id manquant (undefined) ni casser
+  // la génération du tour suivant.
+  const qualifiers = selectPoolQualifiers(pools, 2, "playerId");
+  assert.deepEqual(qualifiers, ["a1", "b1", "b2"]);
+});
+
+test("phase suisse d'un tournoi Combiné : un nombre impair de qualifiés de poules reçoit un seul exempt, sans perte de joueur", () => {
+  // Reproduit bout à bout le chemin réel de generateSwissPhaseRoundActionImpl :
+  // 3 poules qualifiant chacune leur 1er (total impair de 3), directement
+  // appariés pour la 1re ronde suisse.
+  const pools = [
+    { standings: [{ playerId: "a1" }, { playerId: "a2" }] },
+    { standings: [{ playerId: "b1" }, { playerId: "b2" }] },
+    { standings: [{ playerId: "c1" }, { playerId: "c2" }] },
+  ];
+  const qualifierIds = selectPoolQualifiers(pools, 1, "playerId");
+  assert.equal(qualifierIds.length, 3);
+
+  const pairings = generateSwissRound(
+    qualifierIds.map((playerId) => ({ playerId, matchPoints: 0 })),
+    new Map(),
+    new Set()
+  );
+  const byes = pairings.filter((p) => p.away === null);
+  assert.equal(byes.length, 1);
+  const allEntrants = pairings.flatMap((p) => [p.home, p.away]).filter((id): id is string => id !== null);
+  assert.deepEqual(allEntrants.sort(), qualifierIds.sort());
 });
