@@ -179,15 +179,26 @@ export default async function ManageTournamentPage({
           </Link>
         )}
         {tournament.type === "CLASSIC" ? (
-          <Link
-            href={`/admin/tournois/${tournament.id}/rondes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les rondes et résultats</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.rounds} ronde(s) créée(s)
-            </p>
-          </Link>
+          <>
+            <Link
+              href={`/admin/tournois/${tournament.id}/rondes`}
+              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
+            >
+              <p className="font-medium">Gérer les rondes et résultats</p>
+              <p className="text-xs text-black/60 dark:text-white/60">
+                {tournament._count.rounds} ronde(s) créée(s)
+              </p>
+            </Link>
+            <Link
+              href={`/admin/tournois/${tournament.id}/reglages`}
+              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
+            >
+              <p className="font-medium">Réglages</p>
+              <p className="text-xs text-black/60 dark:text-white/60">
+                Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle
+              </p>
+            </Link>
+          </>
         ) : (
           <Link
             href={`/admin/tournois/${tournament.id}/parties`}
