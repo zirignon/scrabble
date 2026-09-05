@@ -31,6 +31,11 @@ import {
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
 import { RoundActionButton } from "@/components/admin/RoundActionButton";
+import {
+  AutoSubmitScoreInput,
+  AutoSubmitStatusSelect,
+  SavingIndicator,
+} from "@/components/admin/AutoSaveMatchScore";
 import type { Match, Player, Pool, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
@@ -61,11 +66,13 @@ function MatchRow({
   tournamentId: string;
 }) {
   // Le formulaire de saisie du score n'entoure que les deux champs de score
-  // (colonne "Score", entre Domicile et Extérieur) ; le statut et le bouton
-  // OK vivent dans une cellule séparée, plus loin, mais y sont rattachés via
-  // l'attribut form= plutôt que par imbrication DOM — ce qui permet de
-  // placer le nom de l'adversaire (Extérieur) avant eux dans l'ordre des
-  // colonnes tout en gardant une seule soumission.
+  // (colonne "Score", entre Domicile et Extérieur) ; le statut vit dans une
+  // cellule séparée, plus loin, mais y est rattaché via l'attribut form=
+  // plutôt que par imbrication DOM — ce qui permet de placer le nom de
+  // l'adversaire (Extérieur) avant lui dans l'ordre des colonnes tout en
+  // gardant une seule soumission. Le score s'enregistre automatiquement dès
+  // qu'un champ perd le focus ou que le statut change (voir
+  // AutoSaveMatchScore) : plus besoin d'un clic sur "OK".
   const formId = `match-form-${match.id}`;
   // Par équipes, homeStarts alterne d'un échiquier à l'autre au sein d'une
   // même confrontation (voir createTeamEncounterMatches) pour équilibrer
@@ -74,16 +81,14 @@ function MatchRow({
   // ces derniers restent inchangés pour ne pas casser le calcul du
   // classement par équipes, qui en dépend.
   const homeScoreInput = (
-    <input
-      type="number"
+    <AutoSubmitScoreInput
       name="homeScore"
       defaultValue={match.homeScore ?? ""}
       className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
     />
   );
   const awayScoreInput = (
-    <input
-      type="number"
+    <AutoSubmitScoreInput
       name="awayScore"
       defaultValue={match.awayScore ?? ""}
       className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
@@ -121,6 +126,7 @@ function MatchRow({
               {match.homeStarts ? homeScoreInput : awayScoreInput}
               <span>-</span>
               {match.homeStarts ? awayScoreInput : homeScoreInput}
+              <SavingIndicator />
             </form>
           ) : (
             <span>
@@ -134,9 +140,8 @@ function MatchRow({
             <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
           ) : canManage ? (
             <div className="flex flex-wrap items-center gap-1">
-              <select
-                form={formId}
-                name="status"
+              <AutoSubmitStatusSelect
+                formId={formId}
                 defaultValue={match.status}
                 className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
               >
@@ -145,14 +150,7 @@ function MatchRow({
                     {label}
                   </option>
                 ))}
-              </select>
-              <button
-                form={formId}
-                type="submit"
-                className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-              >
-                OK
-              </button>
+              </AutoSubmitStatusSelect>
             </div>
           ) : (
             <span>{statusLabel[match.status]}</span>
@@ -333,24 +331,22 @@ function LegScoreCell({
         className="flex flex-col items-center gap-1"
       >
         <div className="flex items-center gap-1">
-          <input
-            type="number"
+          <AutoSubmitScoreInput
             name="homeScore"
             defaultValue={match.homeScore ?? ""}
             className="w-12 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-xs focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
           />
           <span>-</span>
-          <input
-            type="number"
+          <AutoSubmitScoreInput
             name="awayScore"
             defaultValue={match.awayScore ?? ""}
             className="w-12 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-xs focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
           />
+          <SavingIndicator />
         </div>
         <div className="flex items-center gap-1">
-          <select
-            form={formId}
-            name="status"
+          <AutoSubmitStatusSelect
+            formId={formId}
             defaultValue={match.status}
             className="rounded border border-black/10 dark:border-white/20 px-1 py-0.5 bg-transparent text-[10px]"
           >
@@ -359,14 +355,7 @@ function LegScoreCell({
                 {label}
               </option>
             ))}
-          </select>
-          <button
-            form={formId}
-            type="submit"
-            className="rounded bg-emerald-700 text-white px-1.5 py-0.5 text-[10px]"
-          >
-            OK
-          </button>
+          </AutoSubmitStatusSelect>
         </div>
       </form>
     </td>
