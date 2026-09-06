@@ -85,6 +85,13 @@ export function AutoSubmitScoreInput({
       type="text"
       inputMode="numeric"
       pattern="[0-9]*"
+      // Un <input type="number"> n'affiche pas la liste des anciennes
+      // valeurs saisies sous ce name= ; en repassant à type="text"
+      // ci-dessus, le navigateur se met à en suggérer (name="homeScore"/
+      // "awayScore" étant repris sur chaque match de la page) — désactivé
+      // explicitement, ce champ ne doit jamais proposer de score d'un
+      // autre match.
+      autoComplete="off"
       data-score-nav="true"
       name={name}
       defaultValue={defaultValue}
