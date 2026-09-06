@@ -12,6 +12,48 @@ function isSameForm(target: EventTarget | null, form: HTMLFormElement | null): b
   return (target as { form?: HTMLFormElement | null }).form === form;
 }
 
+// Repère tous les champs de score navigables au sein d'une même ligne de
+// tableau (<tr>) — une ligne peut en contenir plusieurs (domicile/extérieur,
+// et jusqu'à 3 manches en 2 manches + belle côté LegScoreCell). L'ordre suit
+// l'ordre du DOM, qui correspond à l'ordre visuel gauche→droite.
+function scoreInputsInRow(row: Element): HTMLInputElement[] {
+  return Array.from(row.querySelectorAll<HTMLInputElement>('input[data-score-nav="true"]'));
+}
+
+// Navigation façon tableur entre les champs de score, avec les flèches du
+// clavier : Haut/Bas passe à la même position dans la ligne précédente/
+// suivante (en sautant les lignes qui n'ont pas de champ à cette position,
+// ex. une manche retour pas encore générée) ; Gauche/Droite passe au champ
+// voisin dans la même ligne. Ne s'active qu'en bordure du champ courant
+// (voir l'appel dans onKeyDown) pour ne pas gêner le déplacement normal du
+// curseur à l'intérieur d'un score à plusieurs chiffres.
+function navigateScoreInput(current: HTMLInputElement, direction: "up" | "down" | "left" | "right") {
+  const row = current.closest("tr");
+  if (!row) return;
+
+  if (direction === "left" || direction === "right") {
+    const inputs = scoreInputsInRow(row);
+    const index = inputs.indexOf(current);
+    const target = inputs[direction === "left" ? index - 1 : index + 1];
+    target?.focus();
+    target?.select();
+    return;
+  }
+
+  const columnIndex = scoreInputsInRow(row).indexOf(current);
+  if (columnIndex === -1) return;
+  let sibling = direction === "up" ? row.previousElementSibling : row.nextElementSibling;
+  while (sibling) {
+    const target = scoreInputsInRow(sibling)[columnIndex];
+    if (target) {
+      target.focus();
+      target.select();
+      return;
+    }
+    sibling = direction === "up" ? sibling.previousElementSibling : sibling.nextElementSibling;
+  }
+}
+
 // Enregistre automatiquement le score dès que l'organisateur quitte tout le
 // groupe de saisie (score + statut, même si tabuler entre les champs) — pas
 // à chaque changement de focus interne, sinon tabuler du score domicile vers
@@ -34,7 +76,16 @@ export function AutoSubmitScoreInput({
 }) {
   return (
     <input
-      type="number"
+      // Texte plutôt que "number" : nécessaire pour lire selectionStart/End
+      // ci-dessous (non supporté sur un <input type="number"> par les
+      // navigateurs), afin de ne naviguer vers le champ voisin qu'en
+      // bordure du champ courant plutôt qu'à chaque pression de flèche —
+      // voir onKeyDown. inputMode="numeric" garde un clavier numérique sur
+      // mobile ; la validation du format reste côté serveur (recordMatchResultAction).
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      data-score-nav="true"
       name={name}
       defaultValue={defaultValue}
       className={className}
@@ -54,6 +105,26 @@ export function AutoSubmitScoreInput({
           // enregistre donc toujours, même en cours de saisie du domicile.
           e.preventDefault();
           e.currentTarget.blur();
+          return;
+        }
+        // Navigation façon tableur (voir navigateScoreInput) : Haut/Bas
+        // toujours, Gauche/Droite seulement en bordure du champ courant
+        // (sinon ça gênerait la correction d'un chiffre au milieu d'un
+        // score à plusieurs chiffres).
+        const input = e.currentTarget;
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          navigateScoreInput(input, e.key === "ArrowUp" ? "up" : "down");
+        } else if (e.key === "ArrowLeft" && input.selectionStart === 0 && input.selectionEnd === 0) {
+          e.preventDefault();
+          navigateScoreInput(input, "left");
+        } else if (
+          e.key === "ArrowRight" &&
+          input.selectionStart === input.value.length &&
+          input.selectionEnd === input.value.length
+        ) {
+          e.preventDefault();
+          navigateScoreInput(input, "right");
         }
       }}
     />
