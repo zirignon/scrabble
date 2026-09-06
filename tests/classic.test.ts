@@ -408,3 +408,56 @@ test("classement équipes : l'exempté compte pour un score conventionnel de 50-
   assert.equal(a.pointsAgainst, 0);
   assert.equal(a.diff, 50);
 });
+
+test("classement individuel : uptoRoundNumber reconstitue un instantané, même si des rondes plus récentes ont depuis été jouées", () => {
+  const players = [
+    { playerId: "a", firstName: "A", lastName: "A" },
+    { playerId: "b", firstName: "B", lastName: "B" },
+  ];
+  const matches = [
+    { isBye: false, homePlayerId: "a", awayPlayerId: "b", homeScore: 400, awayScore: 300, status: "PLAYED", roundNumber: 1 },
+    { isBye: false, homePlayerId: "b", awayPlayerId: "a", homeScore: 350, awayScore: 300, status: "PLAYED", roundNumber: 2 },
+    { isBye: false, homePlayerId: "a", awayPlayerId: "b", homeScore: 380, awayScore: 320, status: "PLAYED", roundNumber: 3 },
+  ];
+
+  // Instantané après la ronde 1 seule : a a joué 1 match (gagné), pas 3.
+  const snapshot1 = computeStandingsFromMatches(players, matches, 1);
+  const a1 = snapshot1.find((r) => r.playerId === "a")!;
+  assert.equal(a1.played, 1);
+  assert.equal(a1.wins, 1);
+  assert.equal(a1.matchPoints, 3);
+
+  // Instantané après la ronde 2 : les rondes 1 et 2 comptent, pas la 3 (même
+  // si elle est déjà jouée dans le jeu de données passé).
+  const snapshot2 = computeStandingsFromMatches(players, matches, 2);
+  const a2 = snapshot2.find((r) => r.playerId === "a")!;
+  const b2 = snapshot2.find((r) => r.playerId === "b")!;
+  assert.equal(a2.played, 2);
+  assert.equal(a2.wins, 1);
+  assert.equal(b2.wins, 1);
+
+  // Sans limite (comportement existant) : les 3 rondes comptent.
+  const full = computeStandingsFromMatches(players, matches);
+  const aFull = full.find((r) => r.playerId === "a")!;
+  assert.equal(aFull.played, 3);
+});
+
+test("classement équipes : uptoRoundNumber reconstitue un instantané, même si des rondes plus récentes ont depuis été jouées", () => {
+  const teams = [
+    { teamId: "a", name: "A" },
+    { teamId: "b", name: "B" },
+  ];
+  const matches = [
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 400, awayScore: 300, status: "PLAYED" },
+    { roundId: "r2", roundNumber: 2, isBye: false, homeTeamId: "b", awayTeamId: "a", homeScore: 350, awayScore: 300, status: "PLAYED" },
+  ];
+
+  const snapshot1 = computeTeamStandingsFromMatches(teams, matches, 1);
+  const a1 = snapshot1.find((r) => r.teamId === "a")!;
+  assert.equal(a1.played, 1);
+  assert.equal(a1.wins, 1);
+
+  const full = computeTeamStandingsFromMatches(teams, matches);
+  const aFull = full.find((r) => r.teamId === "a")!;
+  assert.equal(aFull.played, 2);
+});

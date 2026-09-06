@@ -13,7 +13,8 @@ export interface PoolStandings {
 // classement individuel classique, juste appliqué à un sous-ensemble de
 // joueurs et de matchs.
 export async function computeClassicPoolStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<PoolStandings[]> {
   const pools = await prisma.pool.findMany({
     where: { tournamentId },
@@ -33,7 +34,8 @@ export async function computeClassicPoolStandings(
         firstName: m.player.firstName,
         lastName: m.player.lastName,
       })),
-      pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+      pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+      uptoRoundNumber
     ),
   }));
 }
@@ -48,7 +50,8 @@ export async function computeClassicPoolStandings(
 // c'est ce classement général qui détermine le point de départ du système
 // suisse plutôt qu'un tirage au sort ou un classement Elo.
 export async function computeClassicGeneralPoolStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
   const pools = await prisma.pool.findMany({
     where: { tournamentId },
@@ -67,7 +70,8 @@ export async function computeClassicGeneralPoolStandings(
         lastName: m.player.lastName,
       }))
     ),
-    pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })))
+    pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))),
+    uptoRoundNumber
   );
 }
 

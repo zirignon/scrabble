@@ -18,11 +18,17 @@ const headers = ["Ronde", "Table", "Domicile", "Score dom.", "Score ext.", "Ext�
 const columnWeights = [1.5, 0.6, 1.6, 0.9, 0.9, 1.6, 1.3];
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireRole(STAFF_ROLES);
   const { id } = await params;
+
+  // Export d'une seule ronde (voir le lien "Exporter cette ronde" sur la
+  // page rondes) : ?ronde= absent ou invalide revient à l'export complet
+  // existant.
+  const rondeParam = request.nextUrl.searchParams.get("ronde");
+  const roundNumber = rondeParam && /^\d+$/.test(rondeParam) ? Number(rondeParam) : undefined;
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
@@ -48,7 +54,19 @@ export async function GET(
   if (!canManageTournament(session, tournament.organizerId)) {
     return new Response("Non autorisé", { status: 403 });
   }
-  const rounds = tournament.rounds;
+  // Un tour joué en 2 manches + belle (même knockoutStage) doit rester
+  // groupé pour un export "cette ronde" : sans ça, filtrer sur le seul
+  // numéro de la manche aller casserait la table à colonnes Aller/Retour/
+  // Belle plus bas (buildKnockoutConfrontations a besoin des autres manches).
+  let rounds = tournament.rounds;
+  if (roundNumber !== undefined) {
+    const target = rounds.find((r) => r.number === roundNumber);
+    rounds = target
+      ? target.knockoutStage !== null
+        ? rounds.filter((r) => r.knockoutStage === target.knockoutStage)
+        : [target]
+      : [];
+  }
   type RoundRow = (typeof rounds)[number];
   type MatchRow = RoundRow["matches"][number];
 
@@ -314,9 +332,12 @@ export async function GET(
 
   const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;
 
-  const pdf = await renderMultiTablePdf(`Rondes — ${tournament.name}`, subtitle, sections, {
+  const title =
+    roundNumber !== undefined ? `Ronde ${roundNumber} — ${tournament.name}` : `Rondes — ${tournament.name}`;
+  const pdf = await renderMultiTablePdf(title, subtitle, sections, {
     landscape: true,
   });
 
-  return pdfResponse(`rondes-${slugify(tournament.name)}.pdf`, pdf);
+  const filenameSuffix = roundNumber !== undefined ? `-ronde-${roundNumber}` : "";
+  return pdfResponse(`rondes${filenameSuffix}-${slugify(tournament.name)}.pdf`, pdf);
 }

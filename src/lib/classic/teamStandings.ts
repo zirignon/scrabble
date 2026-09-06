@@ -38,7 +38,9 @@ export interface TeamStandingsMatchLike {
 // sur l'ensemble d'un tournoi que sur une poule d'équipes.
 export function computeTeamStandingsFromMatches(
   teams: Array<{ teamId: string; name: string }>,
-  matches: TeamStandingsMatchLike[]
+  matches: TeamStandingsMatchLike[],
+  // Instantané : voir le commentaire équivalent sur computeStandingsFromMatches.
+  uptoRoundNumber?: number
 ): ClassicTeamStandingRow[] {
   const rows = new Map<string, ClassicTeamStandingRow>();
   function ensure(teamId: string, name: string) {
@@ -84,6 +86,9 @@ export function computeTeamStandingsFromMatches(
       cutoffRound = roundNumber - 1;
       break;
     }
+  }
+  if (uptoRoundNumber !== undefined) {
+    cutoffRound = Math.min(cutoffRound, uptoRoundNumber);
   }
 
   const encounters = new Map<
@@ -189,7 +194,8 @@ export function computeTeamStandingsFromMatches(
 }
 
 export async function computeClassicTeamStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicTeamStandingRow[]> {
   const [teams, matches] = await Promise.all([
     prisma.team.findMany({ where: { tournamentId } }),
@@ -204,7 +210,8 @@ export async function computeClassicTeamStandings(
 
   return computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
 }
 
@@ -214,15 +221,21 @@ export async function computeClassicTeamStandings(
 // la phase suisse, plutôt que de repartir d'un mini-tournoi isolé à 0
 // partout (voir le commentaire équivalent côté individuel).
 export async function computeClassicTeamSwissPhaseStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicTeamStandingRow[]> {
-  const matches = await prisma.match.findMany({
+  const allMatches = await prisma.match.findMany({
     where: {
       round: { tournamentId, isSwissPhase: true },
       OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
     },
     include: { round: { select: { number: true } } },
   });
+  // Instantané : voir le commentaire équivalent sur computeClassicSwissPhaseStandings.
+  const matches =
+    uptoRoundNumber !== undefined
+      ? allMatches.filter((m) => m.round.number <= uptoRoundNumber)
+      : allMatches;
 
   const teamIds = new Set<string>();
   for (const m of matches) {
@@ -234,17 +247,18 @@ export async function computeClassicTeamSwissPhaseStandings(
 
   if (teamIds.size === 0) {
     // Voir le commentaire équivalent dans computeClassicSwissPhaseStandings.
-    return computeClassicTeamGeneralPoolStandings(tournamentId);
+    return computeClassicTeamGeneralPoolStandings(tournamentId, uptoRoundNumber);
   }
 
   const teams = await prisma.team.findMany({ where: { id: { in: [...teamIds] } } });
 
   const swissStandings = computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
 
-  const generalPoolStandings = await computeClassicTeamGeneralPoolStandings(tournamentId);
+  const generalPoolStandings = await computeClassicTeamGeneralPoolStandings(tournamentId, uptoRoundNumber);
   const poolByTeamId = new Map(generalPoolStandings.map((s) => [s.teamId, s]));
 
   return swissStandings

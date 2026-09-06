@@ -51,7 +51,13 @@ export function computeStandingsFromMatches(
     clubName?: string | null;
     federation?: string | null;
   }>,
-  matches: StandingsMatchLike[]
+  matches: StandingsMatchLike[],
+  // Instantané : reconstitue le classement tel qu'il était juste après cette
+  // ronde, même si des rondes plus récentes ont depuis été jouées — sert à
+  // l'export PDF "classement après la ronde N". Combiné (via Math.min) au
+  // garde-fou de ronde complète ci-dessous plutôt que de le remplacer : une
+  // ronde N incomplète au moment demandé reste exclue même d'un instantané.
+  uptoRoundNumber?: number
 ): ClassicStandingRow[] {
   const rows = new Map<string, ClassicStandingRow>();
   function ensure(playerId: string) {
@@ -155,6 +161,9 @@ export function computeStandingsFromMatches(
       cutoffRound = roundNumber - 1;
       break;
     }
+  }
+  if (uptoRoundNumber !== undefined) {
+    cutoffRound = Math.min(cutoffRound, uptoRoundNumber);
   }
 
   for (const roundNumber of roundNumbers) {
@@ -291,7 +300,8 @@ export function compareStandingRows(a: ClassicStandingRow, b: ClassicStandingRow
 }
 
 export async function computeClassicStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
   const [registrations, matches] = await Promise.all([
     prisma.registration.findMany({
@@ -314,7 +324,8 @@ export async function computeClassicStandings(
       clubName: r.player.club?.name ?? null,
       federation: r.player.federation ?? r.player.club?.federation ?? null,
     })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
 }
 
@@ -330,12 +341,21 @@ export async function computeClassicStandings(
 // phases ne conservant pas un historique de rencontres unique — voir
 // compareStandingRows.
 export async function computeClassicSwissPhaseStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
-  const matches = await prisma.match.findMany({
+  const allMatches = await prisma.match.findMany({
     where: { round: { tournamentId, isSwissPhase: true } },
     include: { round: true },
   });
+  // Instantané : voir le commentaire équivalent sur computeStandingsFromMatches.
+  // Filtré ici (plutôt que de ne passer uptoRoundNumber qu'au calcul) pour que
+  // playerIds ci-dessous ne retienne pas des qualifiés dont la 1re ronde
+  // suisse n'existait pas encore à cet instant.
+  const matches =
+    uptoRoundNumber !== undefined
+      ? allMatches.filter((m) => m.round.number <= uptoRoundNumber)
+      : allMatches;
 
   const playerIds = new Set<string>();
   for (const m of matches) {
@@ -352,7 +372,7 @@ export async function computeClassicSwissPhaseStandings(
     // les qualifiés — la qualification ne filtre qui entre effectivement en
     // phase suisse qu'au moment de generateSwissPhaseRoundActionImpl)
     // plutôt qu'un classement vide.
-    return computeClassicGeneralPoolStandings(tournamentId);
+    return computeClassicGeneralPoolStandings(tournamentId, uptoRoundNumber);
   }
 
   const players = await prisma.player.findMany({
@@ -370,10 +390,16 @@ export async function computeClassicSwissPhaseStandings(
       clubName: p.club?.name ?? null,
       federation: p.federation ?? p.club?.federation ?? null,
     })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
 
-  const generalPoolStandings = await computeClassicGeneralPoolStandings(tournamentId);
+  // Les rondes de poules sont toutes antérieures à la 1re ronde suisse
+  // (numérotation globale continue) : uptoRoundNumber ne les limite donc
+  // jamais en pratique tant qu'au moins une ronde suisse est incluse
+  // ci-dessus, mais on le transmet quand même pour rester correct si cette
+  // hypothèse changeait un jour.
+  const generalPoolStandings = await computeClassicGeneralPoolStandings(tournamentId, uptoRoundNumber);
   const poolByPlayerId = new Map(generalPoolStandings.map((s) => [s.playerId, s]));
 
   return swissStandings

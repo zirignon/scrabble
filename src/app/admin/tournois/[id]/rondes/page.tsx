@@ -49,6 +49,39 @@ type MatchWithRelations = Match & {
   pool: Pool | null;
 };
 
+// Export PDF ciblé sur une seule ronde (ou tout un tour aller/retour/belle
+// via le numéro de sa manche aller — voir ?ronde= dans
+// rondes/export/pdf/route.ts, qui regroupe alors automatiquement les
+// manches associées) et instantané du classement "tel qu'il était juste
+// après cette ronde" (?ronde= sur classement/export/pdf, même principe côté
+// individuel et équipes) — plutôt que les exports globaux déjà proposés
+// plus haut sur la page.
+function RoundExportLinks({
+  tournamentId,
+  roundNumber,
+  isTeamEvent,
+}: {
+  tournamentId: string;
+  roundNumber: number;
+  isTeamEvent: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <a
+        href={`/api/tournois/${tournamentId}/rondes/export/pdf?ronde=${roundNumber}`}
+        className="text-navy dark:text-navy-light underline underline-offset-2"
+      >
+        Exporter cette ronde →
+      </a>
+      <a
+        href={`/api/tournois/${tournamentId}/classement/${isTeamEvent ? "equipes/" : ""}export/pdf?ronde=${roundNumber}`}
+        className="text-navy dark:text-navy-light underline underline-offset-2"
+      >
+        Exporter le classement après cette ronde →
+      </a>
+    </div>
+  );
+}
 
 function MatchRow({
   match,
@@ -861,13 +894,16 @@ export default async function RoundsPage({
               id={`ronde-${leg1.number}`}
               className="flex flex-col gap-3 scroll-mt-20"
             >
-              <h2 className="font-heading text-lg font-semibold">
-                <a href={`#ronde-${leg1.number}`} className="hover:underline">
-                  {getKnockoutStageLabel(
-                    countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
-                  )}
-                </a>
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${leg1.number}`} className="hover:underline">
+                    {getKnockoutStageLabel(
+                      countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+                    )}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={leg1.number} isTeamEvent={false} />
+              </div>
               <KnockoutConfrontationsTable
                 confrontations={confrontations}
                 legLabels={legLabels}
@@ -913,11 +949,14 @@ export default async function RoundsPage({
 
           return (
             <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
-              <h2 className="font-heading text-lg font-semibold">
-                <a href={`#ronde-${round.number}`} className="hover:underline">
-                  Ronde {round.number}
-                </a>
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    Ronde {round.number}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={false} />
+              </div>
               {[...byPool.values()].map(({ pool, matches }) => (
                 <div key={pool.id} className="flex flex-col gap-2">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -946,13 +985,16 @@ export default async function RoundsPage({
           const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
           return (
             <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-3 scroll-mt-20">
-              <h2 className="font-heading text-lg font-semibold">
-                <a href={`#ronde-${round.number}`} className="hover:underline">
-                  {isKnockoutRound
-                    ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                    : `Ronde ${round.number}`}
-                </a>
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    {isKnockoutRound
+                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                      : `Ronde ${round.number}`}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={false} />
+              </div>
               <MatchTable
                 matches={mainMatches}
                 canManage={canManage}
@@ -1058,11 +1100,14 @@ export default async function RoundsPage({
 
           return (
             <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-6 scroll-mt-20">
-              <h2 className="font-heading text-lg font-semibold">
-                <a href={`#ronde-${round.number}`} className="hover:underline">
-                  Ronde {round.number}
-                </a>
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    Ronde {round.number}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={true} />
+              </div>
               {[...byPool.values()].map(({ pool, encounters, byes }) => (
                 <div key={pool.id} className="flex flex-col gap-4">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -1140,15 +1185,18 @@ export default async function RoundsPage({
           (round.isFinalPhase && !round.isSwissPhase);
         return (
           <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
-            <h2 className="font-heading text-lg font-semibold">
-              <a href={`#ronde-${round.number}`} className="hover:underline">
-                {isKnockoutRound
-                  ? getKnockoutStageLabel(
-                      countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
-                    )
-                  : `Ronde ${round.number}`}
-              </a>
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-heading text-lg font-semibold">
+                <a href={`#ronde-${round.number}`} className="hover:underline">
+                  {isKnockoutRound
+                    ? getKnockoutStageLabel(
+                        countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                      )
+                    : `Ronde ${round.number}`}
+                </a>
+              </h2>
+              <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={true} />
+            </div>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
               <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2">

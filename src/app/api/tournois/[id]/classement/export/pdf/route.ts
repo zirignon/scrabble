@@ -11,7 +11,7 @@ import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } fro
 import { slugify } from "@/lib/slug";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -20,7 +20,17 @@ export async function GET(
     return new Response("Tournoi introuvable", { status: 404 });
   }
 
-  const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;
+  // Instantané "classement après la ronde N" (voir la page rondes) : reconstitue
+  // le classement tel qu'il était à cet instant, même si des rondes plus
+  // récentes ont depuis été jouées — un ?ronde= invalide ou absent revient au
+  // classement actuel (comportement existant).
+  const rondeParam = request.nextUrl.searchParams.get("ronde");
+  const uptoRoundNumber =
+    rondeParam && /^\d+$/.test(rondeParam) ? Number(rondeParam) : undefined;
+
+  const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}${
+    uptoRoundNumber !== undefined ? ` — Instantané après la ronde ${uptoRoundNumber}` : ""
+  }`;
 
   let pdf: Buffer;
   const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
@@ -56,16 +66,27 @@ export async function GET(
     // récente, poules incluses).
     const lastRound =
       tournament.format === "COMBINED"
-        ? await prisma.round.findFirst({ where: { tournamentId: tournament.id }, orderBy: { number: "desc" } })
+        ? uptoRoundNumber !== undefined
+          ? { number: uptoRoundNumber }
+          : await prisma.round.findFirst({ where: { tournamentId: tournament.id }, orderBy: { number: "desc" } })
         : null;
+    // À un instant donné (uptoRoundNumber), la phase suisse n'est "démarrée"
+    // que si une ronde suisse existe déjà à ce numéro ou avant — distinct de
+    // l'état actuel du tournoi, qui peut avoir avancé depuis.
     const swissPhaseStarted =
       tournament.format === "COMBINED"
-        ? (await prisma.round.count({ where: { tournamentId: tournament.id, isSwissPhase: true } })) > 0
+        ? (await prisma.round.count({
+            where: {
+              tournamentId: tournament.id,
+              isSwissPhase: true,
+              ...(uptoRoundNumber !== undefined ? { number: { lte: uptoRoundNumber } } : {}),
+            },
+          })) > 0
         : false;
 
     let sections: PdfSection[];
     if (tournament.format === "COMBINED" && swissPhaseStarted) {
-      const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id);
+      const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id, uptoRoundNumber);
       sections = [
         {
           heading: `Classement après la ronde ${lastRound?.number}`,
@@ -75,7 +96,7 @@ export async function GET(
         },
       ];
     } else {
-      const pools = await computeClassicPoolStandings(tournament.id);
+      const pools = await computeClassicPoolStandings(tournament.id, uptoRoundNumber);
       sections = pools.map((pool) => ({
         heading: `Poule ${pool.poolName}`,
         headers: standingsHeaders,
@@ -91,7 +112,7 @@ export async function GET(
       // les poules) s'ajoute à la suite — c'est ce même classement qui
       // amorce la phase suisse (voir generateSwissPhaseRoundActionImpl).
       if (tournament.format === "COMBINED") {
-        const generalStandings = await computeClassicGeneralPoolStandings(tournament.id);
+        const generalStandings = await computeClassicGeneralPoolStandings(tournament.id, uptoRoundNumber);
         if (generalStandings.length > 0) {
           sections.push({
             heading: "Classement général",
@@ -110,7 +131,7 @@ export async function GET(
       { landscape: true }
     );
   } else if (tournament.type === "CLASSIC") {
-    const standings = await computeClassicStandings(tournament.id);
+    const standings = await computeClassicStandings(tournament.id, uptoRoundNumber);
     pdf = await renderTablePdf(
       `Classement — ${tournament.name}`,
       subtitle,
@@ -184,5 +205,6 @@ export async function GET(
     );
   }
 
-  return pdfResponse(`classement-${slugify(tournament.name)}.pdf`, pdf);
+  const filenameSuffix = uptoRoundNumber !== undefined ? `-ronde-${uptoRoundNumber}` : "";
+  return pdfResponse(`classement${filenameSuffix}-${slugify(tournament.name)}.pdf`, pdf);
 }

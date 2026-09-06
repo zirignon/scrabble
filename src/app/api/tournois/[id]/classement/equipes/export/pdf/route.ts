@@ -14,7 +14,7 @@ import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } fro
 import { slugify } from "@/lib/slug";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -23,14 +23,22 @@ export async function GET(
     return new Response("Tournoi introuvable", { status: 404 });
   }
 
-  const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} par équipes — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}`;
+  // Instantané "classement après la ronde N" — voir le commentaire équivalent
+  // dans classement/export/pdf/route.ts (version individuelle).
+  const rondeParam = request.nextUrl.searchParams.get("ronde");
+  const uptoRoundNumber =
+    rondeParam && /^\d+$/.test(rondeParam) ? Number(rondeParam) : undefined;
+
+  const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} par équipes — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}${
+    uptoRoundNumber !== undefined ? ` — Instantané après la ronde ${uptoRoundNumber}` : ""
+  }`;
 
   let pdf: Buffer;
   if (tournament.type === "CLASSIC") {
     const teamColumns = ["Rang", "Équipe", "J", "V", "N", "D", "Pts", "Éch. G", "Éch. N", "Éch. P", "Diff"];
     const teamWeights = [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1];
     const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
-    const standings = await computeClassicTeamStandings(tournament.id);
+    const standings = await computeClassicTeamStandings(tournament.id, uptoRoundNumber);
     const generalSection: PdfSection = {
       heading: isPoolFormat ? "Classement général" : undefined,
       headers: teamColumns,
@@ -67,7 +75,7 @@ export async function GET(
         row.boardsLost,
         row.diff,
       ];
-      const pools = await computeClassicTeamPoolStandings(tournament.id);
+      const pools = await computeClassicTeamPoolStandings(tournament.id, uptoRoundNumber);
       const poolSections: PdfSection[] = pools.map((pool) => ({
         heading: `Poule ${pool.poolName}`,
         headers: teamColumns,
@@ -80,17 +88,26 @@ export async function GET(
         // fois la 1re ronde suisse générée, les classements par poule
         // n'ont plus lieu d'être affichés à côté du classement combiné, qui
         // les remplace entièrement.
-        const lastRound = await prisma.round.findFirst({
-          where: { tournamentId: tournament.id },
-          orderBy: { number: "desc" },
-        });
+        const lastRound =
+          uptoRoundNumber !== undefined
+            ? { number: uptoRoundNumber }
+            : await prisma.round.findFirst({
+                where: { tournamentId: tournament.id },
+                orderBy: { number: "desc" },
+              });
+        // À un instant donné (uptoRoundNumber), distinct de l'état actuel du
+        // tournoi — voir le commentaire équivalent côté individuel.
         const swissPhaseStarted =
           (await prisma.round.count({
-            where: { tournamentId: tournament.id, isSwissPhase: true },
+            where: {
+              tournamentId: tournament.id,
+              isSwissPhase: true,
+              ...(uptoRoundNumber !== undefined ? { number: { lte: uptoRoundNumber } } : {}),
+            },
           })) > 0;
 
         if (swissPhaseStarted) {
-          const swissPhaseStandings = await computeClassicTeamSwissPhaseStandings(tournament.id);
+          const swissPhaseStandings = await computeClassicTeamSwissPhaseStandings(tournament.id, uptoRoundNumber);
           pdf = await renderMultiTablePdf(
             `Classement par équipes — ${tournament.name}`,
             subtitle,
@@ -107,7 +124,7 @@ export async function GET(
           // Après la phase de poules, un classement général (fusion de
           // toutes les poules) s'ajoute à la suite — c'est ce même
           // classement qui amorce la phase suisse.
-          const generalStandings = await computeClassicTeamGeneralPoolStandings(tournament.id);
+          const generalStandings = await computeClassicTeamGeneralPoolStandings(tournament.id, uptoRoundNumber);
           const generalPoolSection: PdfSection[] =
             generalStandings.length > 0
               ? [
@@ -161,5 +178,6 @@ export async function GET(
     );
   }
 
-  return pdfResponse(`classement-equipes-${slugify(tournament.name)}.pdf`, pdf);
+  const filenameSuffix = uptoRoundNumber !== undefined ? `-ronde-${uptoRoundNumber}` : "";
+  return pdfResponse(`classement-equipes${filenameSuffix}-${slugify(tournament.name)}.pdf`, pdf);
 }
