@@ -245,7 +245,12 @@ async function maybeAdvanceRoundRobin(tournamentId: string, roundId: string) {
   // poules (poolId null), sans lien avec ce mécanisme.
   if (!round.matches.some((m) => m.poolId)) return;
 
-  const pools = await prisma.pool.findMany({ where: { tournamentId } });
+  // orderBy createdAt : sans lui, l'ordre de retour de Postgres n'est pas
+  // garanti et les matchs des rondes suivantes peuvent être créés dans un
+  // ordre différent de celui des poules (A, B, C...), ce qui désordonne
+  // ensuite leur affichage sur les pages rondes (regroupées dans l'ordre de
+  // première apparition des matchs, pas par nom de poule).
+  const pools = await prisma.pool.findMany({ where: { tournamentId }, orderBy: { createdAt: "asc" } });
   const poolsWithPending = pools.filter((p) => {
     const schedule = p.pendingRoundRobinSchedule as PendingSchedule | null;
     return schedule && schedule.length > 0;
@@ -679,6 +684,7 @@ async function generatePoolsRoundRobinActionImpl(tournamentId: string) {
 
   const pools = await prisma.pool.findMany({
     where: { tournamentId },
+    orderBy: { createdAt: "asc" },
     include: { members: true },
   });
   if (pools.length === 0) throw new Error("Créez au moins une poule avec des joueurs.");
@@ -776,6 +782,7 @@ async function generateTeamPoolsRoundRobinActionImpl(tournamentId: string) {
 
   const pools = await prisma.pool.findMany({
     where: { tournamentId },
+    orderBy: { createdAt: "asc" },
     include: { teams: { include: { members: { orderBy: { board: "asc" } } } } },
   });
   if (pools.length === 0) throw new Error("Créez au moins une poule avec des équipes.");

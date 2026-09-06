@@ -41,6 +41,7 @@ export async function computeClassicTeamGeneralPoolStandings(
 ): Promise<ClassicTeamStandingRow[]> {
   const pools = await prisma.pool.findMany({
     where: { tournamentId },
+    orderBy: { createdAt: "asc" },
     include: {
       teams: true,
       matches: { include: { round: { select: { number: true } } } },
