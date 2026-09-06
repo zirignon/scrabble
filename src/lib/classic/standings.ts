@@ -51,7 +51,13 @@ export function computeStandingsFromMatches(
     clubName?: string | null;
     federation?: string | null;
   }>,
-  matches: StandingsMatchLike[]
+  matches: StandingsMatchLike[],
+  // Instantané : reconstitue le classement tel qu'il était juste après cette
+  // ronde, même si des rondes plus récentes ont depuis été jouées — sert à
+  // l'export PDF "classement après la ronde N". Combiné (via Math.min) au
+  // garde-fou de ronde complète ci-dessous plutôt que de le remplacer : une
+  // ronde N incomplète au moment demandé reste exclue même d'un instantané.
+  uptoRoundNumber?: number
 ): ClassicStandingRow[] {
   const rows = new Map<string, ClassicStandingRow>();
   function ensure(playerId: string) {
@@ -141,7 +147,27 @@ export function computeStandingsFromMatches(
   }
   const roundNumbers = [...matchesByRound.keys()].sort((a, b) => a - b);
 
+  // Une ronde ne doit compter dans le classement qu'une fois entièrement
+  // décidée pour tout le monde. Sans ce garde-fou, un match d'exempt (créé
+  // directement avec status "PLAYED" dès la génération de la ronde) fait
+  // "sauter" ce joueur en avance dans le classement pendant que les vrais
+  // matchs de la même ronde sont encore "SCHEDULED" en attente de saisie.
+  let cutoffRound = Infinity;
   for (const roundNumber of roundNumbers) {
+    const hasPendingRealMatch = matchesByRound
+      .get(roundNumber)!
+      .some((m) => !m.isBye && m.status === "SCHEDULED");
+    if (hasPendingRealMatch) {
+      cutoffRound = roundNumber - 1;
+      break;
+    }
+  }
+  if (uptoRoundNumber !== undefined) {
+    cutoffRound = Math.min(cutoffRound, uptoRoundNumber);
+  }
+
+  for (const roundNumber of roundNumbers) {
+    if (roundNumber > cutoffRound) continue;
     const participantsThisRound = new Set<string>();
 
     for (const match of matchesByRound.get(roundNumber)!) {
@@ -151,6 +177,13 @@ export function computeStandingsFromMatches(
           row.played += 1;
           row.wins += 1;
           row.matchPoints += 3;
+          // Score conventionnel de l'exempt (50-0, voir BYE_HOME_SCORE dans
+          // classic.ts) : compte dans la différence de points comme un vrai
+          // résultat, pour ne pas geler l'exempté sur ce critère de
+          // départage pendant que les autres joueurs de la ronde avancent.
+          row.pointsFor += match.homeScore ?? 0;
+          row.pointsAgainst += match.awayScore ?? 0;
+          row.diff += (match.homeScore ?? 0) - (match.awayScore ?? 0);
           participantsThisRound.add(match.homePlayerId);
         }
         continue;
@@ -238,18 +271,9 @@ export function computeStandingsFromMatches(
     headToHead.set(`${m.playerId}:${m.opponentId}`, m.outcome);
   }
 
-  // Ordre de départage (du plus déterminant au moins déterminant) : points
-  // de match, différence de points, Sonneborn-Berger, Buchholz, Buchholz
-  // médian, score cumulé — puis, en tout dernier recours, le total de
-  // points marqués et la confrontation directe.
   return [...rows.values()].sort((a, b) => {
-    if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
-    if (b.diff !== a.diff) return b.diff - a.diff;
-    if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
-    if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
-    if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
-    if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
-    if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+    const cmp = compareStandingRows(a, b);
+    if (cmp !== 0) return cmp;
     const outcome = headToHead.get(`${a.playerId}:${b.playerId}`);
     if (outcome === "WIN") return -1;
     if (outcome === "LOSS") return 1;
@@ -257,8 +281,27 @@ export function computeStandingsFromMatches(
   });
 }
 
+// Ordre de départage (du plus déterminant au moins déterminant) : points de
+// match, différence de points, Sonneborn-Berger, Buchholz, Buchholz médian,
+// score cumulé, puis en tout dernier recours le total de points marqués.
+// Extrait de computeStandingsFromMatches pour être réutilisé par
+// computeClassicSwissPhaseStandings, qui recompose un classement par simple
+// addition de deux phases (poules + suisse) sans historique de rencontres
+// directes disponible entre les deux — la confrontation directe (dernier
+// critère ci-dessus) ne peut donc pas s'y appliquer.
+export function compareStandingRows(a: ClassicStandingRow, b: ClassicStandingRow): number {
+  if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+  if (b.diff !== a.diff) return b.diff - a.diff;
+  if (b.sonnebornBerger !== a.sonnebornBerger) return b.sonnebornBerger - a.sonnebornBerger;
+  if (b.buchholz !== a.buchholz) return b.buchholz - a.buchholz;
+  if (b.buchholzMedian !== a.buchholzMedian) return b.buchholzMedian - a.buchholzMedian;
+  if (b.cumulativeScore !== a.cumulativeScore) return b.cumulativeScore - a.cumulativeScore;
+  return b.pointsFor - a.pointsFor;
+}
+
 export async function computeClassicStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
   const [registrations, matches] = await Promise.all([
     prisma.registration.findMany({
@@ -281,37 +324,63 @@ export async function computeClassicStandings(
       clubName: r.player.club?.name ?? null,
       federation: r.player.federation ?? r.player.club?.federation ?? null,
     })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
 }
 
 // Classement de la phase suisse d'un tournoi COMBINED (poules puis suisse) :
-// ne doit tenir compte ni des joueurs non qualifiés ni des matchs de poules,
-// exactement comme computeClassicPoolStandings restreint le classement à une
-// poule. Les qualifiés et leurs matchs sont retrouvés directement à partir
-// des rondes marquées isSwissPhase plutôt que recalculés depuis les poules,
-// pour rester la source de vérité unique une fois la phase suisse commencée.
+// poursuit le classement général de poules (voir
+// computeClassicGeneralPoolStandings) plutôt que de repartir d'un
+// mini-tournoi isolé à 0 partout pour les qualifiés — les statistiques
+// (J/V/N/D/Pts/Diff/départages) accumulées en poules s'ajoutent à celles de
+// la phase suisse, en continuité du même classement général. Les qualifiés
+// et leurs matchs suisses sont retrouvés directement à partir des rondes
+// marquées isSwissPhase ; la confrontation directe (dernier critère de
+// computeStandingsFromMatches) ne s'applique pas ici, l'addition de deux
+// phases ne conservant pas un historique de rencontres unique — voir
+// compareStandingRows.
 export async function computeClassicSwissPhaseStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
-  const matches = await prisma.match.findMany({
+  const allMatches = await prisma.match.findMany({
     where: { round: { tournamentId, isSwissPhase: true } },
     include: { round: true },
   });
+  // Instantané : voir le commentaire équivalent sur computeStandingsFromMatches.
+  // Filtré ici (plutôt que de ne passer uptoRoundNumber qu'au calcul) pour que
+  // playerIds ci-dessous ne retienne pas des qualifiés dont la 1re ronde
+  // suisse n'existait pas encore à cet instant.
+  const matches =
+    uptoRoundNumber !== undefined
+      ? allMatches.filter((m) => m.round.number <= uptoRoundNumber)
+      : allMatches;
 
   const playerIds = new Set<string>();
   for (const m of matches) {
     if (m.homePlayerId) playerIds.add(m.homePlayerId);
     if (m.awayPlayerId) playerIds.add(m.awayPlayerId);
   }
-  if (playerIds.size === 0) return [];
+
+  const { computeClassicGeneralPoolStandings } = await import("@/lib/classic/poolStandings");
+
+  if (playerIds.size === 0) {
+    // Avant que la 1re ronde suisse ne soit générée, il n'y a encore aucun
+    // match à partir duquel calculer quoi que ce soit : on affiche déjà le
+    // classement général de poules (tous les participants, pas seulement
+    // les qualifiés — la qualification ne filtre qui entre effectivement en
+    // phase suisse qu'au moment de generateSwissPhaseRoundActionImpl)
+    // plutôt qu'un classement vide.
+    return computeClassicGeneralPoolStandings(tournamentId, uptoRoundNumber);
+  }
 
   const players = await prisma.player.findMany({
     where: { id: { in: [...playerIds] } },
     include: { club: true },
   });
 
-  return computeStandingsFromMatches(
+  const swissStandings = computeStandingsFromMatches(
     players.map((p) => ({
       playerId: p.id,
       firstName: p.firstName,
@@ -321,6 +390,39 @@ export async function computeClassicSwissPhaseStandings(
       clubName: p.club?.name ?? null,
       federation: p.federation ?? p.club?.federation ?? null,
     })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number }))
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
+
+  // Les rondes de poules sont toutes antérieures à la 1re ronde suisse
+  // (numérotation globale continue) : uptoRoundNumber ne les limite donc
+  // jamais en pratique tant qu'au moins une ronde suisse est incluse
+  // ci-dessus, mais on le transmet quand même pour rester correct si cette
+  // hypothèse changeait un jour.
+  const generalPoolStandings = await computeClassicGeneralPoolStandings(tournamentId, uptoRoundNumber);
+  const poolByPlayerId = new Map(generalPoolStandings.map((s) => [s.playerId, s]));
+
+  return swissStandings
+    .map((row): ClassicStandingRow => {
+      const poolRow = poolByPlayerId.get(row.playerId);
+      if (!poolRow) return row;
+      return {
+        ...row,
+        played: poolRow.played + row.played,
+        wins: poolRow.wins + row.wins,
+        draws: poolRow.draws + row.draws,
+        losses: poolRow.losses + row.losses,
+        forfeits: poolRow.forfeits + row.forfeits,
+        matchPoints: poolRow.matchPoints + row.matchPoints,
+        pointsFor: poolRow.pointsFor + row.pointsFor,
+        pointsAgainst: poolRow.pointsAgainst + row.pointsAgainst,
+        diff: poolRow.diff + row.diff,
+        buchholz: poolRow.buchholz + row.buchholz,
+        buchholzTruncated: poolRow.buchholzTruncated + row.buchholzTruncated,
+        buchholzMedian: poolRow.buchholzMedian + row.buchholzMedian,
+        sonnebornBerger: poolRow.sonnebornBerger + row.sonnebornBerger,
+        cumulativeScore: poolRow.cumulativeScore + row.cumulativeScore,
+      };
+    })
+    .sort(compareStandingRows);
 }

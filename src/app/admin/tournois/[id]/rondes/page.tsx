@@ -22,14 +22,14 @@ import {
   generateTeamRoundRobinAction,
   generateTeamSwissPhaseRoundAction,
   recordMatchResultAction,
-  updateAllowRematchesFromRoundAction,
-  updateFinalPhaseSettingsAction,
-  updateSwissRoundsSettingsAction,
-  updateSwissSeedingAction,
-  updateThirdPlaceSettingsAction,
 } from "@/lib/actions/classic";
 import { countKnockoutEntrants, getKnockoutStageLabel, getTeamEncounterResult } from "@/lib/classic/knockout";
 import { RoundActionButton } from "@/components/admin/RoundActionButton";
+import {
+  AutoSubmitScoreInput,
+  AutoSubmitStatusSelect,
+  SavingIndicator,
+} from "@/components/admin/AutoSaveMatchScore";
 import type { Match, Player, Pool, Team } from "@prisma/client";
 
 const statusLabel: Record<string, string> = {
@@ -49,6 +49,39 @@ type MatchWithRelations = Match & {
   pool: Pool | null;
 };
 
+// Export PDF ciblé sur une seule ronde (ou tout un tour aller/retour/belle
+// via le numéro de sa manche aller — voir ?ronde= dans
+// rondes/export/pdf/route.ts, qui regroupe alors automatiquement les
+// manches associées) et instantané du classement "tel qu'il était juste
+// après cette ronde" (?ronde= sur classement/export/pdf, même principe côté
+// individuel et équipes) — plutôt que les exports globaux déjà proposés
+// plus haut sur la page.
+function RoundExportLinks({
+  tournamentId,
+  roundNumber,
+  isTeamEvent,
+}: {
+  tournamentId: string;
+  roundNumber: number;
+  isTeamEvent: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <a
+        href={`/api/tournois/${tournamentId}/rondes/export/pdf?ronde=${roundNumber}`}
+        className="text-navy dark:text-navy-light underline underline-offset-2"
+      >
+        Exporter cette ronde →
+      </a>
+      <a
+        href={`/api/tournois/${tournamentId}/classement/${isTeamEvent ? "equipes/" : ""}export/pdf?ronde=${roundNumber}`}
+        className="text-navy dark:text-navy-light underline underline-offset-2"
+      >
+        Exporter le classement après cette ronde →
+      </a>
+    </div>
+  );
+}
 
 function MatchRow({
   match,
@@ -60,11 +93,13 @@ function MatchRow({
   tournamentId: string;
 }) {
   // Le formulaire de saisie du score n'entoure que les deux champs de score
-  // (colonne "Score", entre Domicile et Extérieur) ; le statut et le bouton
-  // OK vivent dans une cellule séparée, plus loin, mais y sont rattachés via
-  // l'attribut form= plutôt que par imbrication DOM — ce qui permet de
-  // placer le nom de l'adversaire (Extérieur) avant eux dans l'ordre des
-  // colonnes tout en gardant une seule soumission.
+  // (colonne "Score", entre Domicile et Extérieur) ; le statut vit dans une
+  // cellule séparée, plus loin, mais y est rattaché via l'attribut form=
+  // plutôt que par imbrication DOM — ce qui permet de placer le nom de
+  // l'adversaire (Extérieur) avant lui dans l'ordre des colonnes tout en
+  // gardant une seule soumission. Le score s'enregistre automatiquement dès
+  // qu'un champ perd le focus ou que le statut change (voir
+  // AutoSaveMatchScore) : plus besoin d'un clic sur "OK".
   const formId = `match-form-${match.id}`;
   // Par équipes, homeStarts alterne d'un échiquier à l'autre au sein d'une
   // même confrontation (voir createTeamEncounterMatches) pour équilibrer
@@ -73,35 +108,37 @@ function MatchRow({
   // ces derniers restent inchangés pour ne pas casser le calcul du
   // classement par équipes, qui en dépend.
   const homeScoreInput = (
-    <input
-      type="number"
+    <AutoSubmitScoreInput
       name="homeScore"
       defaultValue={match.homeScore ?? ""}
       className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
     />
   );
   const awayScoreInput = (
-    <input
-      type="number"
+    <AutoSubmitScoreInput
       name="awayScore"
       defaultValue={match.awayScore ?? ""}
       className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1.5 py-1 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
     />
   );
+  // Un exempt est un vrai appariement contre X (voir BYE_HOME_SCORE dans
+  // classic.ts) : on affiche "X" plutôt qu'un tiret pour le côté sans
+  // adversaire réel.
+  const opponentPlaceholder = match.isBye ? "X" : "—";
   const leftName = match.homeStarts
     ? match.homePlayer
       ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-      : "—"
+      : opponentPlaceholder
     : match.awayPlayer
       ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-      : "—";
+      : opponentPlaceholder;
   const rightName = match.homeStarts
     ? match.awayPlayer
       ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-      : "—"
+      : opponentPlaceholder
     : match.homePlayer
       ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-      : "—";
+      : opponentPlaceholder;
   const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
   const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
   return (
@@ -110,7 +147,9 @@ function MatchRow({
         <td className="py-2 pr-4 truncate">{leftName}</td>
         <td className="py-2 pr-4 text-center">
           {match.isBye ? (
-            <span className="text-black/50 dark:text-white/50">—</span>
+            <span className="text-black/50 dark:text-white/50">
+              {leftScore ?? "-"} - {rightScore ?? "-"}
+            </span>
           ) : canManage ? (
             <form
               id={formId}
@@ -120,6 +159,7 @@ function MatchRow({
               {match.homeStarts ? homeScoreInput : awayScoreInput}
               <span>-</span>
               {match.homeStarts ? awayScoreInput : homeScoreInput}
+              <SavingIndicator />
             </form>
           ) : (
             <span>
@@ -133,9 +173,8 @@ function MatchRow({
             <span className="text-black/50 dark:text-white/50">Exempt (bye)</span>
           ) : canManage ? (
             <div className="flex flex-wrap items-center gap-1">
-              <select
-                form={formId}
-                name="status"
+              <AutoSubmitStatusSelect
+                formId={formId}
                 defaultValue={match.status}
                 className="rounded border border-black/10 dark:border-white/20 px-1 py-1 bg-transparent text-xs"
               >
@@ -144,14 +183,7 @@ function MatchRow({
                     {label}
                   </option>
                 ))}
-              </select>
-              <button
-                form={formId}
-                type="submit"
-                className="rounded bg-emerald-700 text-white px-2 py-1 text-xs"
-              >
-                OK
-              </button>
+              </AutoSubmitStatusSelect>
             </div>
           ) : (
             <span>{statusLabel[match.status]}</span>
@@ -206,6 +238,245 @@ function MatchTable({
   );
 }
 
+type RoundWithRelations = {
+  id: string;
+  number: number;
+  isFinalPhase: boolean;
+  isSwissPhase: boolean;
+  knockoutLeg: number | null;
+  knockoutStage: number | null;
+  matches: MatchWithRelations[];
+};
+
+interface KnockoutConfrontation {
+  table: number | null;
+  isBye: boolean;
+  homePlayer: Player | null;
+  awayPlayer: Player | null;
+  // Score de l'exempt contre X (voir BYE_HOME_SCORE dans classic.ts) —
+  // uniquement renseigné quand isBye est vrai.
+  byeScore?: { home: number | null; away: number | null };
+  // Un élément par manche existante pour ce tour (voir legLabels) : aller,
+  // retour, belle — null quand cette confrontation précise n'a pas (ou plus
+  // besoin d')une manche donnée (ex. tranchée 2-0, pas de belle générée).
+  legs: (MatchWithRelations | null)[];
+}
+
+// Regroupe les rondes d'un même tour joué en 2 manches + belle (voir
+// Tournament.knockoutTwoLegs) en une confrontation par paire de joueurs,
+// pour un affichage compact façon feuille de match (une ligne par
+// confrontation, une colonne par manche) plutôt que 2-3 tableaux distincts
+// empilés. N'est appelé que lorsque au moins 2 manches existent déjà pour
+// le tour (voir buildKnockoutRenderUnits) : avec une seule manche générée,
+// rien à regrouper, le rendu classique à ronde unique suffit.
+function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+} {
+  const leg1 = legRounds.find((r) => r.knockoutLeg === 1);
+  const leg2 = legRounds.find((r) => r.knockoutLeg === 2);
+  const belle = legRounds.find((r) => r.knockoutLeg === 3);
+  if (!leg1) return { confrontations: [], legLabels: [] };
+
+  const legLabels = belle ? ["Aller", "Retour", "Belle"] : leg2 ? ["Aller", "Retour"] : ["Aller"];
+  const confrontations = leg1.matches
+    .filter((m) => !m.isThirdPlace)
+    .map((m1): KnockoutConfrontation => {
+      if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
+        return {
+          table: m1.table,
+          isBye: true,
+          homePlayer: m1.homePlayer,
+          awayPlayer: m1.awayPlayer,
+          byeScore: { home: m1.homeScore, away: m1.awayScore },
+          legs: [],
+        };
+      }
+      const m2 =
+        leg2?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      const mb =
+        belle?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      return {
+        table: m1.table,
+        isBye: false,
+        homePlayer: m1.homePlayer,
+        awayPlayer: m1.awayPlayer,
+        legs: [m1, m2, mb].slice(0, legLabels.length),
+      };
+    });
+  return { confrontations, legLabels };
+}
+
+type RenderUnit =
+  | { kind: "single"; round: RoundWithRelations }
+  | { kind: "stage"; knockoutStage: number; legRounds: RoundWithRelations[] };
+
+// Regroupe les rondes aller/retour/belle d'un même tour (même knockoutStage)
+// en une seule unité "stage" à condition qu'au moins 2 manches existent déjà
+// (sinon rien à regrouper — voir buildKnockoutConfrontations) ; toute autre
+// ronde (poules, phase suisse, tableau à élimination directe classique en un
+// seul match) reste une unité "single" inchangée.
+function buildKnockoutRenderUnits(rounds: RoundWithRelations[]): RenderUnit[] {
+  const units: RenderUnit[] = [];
+  const seenStages = new Set<number>();
+  for (const round of rounds) {
+    if (round.knockoutStage !== null) {
+      if (seenStages.has(round.knockoutStage)) continue;
+      seenStages.add(round.knockoutStage);
+      const legRounds = rounds.filter((r) => r.knockoutStage === round.knockoutStage);
+      if (legRounds.length >= 2) {
+        units.push({ kind: "stage", knockoutStage: round.knockoutStage, legRounds });
+        continue;
+      }
+      units.push({ kind: "single", round });
+      continue;
+    }
+    units.push({ kind: "single", round });
+  }
+  return units;
+}
+
+// Cellule de score d'une manche donnée pour une confrontation du tableau à
+// élimination directe en 2 manches + belle — un tiret tant que cette manche
+// n'existe pas encore pour cette confrontation précise (ex. tranchée 2-0,
+// pas de belle nécessaire).
+function LegScoreCell({
+  match,
+  canManage,
+  tournamentId,
+}: {
+  match: MatchWithRelations | null;
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  if (!match) {
+    return (
+      <td className="py-2 px-2 text-center text-black/30 dark:text-white/30">—</td>
+    );
+  }
+  if (!canManage) {
+    return (
+      <td className="py-2 px-2 text-center whitespace-nowrap">
+        {match.homeScore ?? "-"} - {match.awayScore ?? "-"}
+      </td>
+    );
+  }
+  const formId = `leg-form-${match.id}`;
+  return (
+    <td className="py-2 px-2">
+      <form
+        id={formId}
+        action={recordMatchResultAction.bind(null, tournamentId, match.id)}
+        className="flex flex-col items-center gap-1"
+      >
+        <div className="flex items-center gap-1">
+          <AutoSubmitScoreInput
+            name="homeScore"
+            defaultValue={match.homeScore ?? ""}
+            className="w-12 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-xs focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+          />
+          <span>-</span>
+          <AutoSubmitScoreInput
+            name="awayScore"
+            defaultValue={match.awayScore ?? ""}
+            className="w-12 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-xs focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
+          />
+          <SavingIndicator />
+        </div>
+        <div className="flex items-center gap-1">
+          <AutoSubmitStatusSelect
+            formId={formId}
+            defaultValue={match.status}
+            className="rounded border border-black/10 dark:border-white/20 px-1 py-0.5 bg-transparent text-[10px]"
+          >
+            {Object.entries(statusLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </AutoSubmitStatusSelect>
+        </div>
+      </form>
+    </td>
+  );
+}
+
+function KnockoutConfrontationsTable({
+  confrontations,
+  legLabels,
+  canManage,
+  tournamentId,
+}: {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+  canManage: boolean;
+  tournamentId: string;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="text-left border-b border-black/10 dark:border-white/10">
+            <th className="py-2 pr-4">Table</th>
+            <th className="py-2 pr-4">Domicile</th>
+            {legLabels.map((label) => (
+              <th key={label} className="py-2 px-2 text-center whitespace-nowrap">
+                {label}
+              </th>
+            ))}
+            <th className="py-2 pl-3">Extérieur</th>
+          </tr>
+        </thead>
+        <tbody>
+          {confrontations.map((c, i) => {
+            const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "—";
+            const awayName = c.awayPlayer
+              ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}`
+              : c.isBye
+                ? "X"
+                : "—";
+            return (
+              <tr key={i} className="border-b border-black/5 dark:border-white/5">
+                <td className="py-2 pr-4">{c.table ?? "—"}</td>
+                <td className="py-2 pr-4 truncate">{homeName}</td>
+                {c.isBye ? (
+                  <td
+                    colSpan={legLabels.length}
+                    className="py-2 px-2 text-center text-black/50 dark:text-white/50"
+                  >
+                    {c.byeScore?.home ?? "-"} - {c.byeScore?.away ?? "-"} (exempt)
+                  </td>
+                ) : (
+                  legLabels.map((label, i2) => (
+                    <LegScoreCell
+                      key={label}
+                      match={c.legs[i2] ?? null}
+                      canManage={canManage}
+                      tournamentId={tournamentId}
+                    />
+                  ))
+                )}
+                <td className="py-2 pl-3 truncate">{awayName}</td>
+              </tr>
+            );
+          })}
+          {confrontations.length === 0 && (
+            <tr>
+              <td colSpan={3 + legLabels.length} className="py-3 text-black/50 dark:text-white/50">
+                Aucune confrontation dans ce tour.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Affiche le vainqueur d'une confrontation d'équipes (à la majorité
 // d'échiquiers gagnés) dès que tous ses échiquiers sont décidés, sans
 // attendre que l'arbitre le calcule à la main.
@@ -237,303 +508,6 @@ function EncounterWinnerLabel({
     <span className="text-xs font-semibold text-moss dark:text-moss-light">
       Vainqueur : {winnerName} ({score})
     </span>
-  );
-}
-
-function FinalPhaseSettingsForm({
-  tournamentId,
-  finalPhaseEnabled,
-  finalPhaseQualifiers,
-  canManage,
-}: {
-  tournamentId: string;
-  finalPhaseEnabled: boolean;
-  finalPhaseQualifiers: number;
-  canManage: boolean;
-}) {
-  return (
-    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-      <p className="text-sm font-medium">Phase finale (optionnelle)</p>
-      {canManage ? (
-        <form
-          action={updateFinalPhaseSettingsAction.bind(null, tournamentId)}
-          className="flex items-end gap-3"
-        >
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="finalPhaseEnabled"
-              defaultChecked={finalPhaseEnabled}
-              className="rounded border-black/20 dark:border-white/30"
-            />
-            Élimination directe après la phase principale
-          </label>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="finalPhaseQualifiers" className="text-xs font-medium">
-              Nombre de qualifiés
-            </label>
-            <input
-              id="finalPhaseQualifiers"
-              name="finalPhaseQualifiers"
-              type="number"
-              min={2}
-              defaultValue={finalPhaseQualifiers}
-              className="w-24 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Mettre à jour
-          </button>
-        </form>
-      ) : (
-        <p className="text-sm text-black/60 dark:text-white/60">
-          {finalPhaseEnabled
-            ? `Phase finale activée, ${finalPhaseQualifiers} qualifié(s).`
-            : "Pas de phase finale pour ce tournoi."}
-        </p>
-      )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Une fois activée, la phase finale (élimination directe entre les N
-        premiers du classement général) se génère depuis les boutons
-        ci-dessous, une fois la phase principale terminée.
-      </p>
-    </div>
-  );
-}
-
-function SwissRoundsSettingsForm({
-  tournamentId,
-  swissRoundsCount,
-  roundsPlayed,
-  canManage,
-}: {
-  tournamentId: string;
-  swissRoundsCount: number | null;
-  roundsPlayed: number;
-  canManage: boolean;
-}) {
-  return (
-    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-      <p className="text-sm font-medium">Nombre de rondes (suisse)</p>
-      {canManage ? (
-        <form
-          action={updateSwissRoundsSettingsAction.bind(null, tournamentId)}
-          className="flex items-end gap-3"
-        >
-          <div className="flex flex-col gap-1">
-            <label htmlFor="swissRoundsCount" className="text-xs font-medium">
-              Rondes prévues avant la phase finale
-            </label>
-            <input
-              id="swissRoundsCount"
-              name="swissRoundsCount"
-              type="number"
-              min={1}
-              defaultValue={swissRoundsCount ?? ""}
-              placeholder="Illimité"
-              className="w-28 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Mettre à jour
-          </button>
-          <span className="rounded-md border-2 border-navy/30 dark:border-navy-light/40 bg-navy/10 dark:bg-navy-light/10 px-3 py-2 text-sm font-semibold text-navy dark:text-navy-light">
-            {swissRoundsCount
-              ? `Ronde ${roundsPlayed} / ${swissRoundsCount}`
-              : `${roundsPlayed} ronde(s) générée(s)`}
-          </span>
-        </form>
-      ) : (
-        <p className="text-sm text-black/60 dark:text-white/60">
-          {swissRoundsCount
-            ? `${roundsPlayed} / ${swissRoundsCount} ronde(s) générée(s).`
-            : `${roundsPlayed} ronde(s) générée(s), sans limite prédéfinie.`}
-        </p>
-      )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Laissez vide pour générer les rondes une par une sans limite, comme
-        avant. Une fois le nombre indiqué atteint, générez la phase finale
-        (si activée) — vous pouvez toujours ajouter une ronde manuelle en
-        plus si besoin.
-      </p>
-    </div>
-  );
-}
-
-function RematchSettingsForm({
-  tournamentId,
-  allowRematchesFromRound,
-  canManage,
-}: {
-  tournamentId: string;
-  allowRematchesFromRound: number | null;
-  canManage: boolean;
-}) {
-  return (
-    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-      <p className="text-sm font-medium">Revanches (suisse)</p>
-      {canManage ? (
-        <form
-          action={updateAllowRematchesFromRoundAction.bind(null, tournamentId)}
-          className="flex items-end gap-3"
-        >
-          <div className="flex flex-col gap-1">
-            <label htmlFor="allowRematchesFromRound" className="text-xs font-medium">
-              Autoriser les revanches à partir de la ronde
-            </label>
-            <input
-              id="allowRematchesFromRound"
-              name="allowRematchesFromRound"
-              type="number"
-              min={1}
-              defaultValue={allowRematchesFromRound ?? ""}
-              placeholder="Jamais"
-              className="w-28 rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Mettre à jour
-          </button>
-        </form>
-      ) : (
-        <p className="text-sm text-black/60 dark:text-white/60">
-          {allowRematchesFromRound
-            ? `Revanches autorisées à partir de la ronde ${allowRematchesFromRound}.`
-            : "Aucune revanche volontaire."}
-        </p>
-      )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Laissez vide pour ne jamais autoriser volontairement une revanche
-        (deux joueurs déjà opposés) — le système peut malgré tout en imposer
-        une en dernier recours si aucun adversaire inédit n&apos;est
-        disponible. Utile en fin de tournoi, quand le vivier d&apos;adversaires
-        inédits se resserre. Pour un tournoi Combiné, la ronde se compte au
-        sein de la phase suisse elle-même.
-      </p>
-    </div>
-  );
-}
-
-const swissSeedingLabel: Record<string, string> = {
-  RANDOM: "Tirage au sort",
-  RATING: "Classement (Elo classique)",
-};
-
-function SwissSeedingSettingsForm({
-  tournamentId,
-  swissSeeding,
-  roundsPlayed,
-  canManage,
-}: {
-  tournamentId: string;
-  swissSeeding: string;
-  roundsPlayed: number;
-  canManage: boolean;
-}) {
-  const roundOneGenerated = roundsPlayed > 0;
-  return (
-    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-      <p className="text-sm font-medium">Appariement de la ronde 1</p>
-      {canManage && !roundOneGenerated ? (
-        <form
-          action={updateSwissSeedingAction.bind(null, tournamentId)}
-          className="flex items-end gap-3"
-        >
-          <div className="flex flex-col gap-1">
-            <label htmlFor="swissSeeding" className="text-xs font-medium">
-              Méthode
-            </label>
-            <select
-              id="swissSeeding"
-              name="swissSeeding"
-              defaultValue={swissSeeding}
-              className="rounded-md border-2 border-gold/40 dark:border-gold-light/40 px-3 py-2 bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
-            >
-              {Object.entries(swissSeedingLabel).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Mettre à jour
-          </button>
-        </form>
-      ) : (
-        <p className="text-sm text-black/60 dark:text-white/60">
-          {swissSeedingLabel[swissSeeding]}
-          {roundOneGenerated && " — ronde 1 déjà générée, réglage figé."}
-        </p>
-      )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Avant la ronde 1, le classement (0 point partout) ne permet pas
-        encore de départager les joueurs pour l&apos;appariement : tirage au
-        sort équitable, ou classement par Elo classique décroissant (les
-        joueurs sans Elo renseigné sont classés derniers). Sans effet à
-        partir de la ronde 2.
-      </p>
-    </div>
-  );
-}
-
-function ThirdPlaceSettingsForm({
-  tournamentId,
-  thirdPlaceMatchEnabled,
-  canManage,
-}: {
-  tournamentId: string;
-  thirdPlaceMatchEnabled: boolean;
-  canManage: boolean;
-}) {
-  return (
-    <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-      <p className="text-sm font-medium">Match pour la 3ᵉ place (optionnel)</p>
-      {canManage ? (
-        <form
-          action={updateThirdPlaceSettingsAction.bind(null, tournamentId)}
-          className="flex items-end gap-3"
-        >
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="thirdPlaceMatchEnabled"
-              defaultChecked={thirdPlaceMatchEnabled}
-              className="rounded border-black/20 dark:border-white/30"
-            />
-            Opposer les deux perdants de demi-finale
-          </label>
-          <button
-            type="submit"
-            className="rounded-md bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Mettre à jour
-          </button>
-        </form>
-      ) : (
-        <p className="text-sm text-black/60 dark:text-white/60">
-          {thirdPlaceMatchEnabled
-            ? "Match pour la 3e place activé."
-            : "Pas de match pour la 3e place pour ce tournoi."}
-        </p>
-      )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Se génère automatiquement, dans la même ronde que la finale, dès que
-        les demi-finales sont terminées.
-      </p>
-    </div>
   );
 }
 
@@ -630,20 +604,22 @@ export default async function RoundsPage({
   const swissPhaseRoundLimitReached =
     tournament.swissRoundsCount !== null && swissPhaseRounds.length >= tournament.swissRoundsCount;
   const knockoutAfterSwissExists = tournament.rounds.some((r) => r.isFinalPhase && !r.isSwissPhase);
-  // Numéro de ronde relatif à la phase suisse (1, 2, 3...), affiché à la
-  // place du numéro de ronde global du tournoi (qui inclut les rondes de
-  // poules précédentes et serait donc trompeur, ex. "Ronde 6" pour la 1re
-  // ronde suisse après 5 rondes de poules).
-  const swissPhaseRoundNumberById = new Map<string, number>();
-  {
-    let n = 0;
-    for (const r of tournament.rounds) {
-      if (r.isSwissPhase) {
-        n += 1;
-        swissPhaseRoundNumberById.set(r.id, n);
-      }
-    }
-  }
+  // Format 2 manches + belle (voir Tournament.knockoutTwoLegs) : après une
+  // manche aller (knockoutLeg 1) avec au moins une vraie confrontation (pas
+  // seulement des exempts), "générer le tour suivant" génère en réalité la
+  // manche retour — le bouton l'annonce plutôt que de laisser croire qu'il
+  // avance déjà au tour suivant du tableau.
+  const lastRound = tournament.rounds.length > 0 ? tournament.rounds[tournament.rounds.length - 1] : null;
+  const nextKnockoutRoundLabel =
+    tournament.knockoutTwoLegs &&
+    lastRound?.knockoutLeg === 1 &&
+    lastRound.matches.some((m) => !m.isBye)
+      ? "Générer la manche retour"
+      : "Générer le tour suivant";
+  // Regroupe les rondes aller/retour/belle d'un même tour dès qu'au moins 2
+  // manches existent (voir buildKnockoutRenderUnits), pour l'affichage
+  // compact façon feuille de match ci-dessous.
+  const renderUnits = buildKnockoutRenderUnits(tournament.rounds);
 
   return (
     <div className="flex flex-col gap-8">
@@ -690,51 +666,14 @@ export default async function RoundsPage({
               Exporter les rondes en PDF
             </a>
           )}
+          <Link
+            href={`/admin/tournois/${tournament.id}/reglages`}
+            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+          >
+            Réglages →
+          </Link>
         </div>
       </div>
-
-      {(tournament.format === "SWISS" || tournament.format === "COMBINED") && (
-        <SwissSeedingSettingsForm
-          tournamentId={tournament.id}
-          swissSeeding={tournament.swissSeeding}
-          roundsPlayed={tournament.format === "COMBINED" ? swissPhaseRounds.length : mainPhaseRounds.length}
-          canManage={canManage}
-        />
-      )}
-
-      {(tournament.format === "SWISS" || tournament.format === "COMBINED") && (
-        <SwissRoundsSettingsForm
-          tournamentId={tournament.id}
-          swissRoundsCount={tournament.swissRoundsCount}
-          roundsPlayed={tournament.format === "COMBINED" ? swissPhaseRounds.length : mainPhaseRounds.length}
-          canManage={canManage}
-        />
-      )}
-
-      {(tournament.format === "SWISS" || tournament.format === "COMBINED") && (
-        <RematchSettingsForm
-          tournamentId={tournament.id}
-          allowRematchesFromRound={tournament.allowRematchesFromRound}
-          canManage={canManage}
-        />
-      )}
-
-      {(tournament.format === "ROUND_ROBIN" ||
-        tournament.format === "SWISS" ||
-        tournament.format === "COMBINED") && (
-        <FinalPhaseSettingsForm
-          tournamentId={tournament.id}
-          finalPhaseEnabled={tournament.finalPhaseEnabled}
-          finalPhaseQualifiers={tournament.finalPhaseQualifiers}
-          canManage={canManage}
-        />
-      )}
-
-      <ThirdPlaceSettingsForm
-        tournamentId={tournament.id}
-        thirdPlaceMatchEnabled={tournament.thirdPlaceMatchEnabled}
-        canManage={canManage}
-      />
 
       {canManage && (
         <div className="flex flex-wrap gap-3 items-start">
@@ -905,7 +844,7 @@ export default async function RoundsPage({
               (tournament.format === "COMBINED" && knockoutAfterSwissExists)) && (
               <RoundActionButton
                 action={generateNextKnockoutBound}
-                label="Générer le tour suivant"
+                label={nextKnockoutRoundLabel}
                 className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
               />
             )}
@@ -938,7 +877,56 @@ export default async function RoundsPage({
         </div>
       )}
 
-      {tournament.rounds.map((round) => {
+      {renderUnits.map((unit) => {
+        if (unit.kind === "stage") {
+          // Tour joué en 2 manches + belle (voir Tournament.knockoutTwoLegs,
+          // individuel uniquement — les rondes par équipes n'ont jamais de
+          // knockoutStage) : une confrontation par ligne, une colonne par
+          // manche, plutôt que 2-3 tableaux distincts empilés.
+          const leg1 = unit.legRounds.find((r) => r.knockoutLeg === 1)!;
+          const { confrontations, legLabels } = buildKnockoutConfrontations(unit.legRounds);
+          const thirdPlaceMatches = unit.legRounds.flatMap((r) =>
+            r.matches.filter((m) => m.isThirdPlace)
+          );
+          return (
+            <section
+              key={unit.knockoutStage}
+              id={`ronde-${leg1.number}`}
+              className="flex flex-col gap-3 scroll-mt-20"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${leg1.number}`} className="hover:underline">
+                    {getKnockoutStageLabel(
+                      countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+                    )}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={leg1.number} isTeamEvent={false} />
+              </div>
+              <KnockoutConfrontationsTable
+                confrontations={confrontations}
+                legLabels={legLabels}
+                canManage={canManage}
+                tournamentId={tournament.id}
+              />
+              {thirdPlaceMatches.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                    Match pour la 3ᵉ place
+                  </h3>
+                  <MatchTable
+                    matches={thirdPlaceMatches}
+                    canManage={canManage}
+                    tournamentId={tournament.id}
+                  />
+                </div>
+              )}
+            </section>
+          );
+        }
+
+        const round = unit.round;
         const roundHasPoolMatches = round.matches.some((m) => m.poolId);
 
         if (
@@ -960,8 +948,15 @@ export default async function RoundsPage({
           }
 
           return (
-            <section key={round.id} className="flex flex-col gap-5">
-              <h2 className="font-heading text-lg font-semibold">Ronde {round.number}</h2>
+            <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    Ronde {round.number}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={false} />
+              </div>
               {[...byPool.values()].map(({ pool, matches }) => (
                 <div key={pool.id} className="flex flex-col gap-2">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -989,14 +984,17 @@ export default async function RoundsPage({
           const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
           const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
           return (
-            <section key={round.id} className="flex flex-col gap-3">
-              <h2 className="font-heading text-lg font-semibold">
-                {isKnockoutRound
-                  ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                  : round.isSwissPhase
-                    ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
-                    : `Ronde ${round.number}`}
-              </h2>
+            <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-3 scroll-mt-20">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    {isKnockoutRound
+                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
+                      : `Ronde ${round.number}`}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={false} />
+              </div>
               <MatchTable
                 matches={mainMatches}
                 canManage={canManage}
@@ -1101,8 +1099,15 @@ export default async function RoundsPage({
           }
 
           return (
-            <section key={round.id} className="flex flex-col gap-6">
-              <h2 className="font-heading text-lg font-semibold">Ronde {round.number}</h2>
+            <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-6 scroll-mt-20">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-lg font-semibold">
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    Ronde {round.number}
+                  </a>
+                </h2>
+                <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={true} />
+              </div>
               {[...byPool.values()].map(({ pool, encounters, byes }) => (
                 <div key={pool.id} className="flex flex-col gap-4">
                   <h3 className="font-medium text-sm">{pool.name}</h3>
@@ -1123,7 +1128,7 @@ export default async function RoundsPage({
                   ))}
                   {byes.map((match) => (
                     <p key={match.id} className="text-sm text-black/50 dark:text-white/50 pl-4">
-                      {match.homeTeam?.name} : équipe exempte pour cette ronde.
+                      {match.homeTeam?.name} vs X : {match.homeScore ?? "-"} - {match.awayScore ?? "-"} (exempt)
                     </p>
                   ))}
                 </div>
@@ -1179,16 +1184,19 @@ export default async function RoundsPage({
           tournament.format === "GROUPS" ||
           (round.isFinalPhase && !round.isSwissPhase);
         return (
-          <section key={round.id} className="flex flex-col gap-5">
-            <h2 className="font-heading text-lg font-semibold">
-              {isKnockoutRound
-                ? getKnockoutStageLabel(
-                    countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
-                  )
-                : round.isSwissPhase
-                  ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
-                  : `Ronde ${round.number}`}
-            </h2>
+          <section key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-heading text-lg font-semibold">
+                <a href={`#ronde-${round.number}`} className="hover:underline">
+                  {isKnockoutRound
+                    ? getKnockoutStageLabel(
+                        countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                      )
+                    : `Ronde ${round.number}`}
+                </a>
+              </h2>
+              <RoundExportLinks tournamentId={tournament.id} roundNumber={round.number} isTeamEvent={true} />
+            </div>
 
             {[...encounters.values()].map(({ homeTeam, awayTeam, matches }) => (
               <div key={`${homeTeam.id}:${awayTeam.id}`} className="flex flex-col gap-2">
@@ -1229,7 +1237,7 @@ export default async function RoundsPage({
 
             {byes.map((match) => (
               <p key={match.id} className="text-sm text-black/50 dark:text-white/50">
-                {match.homeTeam?.name} : équipe exempte pour cette ronde.
+                {match.homeTeam?.name} vs X : {match.homeScore ?? "-"} - {match.awayScore ?? "-"} (exempt)
               </p>
             ))}
 

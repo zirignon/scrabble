@@ -252,7 +252,7 @@ function CurrentView({ data }: { data: DisplayData }) {
                   <td className="py-3 pr-2 tabular-nums">{m.table ?? "—"}</td>
                   <td className="py-3 pr-4 text-xl leading-tight break-words">{m.home}</td>
                   <td className="py-3 pr-4 text-center tabular-nums text-xl whitespace-nowrap overflow-hidden">
-                    {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
+                    {m.homeScore ?? "–"} - {m.awayScore ?? "–"}
                   </td>
                   <td className="py-3 pr-4 text-xl leading-tight break-words">{m.away ?? ""}</td>
                 </tr>

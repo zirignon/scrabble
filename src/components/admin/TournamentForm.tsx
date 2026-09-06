@@ -73,21 +73,6 @@ export function TournamentForm() {
             <option value="COMBINED">Combiné (poules puis suisse)</option>
             <option value="KNOCKOUT">Élimination directe</option>
           </select>
-          {format === "COMBINED" && (
-            <p className="text-xs text-black/60 dark:text-white/60">
-              Phase de poules (qualification), suivie d&apos;un système
-              suisse entre les qualifiés — avec, en option, une phase finale
-              à élimination directe à la fin (réglable depuis la page
-              Rondes une fois le tournoi créé).
-            </p>
-          )}
-          {isTeamEvent && (
-            <p className="text-xs text-black/60 dark:text-white/60">
-              Seuls le round-robin et le système suisse génèrent
-              automatiquement les rondes par équipes ; poules et élimination
-              directe nécessitent un ajout manuel des rencontres.
-            </p>
-          )}
         </div>
       )}
 
@@ -109,10 +94,6 @@ export function TournamentForm() {
             <option value="SEPT_ET_HUIT">Partie 7 et 8</option>
             <option value="SEPT_ET_HUIT_JOKER">Partie 7 et 8 joker</option>
           </select>
-          <p className="text-xs text-black/60 dark:text-white/60">
-            Détermine les règles de jeu (tirage, primes de Scrabble). Pour
-            7 et 8, prime de 75 pts à 8 lettres posées.
-          </p>
         </div>
       )}
 
@@ -133,9 +114,6 @@ export function TournamentForm() {
             <option value="SEMI_BLITZ">Semi-blitz (1 minute 30)</option>
             <option value="BLITZ">Blitz (1 minute)</option>
           </select>
-          <p className="text-xs text-black/60 dark:text-white/60">
-            Détermine la durée par défaut du chronomètre des parties.
-          </p>
         </div>
       )}
 
@@ -149,13 +127,6 @@ export function TournamentForm() {
           />
           Tournoi par équipes
         </label>
-        {isTeamEvent && (
-          <p className="text-xs text-black/60 dark:text-white/60">
-            {type === "CLASSIC"
-              ? "Un échiquier par joueur : les équipes s'affrontent selon le format choisi ci-dessus."
-              : "Les scores individuels des membres de chaque équipe seront cumulés pour le classement par équipes."}
-          </p>
-        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">

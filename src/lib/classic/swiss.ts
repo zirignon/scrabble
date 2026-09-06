@@ -39,6 +39,15 @@ export function seedFirstSwissRound<T extends { playerId: string }>(
 // les apparie de proche en proche en évitant les rencontres déjà jouées.
 // Si aucun adversaire "neuf" n'est disponible, autorise une revanche plutôt
 // que de bloquer la génération de la ronde.
+//
+// En nombre impair, l'effectif est complété par un joueur virtuel X (jamais
+// un vrai playerId, jamais persisté ni affiché tel quel — il ressort
+// toujours converti en simple exempt, away: null, voir Match.isBye) :
+// exactement comme un adversaire réel, X est apparié en priorité à un
+// joueur qui ne l'a pas déjà affronté (playersWithBye), en commençant par le
+// moins bien classé — il reste donc "au bas du classement" — et ne retombe
+// sur une revanche (recroise un joueur déjà exempté) que si tout le monde
+// l'a déjà affronté, comme pour tout autre adversaire épuisé.
 export function generateSwissRound(
   standings: SwissStanding[],
   previousOpponents: Map<string, Set<string>>,
@@ -48,16 +57,16 @@ export function generateSwissRound(
     .sort((a, b) => b.matchPoints - a.matchPoints)
     .map((s) => s.playerId);
 
-  let byePlayer: string | null = null;
+  let opponentOfX: string | null = null;
   if (order.length % 2 !== 0) {
     for (let i = order.length - 1; i >= 0; i--) {
       if (!playersWithBye.has(order[i])) {
-        byePlayer = order[i];
+        opponentOfX = order[i];
         break;
       }
     }
-    if (byePlayer === null) byePlayer = order[order.length - 1];
-    order.splice(order.indexOf(byePlayer), 1);
+    if (opponentOfX === null) opponentOfX = order[order.length - 1];
+    order.splice(order.indexOf(opponentOfX), 1);
   }
 
   const remaining = [...order];
@@ -74,8 +83,9 @@ export function generateSwissRound(
     pairings.push({ home: player, away: opponent });
   }
 
-  if (byePlayer) {
-    pairings.push({ home: byePlayer, away: null });
+  // Match contre X converti en simple exempt (aucun opposant réel).
+  if (opponentOfX) {
+    pairings.push({ home: opponentOfX, away: null });
   }
 
   return pairings;
