@@ -9,6 +9,7 @@ import {
 } from "@/lib/classic/teamStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
+import { computeClassicEloReport } from "@/lib/classic/elo";
 import {
   computeClassicTeamGeneralPoolStandings,
   computeClassicTeamPoolStandings,
@@ -72,6 +73,18 @@ export default async function TournamentStandingsPage({
   const duplicateStandings = duplicateStandingsData.rows;
   const standingsCount =
     tournament.type === "CLASSIC" ? classicStandings.length : duplicateStandings.length;
+
+  // Évolution de cote Elo (voir src/lib/classic/elo.ts) : un rapport de fin
+  // de tournoi façon fédération, jamais affiché en cours de route (la cote
+  // "nouvelle" n'a de sens qu'une fois le tournoi terminé — voir
+  // tournamentStatusLabel) et seulement pour les parties individuelles
+  // classiques, hors du périmètre équipes/duplicate.
+  const eloReport =
+    tournament.type === "CLASSIC" &&
+    !tournament.isTeamEvent &&
+    (tournament.status === "COMPLETED" || tournament.status === "ARCHIVED")
+      ? await computeClassicEloReport(tournament.id)
+      : [];
 
   const classicTeamStandings =
     tournament.isTeamEvent && tournament.type === "CLASSIC"
@@ -469,6 +482,40 @@ export default async function TournamentStandingsPage({
                     <td className={tdNum}>{r.buchholz}</td>
                     <td className={tdNum}>{r.buchholzMedian}</td>
                     <td className={tdNum}>{r.cumulativeScore}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {eloReport.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Évolution des cotes</h2>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>Cote initiale</th>
+                  <th className={thNum} title="Coefficient K utilisé pour ce tournoi">K</th>
+                  <th className={thNum}>Évolution</th>
+                  <th className={thNum}>Nouvelle cote</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eloReport.map((r, i) => (
+                  <tr key={r.playerId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
+                    <td className={tdNum}>{r.eloAtStart}</td>
+                    <td className={tdNum}>{r.coeffAtStart}</td>
+                    <td className={tdNum}>{r.evolution > 0 ? `+${r.evolution}` : r.evolution}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.newElo}</td>
                   </tr>
                 ))}
               </tbody>

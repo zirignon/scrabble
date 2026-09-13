@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma";
+
 // Cote Elo classique individuelle — formule fédérale reconstituée à partir
 // d'un classeur d'analyse de cote réel (tournoi EFROUBA) et confirmée par
 // l'utilisateur :
@@ -95,4 +97,46 @@ export function classicEloResult(
 // classicEloResult pour W et expectedScore pour We.
 export function classicEloDelta(coefficient: number, actual: number, expected: number): number {
   return coefficient * (actual - expected);
+}
+
+export interface ClassicEloReportRow {
+  playerId: string;
+  firstName: string;
+  lastName: string;
+  eloAtStart: number;
+  coeffAtStart: number;
+  evolution: number;
+  newElo: number;
+}
+
+// Rapport de fin de tournoi façon "CalculNouvelleCote" du classeur fédéral
+// analysé : cote de départ, évolution et nouvelle cote de chaque joueur
+// ayant disputé au moins un match individuel classique décidé dans ce
+// tournoi (Registration.eloAtStart non nul). L'évolution est dérivée de
+// (nouvelle cote − cote de départ) plutôt que resommée à partir des
+// Match.homeEloDelta/awayEloDelta un par un : Player.eloClassic est déjà la
+// source de vérité cumulée (voir applyClassicEloForMatch dans classic.ts),
+// et cette soustraction évite un léger écart d'arrondi entre la somme de
+// deltas flottants et la valeur entière réellement enregistrée.
+export async function computeClassicEloReport(tournamentId: string): Promise<ClassicEloReportRow[]> {
+  const registrations = await prisma.registration.findMany({
+    where: { tournamentId, eloAtStart: { not: null } },
+    include: { player: true },
+  });
+
+  return registrations
+    .map((reg): ClassicEloReportRow => {
+      const eloAtStart = reg.eloAtStart!;
+      const newElo = reg.player.eloClassic ?? eloAtStart;
+      return {
+        playerId: reg.playerId,
+        firstName: reg.player.firstName,
+        lastName: reg.player.lastName,
+        eloAtStart,
+        coeffAtStart: reg.coeffAtStart ?? DEFAULT_CLASSIC_COEFFICIENT,
+        evolution: newElo - eloAtStart,
+        newElo,
+      };
+    })
+    .sort((a, b) => b.newElo - a.newElo);
 }
