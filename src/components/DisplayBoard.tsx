@@ -90,7 +90,7 @@ function StandingsView({ data }: { data: DisplayData }) {
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">Nom</th>
                 {group.rows[0]?.columns.map((c) => (
-                  <th key={c.label} className="py-2 pr-4 text-right">
+                  <th key={c.label} className="py-2 pr-4 text-right whitespace-nowrap">
                     {c.label}
                   </th>
                 ))}
@@ -110,7 +110,7 @@ function StandingsView({ data }: { data: DisplayData }) {
               ))}
               {group.rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-4 text-black/40 text-xl">
+                  <td colSpan={8} className="py-4 text-black/40 text-xl">
                     Pas encore de classement.
                   </td>
                 </tr>

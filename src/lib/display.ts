@@ -239,6 +239,12 @@ async function buildStandings(tournament: {
 
 // Mêmes colonnes que la page publique de classement (/tournois/[slug]/classement),
 // pour que l'affichage grand écran montre exactement les mêmes départages.
+// Sous-ensemble des colonnes du classement complet (voir la page classement,
+// qui elle affiche aussi Abs./SB/Bchz/Bchz méd./Cumul) : à la taille de
+// police nécessaire pour rester lisible à distance sur l'écran géant, ces
+// départages en plus des 6 colonnes essentielles ci-dessous ne laissaient
+// plus assez de place — surtout avec 2 poules affichées côte à côte —,
+// provoquant un chevauchement des en-têtes et des valeurs.
 function classicIndividualColumns(s: {
   played: number;
   wins: number;
@@ -257,13 +263,8 @@ function classicIndividualColumns(s: {
     { label: "V", value: String(s.wins) },
     { label: "N", value: String(s.draws) },
     { label: "D", value: String(s.losses) },
-    { label: "Abs.", value: String(s.forfeits) },
     { label: "Pts", value: String(s.matchPoints) },
     { label: "Diff", value: formatDiff(s.diff) },
-    { label: "SB", value: String(s.sonnebornBerger) },
-    { label: "Bchz", value: String(s.buchholz) },
-    { label: "Bchz méd.", value: String(s.buchholzMedian) },
-    { label: "Cumul", value: String(s.cumulativeScore) },
   ];
 }
 
