@@ -309,7 +309,19 @@ export async function computeClassicStandings(
       include: { player: { include: { club: true } } },
     }),
     prisma.match.findMany({
-      where: { round: { tournamentId } },
+      // Exclut toute phase finale à élimination directe optionnelle
+      // (Tournament.finalPhaseEnabled) : ce classement représente la phase
+      // principale (suisse/round-robin) seule, celle qui a servi à qualifier
+      // les entrants du tableau final — sans quoi les résultats du tableau
+      // continueraient d'alimenter ce même classement au fil des tours,
+      // faussant Buchholz/Sonneborn-Berger (qui supposent chaque paire
+      // affrontée au plus une fois) et les matchPoints des qualifiés au-delà
+      // de l'instantané qui a servi à les désigner. Sans effet pour un
+      // tournoi au format KNOCKOUT pur (aucune de ses rondes n'est marquée
+      // isFinalPhase, tout le tournoi EST le tableau) ni pour GROUPS/COMBINED
+      // (dont ce classement général n'est de toute façon pas affiché une
+      // fois la phase finale commencée — voir la page classement publique).
+      where: { round: { tournamentId, isFinalPhase: false } },
       include: { round: true },
     }),
   ]);

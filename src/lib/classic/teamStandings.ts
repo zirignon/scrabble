@@ -200,8 +200,11 @@ export async function computeClassicTeamStandings(
   const [teams, matches] = await Promise.all([
     prisma.team.findMany({ where: { tournamentId } }),
     prisma.match.findMany({
+      // Voir le commentaire équivalent dans computeClassicStandings (version
+      // individuelle) : exclut toute phase finale à élimination directe
+      // optionnelle, ce classement représentant la phase principale seule.
       where: {
-        round: { tournamentId },
+        round: { tournamentId, isFinalPhase: false },
         OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
       },
       include: { round: { select: { number: true } } },
