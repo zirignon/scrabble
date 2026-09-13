@@ -239,6 +239,12 @@ async function buildStandings(tournament: {
 
 // Mêmes colonnes que la page publique de classement (/tournois/[slug]/classement),
 // pour que l'affichage grand écran montre exactement les mêmes départages.
+// Sous-ensemble des colonnes du classement complet (voir la page classement,
+// qui elle affiche aussi Abs./SB/Bchz/Bchz méd./Cumul) : à la taille de
+// police nécessaire pour rester lisible à distance sur l'écran géant, ces
+// départages en plus des 6 colonnes essentielles ci-dessous ne laissaient
+// plus assez de place — surtout avec 2 poules affichées côte à côte —,
+// provoquant un chevauchement des en-têtes et des valeurs.
 function classicIndividualColumns(s: {
   played: number;
   wins: number;
@@ -257,13 +263,8 @@ function classicIndividualColumns(s: {
     { label: "V", value: String(s.wins) },
     { label: "N", value: String(s.draws) },
     { label: "D", value: String(s.losses) },
-    { label: "Abs.", value: String(s.forfeits) },
     { label: "Pts", value: String(s.matchPoints) },
     { label: "Diff", value: formatDiff(s.diff) },
-    { label: "SB", value: String(s.sonnebornBerger) },
-    { label: "Bchz", value: String(s.buchholz) },
-    { label: "Bchz méd.", value: String(s.buchholzMedian) },
-    { label: "Cumul", value: String(s.cumulativeScore) },
   ];
 }
 
@@ -326,7 +327,7 @@ async function buildCurrent(tournament: {
         ? "Match pour la 3ᵉ place"
         : isTeamRound
           ? `${poolPrefix}${m.homeTeam?.name ?? "?"}${
-              m.isBye ? " (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
+              m.isBye ? " vs X (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
             }`
           : grouped
             ? m.pool?.name ?? "—"
@@ -342,7 +343,7 @@ async function buildCurrent(tournament: {
               ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
               : "?";
       const rawAwayName = m.isBye
-        ? null
+        ? "X"
         : isTeamRound
           ? m.awayPlayer
             ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
@@ -357,7 +358,7 @@ async function buildCurrent(tournament: {
       // joueur qui débute est toujours affiché à gauche, sans toucher
       // homeTeamId/awayTeamId (utilisés pour le classement par équipes).
       const swapForDisplay = isTeamRound && !m.isBye && !m.homeStarts;
-      // rawAwayName n'est null que pour un bye, exclu de swapForDisplay.
+      // rawAwayName vaut toujours "X" pour un bye (exclu de swapForDisplay).
       const leftName = swapForDisplay ? (rawAwayName as string) : rawHomeName;
       const rightName = swapForDisplay ? rawHomeName : rawAwayName;
       const leftScore = swapForDisplay ? m.awayScore : m.homeScore;
@@ -380,14 +381,31 @@ async function buildCurrent(tournament: {
       (lastRound.isFinalPhase && !lastRound.isSwissPhase);
     let label: string;
     if (isKnockoutRound) {
-      label = getKnockoutStageLabel(
-        countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace))
-      );
-    } else if (lastRound.isSwissPhase) {
-      const swissPhaseRoundNumber = await prisma.round.count({
-        where: { tournamentId: tournament.id, isSwissPhase: true, number: { lte: lastRound.number } },
-      });
-      label = `Ronde suisse ${swissPhaseRoundNumber}`;
+      // Voir le commentaire équivalent sur les pages rondes : pour un tour
+      // joué en 2 manches + belle (Tournament.knockoutTwoLegs), seule la
+      // manche aller a un décompte d'entrants fiable (elle seule inclut les
+      // exempts) — on va la rechercher si la ronde en cours en est une autre.
+      let knockoutEntrants: number;
+      if (lastRound.knockoutStage !== null && lastRound.knockoutLeg !== 1) {
+        const leg1Round = await prisma.round.findFirst({
+          where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage, knockoutLeg: 1 },
+          include: { matches: true },
+        });
+        knockoutEntrants = leg1Round
+          ? countKnockoutEntrants(leg1Round.matches.filter((m) => !m.isThirdPlace))
+          : countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      } else {
+        knockoutEntrants = countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      }
+      const knockoutLegSuffix =
+        lastRound.knockoutLeg === 1
+          ? " — Manche aller"
+          : lastRound.knockoutLeg === 2
+            ? " — Manche retour"
+            : lastRound.knockoutLeg === 3
+              ? " — Belle"
+              : "";
+      label = `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`;
     } else {
       label = `Ronde ${lastRound.number}`;
     }

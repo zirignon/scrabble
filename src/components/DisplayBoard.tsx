@@ -90,7 +90,7 @@ function StandingsView({ data }: { data: DisplayData }) {
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">Nom</th>
                 {group.rows[0]?.columns.map((c) => (
-                  <th key={c.label} className="py-2 pr-4 text-right">
+                  <th key={c.label} className="py-2 pr-4 text-right whitespace-nowrap">
                     {c.label}
                   </th>
                 ))}
@@ -110,7 +110,7 @@ function StandingsView({ data }: { data: DisplayData }) {
               ))}
               {group.rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-4 text-black/40 text-xl">
+                  <td colSpan={8} className="py-4 text-black/40 text-xl">
                     Pas encore de classement.
                   </td>
                 </tr>
@@ -252,7 +252,7 @@ function CurrentView({ data }: { data: DisplayData }) {
                   <td className="py-3 pr-2 tabular-nums">{m.table ?? "—"}</td>
                   <td className="py-3 pr-4 text-xl leading-tight break-words">{m.home}</td>
                   <td className="py-3 pr-4 text-center tabular-nums text-xl whitespace-nowrap overflow-hidden">
-                    {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
+                    {m.homeScore ?? "–"} - {m.awayScore ?? "–"}
                   </td>
                   <td className="py-3 pr-4 text-xl leading-tight break-words">{m.away ?? ""}</td>
                 </tr>

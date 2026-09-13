@@ -179,15 +179,26 @@ export default async function ManageTournamentPage({
           </Link>
         )}
         {tournament.type === "CLASSIC" ? (
-          <Link
-            href={`/admin/tournois/${tournament.id}/rondes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les rondes et résultats</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.rounds} ronde(s) créée(s)
-            </p>
-          </Link>
+          <>
+            <Link
+              href={`/admin/tournois/${tournament.id}/rondes`}
+              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
+            >
+              <p className="font-medium">Gérer les rondes et résultats</p>
+              <p className="text-xs text-black/60 dark:text-white/60">
+                {tournament._count.rounds} ronde(s) créée(s)
+              </p>
+            </Link>
+            <Link
+              href={`/admin/tournois/${tournament.id}/reglages`}
+              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
+            >
+              <p className="font-medium">Réglages</p>
+              <p className="text-xs text-black/60 dark:text-white/60">
+                Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle
+              </p>
+            </Link>
+          </>
         ) : (
           <Link
             href={`/admin/tournois/${tournament.id}/parties`}
@@ -205,11 +216,6 @@ export default async function ManageTournamentPage({
         <section className="flex flex-col gap-3">
           <div>
             <h2 className="font-heading text-lg font-semibold">Affichage grand écran</h2>
-            <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-              {`Par défaut, l'écran de projection alterne automatiquement toutes les 12 secondes entre le classement et ${
-                tournament.type === "CLASSIC" ? "la ronde" : "la partie"
-              } en cours. Vous pouvez figer l'affichage sur l'une des deux vues, par exemple pendant un temps fort.`}
-            </p>
           </div>
           <div className="flex gap-2">
             {displayModeOptions.map(([value, label]) => (
@@ -235,11 +241,6 @@ export default async function ManageTournamentPage({
         <section className="flex flex-col gap-3 rounded-md border border-red-600/30 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-red-600">Zone dangereuse</h2>
-            <p className="text-xs text-black/60 dark:text-white/60 mt-1">
-              Supprime définitivement ce tournoi et toutes ses données
-              (inscriptions, rondes/matchs, équipes, poules, parties). Aucun
-              retour en arrière possible.
-            </p>
           </div>
           <DeleteTournamentButton
             tournamentId={tournament.id}

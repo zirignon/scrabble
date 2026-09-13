@@ -76,11 +76,6 @@ function FormulaSettingsForm({
           {formulaLabel[duplicateFormula ?? "NORMALE"]} · {rythmeLabel[duplicateRythme ?? "NORMAL"]}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        La formule détermine les règles de jeu (tirage, primes de Scrabble)
-        et le rythme la durée par défaut du chronomètre des nouvelles
-        parties.
-      </p>
     </div>
   );
 }

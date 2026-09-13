@@ -1,4 +1,5 @@
 import type { Pairing } from "@/lib/classic/pairing";
+import { prisma } from "@/lib/prisma";
 
 export interface KnockoutMatchLike {
   isBye: boolean;
@@ -195,4 +196,83 @@ export function getKnockoutStageLabel(entrants: number): string {
   if (entrants <= 32) return "Seizièmes de finale";
   if (entrants <= 64) return "Trente-deuxièmes de finale";
   return `Tour de ${entrants}`;
+}
+
+export interface KnockoutStageRoundLike {
+  isFinalPhase: boolean;
+  isSwissPhase: boolean;
+  knockoutStage: number | null;
+  knockoutLeg: number | null;
+}
+
+export interface KnockoutStageMatchLike extends KnockoutRoundMatchLike {
+  poolId?: string | null;
+  isThirdPlace: boolean;
+}
+
+// Cœur (pur, testable indépendamment de la base) de getCurrentKnockoutStageLabel
+// ci-dessous : détermine, pour une ronde donnée (avec ses matchs, et ceux de
+// la manche aller de son tour si elle n'en est pas une elle-même), si c'est
+// une ronde à élimination directe et, si oui, le nom du tour correspondant —
+// null sinon. Voir getCurrentKnockoutStageLabel pour la logique des critères
+// (format KNOCKOUT, GROUPS post-poules, ou toute autre phase finale).
+export function knockoutStageLabelForRound(
+  format: string | null,
+  round: KnockoutStageRoundLike,
+  matches: KnockoutStageMatchLike[],
+  leg1Matches: KnockoutStageMatchLike[] | null
+): string | null {
+  const grouped = matches.some((m) => m.poolId);
+  const isKnockoutRound =
+    format === "KNOCKOUT" ||
+    (format === "GROUPS" && !grouped) ||
+    (round.isFinalPhase && !round.isSwissPhase);
+  if (!isKnockoutRound) return null;
+
+  // Voir le commentaire équivalent dans src/lib/display.ts : pour un tour
+  // joué en 2 manches + belle (Tournament.knockoutTwoLegs), seule la manche
+  // aller a un décompte d'entrants fiable (elle seule inclut les exempts).
+  const source =
+    round.knockoutStage !== null && round.knockoutLeg !== 1 && leg1Matches !== null
+      ? leg1Matches
+      : matches;
+  const knockoutEntrants = countKnockoutEntrants(source.filter((m) => !m.isThirdPlace));
+  return getKnockoutStageLabel(knockoutEntrants);
+}
+
+// Retrouve, pour un instant donné d'un tournoi (sa ronde la plus récente,
+// ou un ?ronde= précis pour un instantané), le nom du tour à élimination
+// directe en cours (Seizièmes de finale, Huitièmes de finale, Quarts de
+// finale, Demi-finales, Finale) — null si ce n'est pas (encore) une ronde à
+// élimination directe : tournoi au format KNOCKOUT (toujours), GROUPS une
+// fois la phase de poules terminée (matchs sans poolId), ou toute autre
+// phase finale optionnelle (Tournament.finalPhaseEnabled), hors sous-phase
+// suisse d'un tournoi COMBINED. Réutilisé par la page classement publique et
+// son export PDF pour titrer le classement en conséquence, comme déjà fait
+// sur les pages rondes et l'écran public (voir src/lib/display.ts).
+export async function getCurrentKnockoutStageLabel(
+  tournamentId: string,
+  format: string | null,
+  uptoRoundNumber?: number
+): Promise<string | null> {
+  const lastRound = await prisma.round.findFirst({
+    where: {
+      tournamentId,
+      ...(uptoRoundNumber !== undefined ? { number: { lte: uptoRoundNumber } } : {}),
+    },
+    orderBy: { number: "desc" },
+    include: { matches: true },
+  });
+  if (!lastRound) return null;
+
+  let leg1Matches: KnockoutStageMatchLike[] | null = null;
+  if (lastRound.knockoutStage !== null && lastRound.knockoutLeg !== 1) {
+    const leg1Round = await prisma.round.findFirst({
+      where: { tournamentId, knockoutStage: lastRound.knockoutStage, knockoutLeg: 1 },
+      include: { matches: true },
+    });
+    if (leg1Round) leg1Matches = leg1Round.matches;
+  }
+
+  return knockoutStageLabelForRound(format, lastRound, lastRound.matches, leg1Matches);
 }
