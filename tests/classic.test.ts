@@ -56,6 +56,50 @@ test("suisse évite une revanche lorsqu'un autre adversaire est disponible", () 
   ]);
 });
 
+test("suisse : un choix localement valide qui bloquerait le reste de la ronde cède la place à un arrangement qui évite toutes les paires interdites", () => {
+  // a-b et b-d ont déjà consommé leur revanche (interdites). Le choix
+  // glouton "a affronte le premier adversaire libre" (c, le mieux classé
+  // disponible) coince ensuite b et d ensemble — la seule paire encore
+  // interdite — alors qu'un appariement a-d / b-c existe et évite tout
+  // affrontement interdit. Voir generateSwissRound (pairWithoutForcing).
+  const pairings = generateSwissRound(
+    [
+      { playerId: "a", matchPoints: 3 },
+      { playerId: "b", matchPoints: 3 },
+      { playerId: "c", matchPoints: 2 },
+      { playerId: "d", matchPoints: 2 },
+    ],
+    new Map([
+      ["a", new Set(["b"])],
+      ["b", new Set(["a", "d"])],
+      ["d", new Set(["b"])],
+    ]),
+    new Set()
+  );
+  const encounters = pairings.map((p) => [p.home, p.away].sort().join(":"));
+  assert.ok(!encounters.includes("a:b"), "a et b ne doivent pas se recroiser");
+  assert.ok(!encounters.includes("b:d"), "b et d ne doivent pas se recroiser");
+  assert.equal(pairings.length, 2);
+});
+
+test("suisse : à défaut d'un arrangement qui évite tout, complète quand même la ronde plutôt que d'échouer", () => {
+  // Avec seulement 2 joueurs et une paire déjà interdite, aucun arrangement
+  // ne peut l'éviter — la ronde doit tout de même se générer (dernier
+  // recours, voir pairAllowingForced) plutôt que planter.
+  const pairings = generateSwissRound(
+    [
+      { playerId: "a", matchPoints: 3 },
+      { playerId: "b", matchPoints: 3 },
+    ],
+    new Map([
+      ["a", new Set(["b"])],
+      ["b", new Set(["a"])],
+    ]),
+    new Set()
+  );
+  assert.deepEqual(pairings, [{ home: "a", away: "b" }]);
+});
+
 test("suisse attribue le bye au joueur le moins bien classé qui ne l'a pas déjà reçu", () => {
   const pairings = generateSwissRound(
     [

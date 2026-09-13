@@ -69,19 +69,51 @@ export function generateSwissRound(
     order.splice(order.indexOf(opponentOfX), 1);
   }
 
-  const remaining = [...order];
-  const pairings: Pairing[] = [];
-
-  while (remaining.length > 0) {
-    const player = remaining.shift() as string;
+  // Apparie récursivement en préférant, pour chaque joueur (dans l'ordre du
+  // classement), l'adversaire encore disponible le mieux classé qui ne
+  // figure pas dans previousOpponents — mais en essayant chaque choix
+  // possible avec retour en arrière (backtracking) plutôt qu'un choix
+  // glouton définitif : un choix localement valide peut rendre impossible
+  // l'appariement du reste de la liste sans forcer une paire interdite plus
+  // loin, alors qu'un autre choix, moins évident, aurait laissé un
+  // appariement complet valide pour tout le monde. Sans ce retour en
+  // arrière, une paire ayant déjà consommé sa revanche (voir
+  // Tournament.allowRematchesFromRound) pouvait se retrouver reformée une
+  // 3e fois alors qu'un arrangement l'évitant existait bel et bien.
+  function pairWithoutForcing(remaining: string[]): Pairing[] | null {
+    if (remaining.length === 0) return [];
+    const [player, ...rest] = remaining;
     const alreadyFaced = previousOpponents.get(player) ?? new Set<string>();
-
-    let opponentIndex = remaining.findIndex((p) => !alreadyFaced.has(p));
-    if (opponentIndex === -1) opponentIndex = 0;
-
-    const opponent = remaining.splice(opponentIndex, 1)[0];
-    pairings.push({ home: player, away: opponent });
+    for (let i = 0; i < rest.length; i++) {
+      if (alreadyFaced.has(rest[i])) continue;
+      const opponent = rest[i];
+      const nextRemaining = [...rest.slice(0, i), ...rest.slice(i + 1)];
+      const remainingPairings = pairWithoutForcing(nextRemaining);
+      if (remainingPairings !== null) return [{ home: player, away: opponent }, ...remainingPairings];
+    }
+    return null;
   }
+
+  // Dernier recours seulement si aucun arrangement n'évite complètement les
+  // paires déjà interdites (ex. effectif trop restreint pour l'éviter) :
+  // reprend alors le choix glouton d'origine, qui complète toujours
+  // l'appariement (quitte à reformer une paire déjà rencontrée) plutôt que
+  // d'échouer purement et simplement.
+  function pairAllowingForced(remaining: string[]): Pairing[] {
+    const pairings: Pairing[] = [];
+    const pool = [...remaining];
+    while (pool.length > 0) {
+      const player = pool.shift() as string;
+      const alreadyFaced = previousOpponents.get(player) ?? new Set<string>();
+      let opponentIndex = pool.findIndex((p) => !alreadyFaced.has(p));
+      if (opponentIndex === -1) opponentIndex = 0;
+      const opponent = pool.splice(opponentIndex, 1)[0];
+      pairings.push({ home: player, away: opponent });
+    }
+    return pairings;
+  }
+
+  const pairings = pairWithoutForcing(order) ?? pairAllowingForced(order);
 
   // Match contre X converti en simple exempt (aucun opposant réel).
   if (opponentOfX) {
