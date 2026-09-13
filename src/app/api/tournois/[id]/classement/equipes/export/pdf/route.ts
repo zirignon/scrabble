@@ -10,6 +10,7 @@ import {
   computeClassicTeamPoolStandings,
 } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
+import { getCurrentKnockoutStageLabel } from "@/lib/classic/knockout";
 import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
 
@@ -150,8 +151,16 @@ export async function GET(
         );
       }
     } else {
+      // Voir le commentaire équivalent côté classement individuel : une fois
+      // entré dans un tableau à élimination directe, le titre reprend le nom
+      // du tour en cours plutôt que le simple "Classement par équipes".
+      const knockoutStageLabel = await getCurrentKnockoutStageLabel(
+        tournament.id,
+        tournament.format,
+        uptoRoundNumber
+      );
       pdf = await renderTablePdf(
-        `Classement par équipes — ${tournament.name}`,
+        `${knockoutStageLabel ?? "Classement par équipes"} — ${tournament.name}`,
         subtitle,
         teamColumns,
         generalSection.rows,

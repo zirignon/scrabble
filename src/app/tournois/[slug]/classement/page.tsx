@@ -10,6 +10,7 @@ import {
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicEloReport } from "@/lib/classic/elo";
+import { getCurrentKnockoutStageLabel } from "@/lib/classic/knockout";
 import {
   computeClassicTeamGeneralPoolStandings,
   computeClassicTeamPoolStandings,
@@ -63,6 +64,18 @@ export default async function TournamentStandingsPage({
 
   const tournament = await prisma.tournament.findUnique({ where: { slug } });
   if (!tournament) notFound();
+
+  // Une fois entré dans un tableau à élimination directe (tournoi au format
+  // KNOCKOUT, ou phase finale optionnelle générée après poules/suisse/
+  // round-robin — voir Tournament.finalPhaseEnabled), le titre "Classement"
+  // seul ne dit plus grand-chose : on le remplace par le nom du tour en
+  // cours (Seizièmes de finale, Huitièmes de finale, Quarts de finale,
+  // Demi-finales, Finale), comme déjà affiché sur les pages rondes et
+  // l'écran public.
+  const knockoutStageLabel =
+    tournament.type === "CLASSIC"
+      ? await getCurrentKnockoutStageLabel(tournament.id, tournament.format)
+      : null;
 
   const classicStandings =
     tournament.type === "CLASSIC" ? await computeClassicStandings(tournament.id) : [];
@@ -184,7 +197,7 @@ export default async function TournamentStandingsPage({
       {!(tournament.type === "CLASSIC" && isPoolFormat) && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement</h2>
+            <h2 className={sectionHeading}>{knockoutStageLabel ?? "Classement"}</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
@@ -678,7 +691,7 @@ export default async function TournamentStandingsPage({
       {tournament.isTeamEvent && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement par équipes</h2>
+            <h2 className={sectionHeading}>{knockoutStageLabel ?? "Classement par équipes"}</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
                 Exporter en CSV

@@ -10,7 +10,9 @@ import {
   crossSeedTwoPools,
   generateKnockoutFirstRound,
   getKnockoutWinner,
+  knockoutStageLabelForRound,
   standardBracketSeeding,
+  type KnockoutStageMatchLike,
 } from "../src/lib/classic/knockout";
 import { computeStandingsFromMatches } from "../src/lib/classic/standings";
 import { computeTeamStandingsFromMatches } from "../src/lib/classic/teamStandings";
@@ -177,6 +179,62 @@ test("un match nul ne désigne pas de vainqueur en élimination directe", () => 
     }),
     null
   );
+});
+
+function realMatches(pairs: number): KnockoutStageMatchLike[] {
+  return Array.from({ length: pairs }, (_, i) => ({
+    isBye: false,
+    homePlayerId: `p${i}a`,
+    awayPlayerId: `p${i}b`,
+    poolId: null,
+    isThirdPlace: false,
+  }));
+}
+
+test("titrage du tour à élimination directe : nomme le tour selon le nombre d'entrants", () => {
+  const round = { isFinalPhase: false, isSwissPhase: false, knockoutStage: null, knockoutLeg: null };
+  assert.equal(knockoutStageLabelForRound("KNOCKOUT", round, realMatches(1), null), "Finale");
+  assert.equal(knockoutStageLabelForRound("KNOCKOUT", round, realMatches(2), null), "Demi-finales");
+  assert.equal(knockoutStageLabelForRound("KNOCKOUT", round, realMatches(4), null), "Quarts de finale");
+  assert.equal(knockoutStageLabelForRound("KNOCKOUT", round, realMatches(8), null), "Huitièmes de finale");
+});
+
+test("titrage du tour à élimination directe : ignore une ronde suisse ou round-robin classique (pas encore de tableau)", () => {
+  const round = { isFinalPhase: false, isSwissPhase: false, knockoutStage: null, knockoutLeg: null };
+  assert.equal(knockoutStageLabelForRound("SWISS", round, realMatches(4), null), null);
+  assert.equal(knockoutStageLabelForRound("ROUND_ROBIN", round, realMatches(4), null), null);
+});
+
+test("titrage du tour à élimination directe : une ronde GROUPS reste sans titre tant que ses matchs appartiennent encore à une poule", () => {
+  const round = { isFinalPhase: false, isSwissPhase: false, knockoutStage: null, knockoutLeg: null };
+  const pooledMatches: KnockoutStageMatchLike[] = realMatches(4).map((m) => ({ ...m, poolId: "pool-a" }));
+  assert.equal(knockoutStageLabelForRound("GROUPS", round, pooledMatches, null), null);
+  // Une fois les poules terminées, les matchs du tableau final n'ont plus de poolId.
+  assert.equal(knockoutStageLabelForRound("GROUPS", round, realMatches(4), null), "Quarts de finale");
+});
+
+test("titrage du tour à élimination directe : la phase finale d'un tournoi Combiné se titre, sauf sa sous-phase suisse", () => {
+  const knockoutPhase = { isFinalPhase: true, isSwissPhase: false, knockoutStage: null, knockoutLeg: null };
+  assert.equal(knockoutStageLabelForRound("COMBINED", knockoutPhase, realMatches(2), null), "Demi-finales");
+  const swissSubPhase = { isFinalPhase: true, isSwissPhase: true, knockoutStage: null, knockoutLeg: null };
+  assert.equal(knockoutStageLabelForRound("COMBINED", swissSubPhase, realMatches(2), null), null);
+});
+
+test("titrage du tour à élimination directe : en 2 manches + belle, le nombre d'entrants vient de la manche aller (seule à inclure les exempts)", () => {
+  // Manche aller : 4 vraies confrontations + 1 exempt = 9 entrants (Huitièmes).
+  const leg1Matches: KnockoutStageMatchLike[] = [
+    ...realMatches(4),
+    { isBye: true, homePlayerId: "bye-player", awayPlayerId: null, poolId: null, isThirdPlace: false },
+  ];
+  // Manche retour : l'exempt n'est pas rejoué, il ne reste que les 4 vraies confrontations (8 entrants, Quarts).
+  const leg2Round = { isFinalPhase: true, isSwissPhase: false, knockoutStage: 3, knockoutLeg: 2 };
+  assert.equal(
+    knockoutStageLabelForRound("KNOCKOUT", leg2Round, realMatches(4), leg1Matches),
+    "Huitièmes de finale"
+  );
+  // La manche aller elle-même se titre directement à partir de ses propres matchs.
+  const leg1Round = { isFinalPhase: true, isSwissPhase: false, knockoutStage: 3, knockoutLeg: 1 };
+  assert.equal(knockoutStageLabelForRound("KNOCKOUT", leg1Round, leg1Matches, null), "Huitièmes de finale");
 });
 
 test("les forfaits de la ronde précédente s'affrontent entre eux en bas du classement", () => {
