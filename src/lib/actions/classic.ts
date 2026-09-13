@@ -30,6 +30,7 @@ import {
 } from "@/lib/classic/knockout";
 import type { Pairing } from "@/lib/classic/pairing";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
+import { classicEloDelta, classicEloResult, expectedScore, nextClassicCoefficient } from "@/lib/classic/elo";
 
 // Score conventionnel attribué à un exempt (bye) : l'exempté "bat" le
 // joueur/l'équipe virtuel(le) X 50 à 0, plutôt que de laisser le match sans
@@ -2286,6 +2287,116 @@ export async function addMatchAction(
   notifyTournamentUpdate(tournamentId);
 }
 
+// Nombre de parties individuelles classiques décidées jouées dans
+// l'application par ce joueur (bye, tournois par équipes/duplicate
+// exclus) — sert de palier pour nextClassicCoefficient (voir elo.ts).
+// Recompté à chaque appel plutôt que maintenu comme un compteur à part :
+// une correction de score peut faire passer un match de décidé à "à jouer"
+// et inversement, un simple recomptage reste toujours exact.
+async function countClassicMatchesPlayed(tx: Prisma.TransactionClient, playerId: string) {
+  return tx.match.count({
+    where: {
+      isBye: false,
+      homeTeamId: null,
+      awayTeamId: null,
+      status: { in: ["PLAYED", "FORFEIT_HOME", "FORFEIT_AWAY"] },
+      OR: [{ homePlayerId: playerId }, { awayPlayerId: playerId }],
+      round: { tournament: { type: "CLASSIC", isTeamEvent: false } },
+    },
+  });
+}
+
+// Applique (ou annule) l'évolution de cote Elo d'un match individuel
+// classique à la saisie/correction de son résultat — voir elo.ts pour la
+// formule. Sans effet (retour immédiat) hors de son périmètre : bye,
+// tournoi par équipes ou duplicate, match sans les deux joueurs renseignés.
+// Toujours appelée après avoir enregistré le nouveau statut/score du match,
+// dans la même transaction.
+async function applyClassicEloForMatch(tx: Prisma.TransactionClient, tournamentId: string, matchId: string) {
+  const tournament = await tx.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
+  if (tournament.type !== "CLASSIC" || tournament.isTeamEvent) return;
+
+  const match = await tx.match.findUniqueOrThrow({ where: { id: matchId } });
+  if (match.isBye || match.homeTeamId || match.awayTeamId) return;
+  if (!match.homePlayerId || !match.awayPlayerId) return;
+
+  const [homePlayer, awayPlayer] = await Promise.all([
+    tx.player.findUniqueOrThrow({ where: { id: match.homePlayerId } }),
+    tx.player.findUniqueOrThrow({ where: { id: match.awayPlayerId } }),
+  ]);
+
+  // Annule l'évolution précédemment appliquée pour CE match (le cas
+  // échéant) avant de recalculer — une correction de score ne doit jamais
+  // cumuler une nouvelle évolution par-dessus l'ancienne.
+  let homeElo = homePlayer.eloClassic ?? 1550;
+  let awayElo = awayPlayer.eloClassic ?? 1550;
+  if (match.homeEloDelta != null) homeElo -= match.homeEloDelta;
+  if (match.awayEloDelta != null) awayElo -= match.awayEloDelta;
+
+  // Cote/coefficient "au début du tournoi" (voir le commentaire sur
+  // Registration.eloAtStart) : figés au premier calcul de cote de ce
+  // joueur dans ce tournoi, à partir de sa cote/coefficient actuel — donc
+  // déjà net de l'annulation ci-dessus s'il s'agit d'une correction.
+  const [homeReg, awayReg] = await Promise.all([
+    tx.registration.findUnique({ where: { tournamentId_playerId: { tournamentId, playerId: match.homePlayerId } } }),
+    tx.registration.findUnique({ where: { tournamentId_playerId: { tournamentId, playerId: match.awayPlayerId } } }),
+  ]);
+  const homeEloAtStart = homeReg?.eloAtStart ?? homeElo;
+  const homeCoeffAtStart = homeReg?.coeffAtStart ?? homePlayer.coefficientClassic ?? 40;
+  const awayEloAtStart = awayReg?.eloAtStart ?? awayElo;
+  const awayCoeffAtStart = awayReg?.coeffAtStart ?? awayPlayer.coefficientClassic ?? 40;
+  if (homeReg && homeReg.eloAtStart == null) {
+    await tx.registration.update({
+      where: { id: homeReg.id },
+      data: { eloAtStart: homeEloAtStart, coeffAtStart: homeCoeffAtStart },
+    });
+  }
+  if (awayReg && awayReg.eloAtStart == null) {
+    await tx.registration.update({
+      where: { id: awayReg.id },
+      data: { eloAtStart: awayEloAtStart, coeffAtStart: awayCoeffAtStart },
+    });
+  }
+
+  const result = classicEloResult(match.status, match.homeScore, match.awayScore);
+  let homeDelta: number | null = null;
+  let awayDelta: number | null = null;
+  if (result) {
+    const homeExpected = expectedScore(homeEloAtStart, awayEloAtStart);
+    const awayExpected = expectedScore(awayEloAtStart, homeEloAtStart);
+    homeDelta = classicEloDelta(homeCoeffAtStart, result.home, homeExpected);
+    awayDelta = classicEloDelta(awayCoeffAtStart, result.away, awayExpected);
+    homeElo += homeDelta;
+    awayElo += awayDelta;
+  }
+
+  const [homeMatchesPlayed, awayMatchesPlayed] = await Promise.all([
+    countClassicMatchesPlayed(tx, match.homePlayerId),
+    countClassicMatchesPlayed(tx, match.awayPlayerId),
+  ]);
+
+  await Promise.all([
+    tx.player.update({
+      where: { id: match.homePlayerId },
+      data: {
+        eloClassic: Math.round(homeElo),
+        coefficientClassic: nextClassicCoefficient(homePlayer.coefficientClassic, homeMatchesPlayed),
+      },
+    }),
+    tx.player.update({
+      where: { id: match.awayPlayerId },
+      data: {
+        eloClassic: Math.round(awayElo),
+        coefficientClassic: nextClassicCoefficient(awayPlayer.coefficientClassic, awayMatchesPlayed),
+      },
+    }),
+    tx.match.update({
+      where: { id: matchId },
+      data: { homeEloDelta: homeDelta, awayEloDelta: awayDelta },
+    }),
+  ]);
+}
+
 const resultSchema = z.object({
   homeScore: z.string().optional(),
   awayScore: z.string().optional(),
@@ -2334,9 +2445,13 @@ export async function recordMatchResultAction(
     else status = "PLAYED";
   }
 
-  const match = await prisma.match.update({
-    where: { id: matchId },
-    data: { homeScore, awayScore, status },
+  const match = await prisma.$transaction(async (tx) => {
+    const updated = await tx.match.update({
+      where: { id: matchId },
+      data: { homeScore, awayScore, status },
+    });
+    await applyClassicEloForMatch(tx, tournamentId, matchId);
+    return updated;
   });
   await maybeAdvanceRoundRobin(tournamentId, match.roundId);
 

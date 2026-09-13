@@ -363,6 +363,18 @@ model Registration {
   player       Player             @relation(fields: [playerId], references: [id])
   status       RegistrationStatus @default(CONFIRMED)
   createdAt    DateTime           @default(now())
+  // Cote et coefficient K du joueur "au début du tournoi" (voir
+  // src/lib/classic/elo.ts), figés au moment du tout premier calcul de cote
+  // de ce tournoi (premier match individuel classique décidé) plutôt qu'à
+  // l'inscription — un joueur peut s'inscrire des semaines avant que le
+  // tournoi ne commence, sa cote aurait alors pu changer entre-temps.
+  // Servent de référence identique pour TOUS les matchs individuels
+  // classiques de ce joueur dans ce tournoi (la probabilité de gain
+  // attendue ne se recalcule jamais en cours de tournoi sur une cote déjà
+  // mise à jour). Restent null pour les tournois par équipes/duplicate,
+  // hors du périmètre de la cote Elo classique individuelle.
+  eloAtStart   Int?
+  coeffAtStart Int?
 
   @@unique([tournamentId, playerId])
 }
@@ -508,6 +520,15 @@ model Match {
   // l'ordre d'affichage ; toujours vrai (non pertinent) hors tournoi par
   // équipes.
   homeStarts   Boolean     @default(true)
+  // Évolution de cote Elo (voir src/lib/classic/elo.ts) déjà appliquée à
+  // Player.eloClassic pour ce match précis, individuel classique
+  // uniquement (homeTeamId/awayTeamId null) — mémorisée pour pouvoir
+  // l'annuler proprement si le score est corrigé après coup, plutôt que de
+  // cumuler une nouvelle évolution par-dessus l'ancienne à chaque
+  // correction. Restent null pour tout match sans calcul de cote applicable
+  // (bye, tournoi par équipes/duplicate, résultat pas encore décidé).
+  homeEloDelta Float?
+  awayEloDelta Float?
 }
 
 // ---- Scrabble duplicate ----

@@ -15,6 +15,12 @@ import {
 import { computeStandingsFromMatches } from "../src/lib/classic/standings";
 import { computeTeamStandingsFromMatches } from "../src/lib/classic/teamStandings";
 import { selectPoolQualifiers } from "../src/lib/classic/poolStandings";
+import {
+  classicEloDelta,
+  classicEloResult,
+  expectedScore,
+  nextClassicCoefficient,
+} from "../src/lib/classic/elo";
 
 test("round-robin crée une ronde par adversaire et un bye équitable", () => {
   const rounds = generateRoundRobinRounds(["a", "b", "c", "d", "e"]);
@@ -460,4 +466,83 @@ test("classement équipes : uptoRoundNumber reconstitue un instantané, même si
   const full = computeTeamStandingsFromMatches(teams, matches);
   const aFull = full.find((r) => r.teamId === "a")!;
   assert.equal(aFull.played, 2);
+});
+
+// Les 12 cas ci-dessous (probabilité déjà calculée par le classeur ET
+// évolution de cote constatée) sont extraits tels quels de la feuille
+// "match1" d'un classeur de calcul de cote réel (tournoi EFROUBA 2024),
+// pour vérifier que classicEloDelta = K×(W−We) reproduit exactement le
+// calcul fédéral une fois We connue.
+test("classicEloDelta reproduit exactement l'évolution de cote fédérale (6 matchs vérifiés, 12 joueurs)", () => {
+  const cases = [
+    // BOTI Roland (K=40, victoire, We=0,45) vs KOUASSI Firmin (K=20, défaite, We=0,55)
+    { we: 0.45, coeff: 40, actual: 1, expectedDelta: 22 },
+    { we: 0.55, coeff: 20, actual: 0, expectedDelta: -11 },
+    // BOUGNON Sosthène (K=40, défaite, We=0,29) vs MOH Achille (K=40, victoire, We=0,71)
+    { we: 0.29, coeff: 40, actual: 0, expectedDelta: -11.6 },
+    { we: 0.71, coeff: 40, actual: 1, expectedDelta: 11.6 },
+    // DOSSO Abou (K=10, défaite surprise, We=0,92) vs GOGBEU Tua Stanislas (K=40, victoire surprise, We=0,08)
+    { we: 0.92, coeff: 10, actual: 0, expectedDelta: -9.2 },
+    { we: 0.08, coeff: 40, actual: 1, expectedDelta: 36.8 },
+    // ATSE Patrick Hervé (K=20, victoire, We=0,71) vs LAGUI Olivier (K=40, défaite, We=0,29)
+    { we: 0.71, coeff: 20, actual: 1, expectedDelta: 5.8 },
+    { we: 0.29, coeff: 40, actual: 0, expectedDelta: -11.6 },
+    // BLEHI Alain (K=40, victoire, We=0,28) vs ORIA Guy Serge (K=20, défaite, We=0,72)
+    { we: 0.28, coeff: 40, actual: 1, expectedDelta: 28.8 },
+    { we: 0.72, coeff: 20, actual: 0, expectedDelta: -14.4 },
+    // BLE Sosthène (K=40, défaite, We=0,11) vs ZINGBE Gueu Mathieu (K=10, victoire, We=0,89)
+    { we: 0.11, coeff: 40, actual: 0, expectedDelta: -4.4 },
+    { we: 0.89, coeff: 10, actual: 1, expectedDelta: 1.1 },
+  ];
+
+  for (const c of cases) {
+    const delta = classicEloDelta(c.coeff, c.actual, c.we);
+    assert.ok(
+      Math.abs(delta - c.expectedDelta) < 0.01,
+      `we=${c.we} coeff=${c.coeff} actual=${c.actual} : attendu ${c.expectedDelta}, obtenu ${delta.toFixed(2)}`
+    );
+  }
+});
+
+// Vérifie séparément que expectedScore (formule logistique + arrondi au
+// centième) reproduit bien la table de correspondance cote→probabilité du
+// même classeur : BOTI Roland (1550) contre KOUASSI Firmin (1588), écart de
+// cote -38/+38, table fédérale → 0,45/0,55 (déjà vérifié cellule par
+// cellule dans la feuille ProbaELO).
+test("expectedScore reproduit la table cote→probabilité fédérale et reste bornée à [0,08 ; 0,92]", () => {
+  assert.equal(expectedScore(1550, 1588), 0.45);
+  assert.equal(expectedScore(1588, 1550), 0.55);
+  assert.equal(expectedScore(2500, 1000), 0.92);
+  assert.equal(expectedScore(1000, 2500), 0.08);
+  assert.equal(expectedScore(1500, 1500), 0.5);
+});
+
+test("classicEloResult : forfait simple décisif, forfait double et match annulé exclus de la cote", () => {
+  assert.deepEqual(classicEloResult("PLAYED", 400, 300), { home: 1, away: 0 });
+  assert.deepEqual(classicEloResult("PLAYED", 300, 300), { home: 0.5, away: 0.5 });
+  assert.deepEqual(classicEloResult("FORFEIT_HOME", 0, 400), { home: 0, away: 1 });
+  assert.deepEqual(classicEloResult("FORFEIT_AWAY", 400, 0), { home: 1, away: 0 });
+  assert.equal(classicEloResult("FORFEIT_BOTH", 0, 0), null);
+  assert.equal(classicEloResult("CANCELLED", null, null), null);
+  assert.equal(classicEloResult("SCHEDULED", null, null), null);
+});
+
+test("nextClassicCoefficient : ne redescend le K qu'aux paliers, ne le fait jamais remonter", () => {
+  // Nouveau joueur (pas de coefficient importé) : K=40 tant que < 20 parties.
+  assert.equal(nextClassicCoefficient(null, 0), 40);
+  assert.equal(nextClassicCoefficient(null, 19), 40);
+  assert.equal(nextClassicCoefficient(null, 20), 20);
+  assert.equal(nextClassicCoefficient(null, 49), 20);
+  assert.equal(nextClassicCoefficient(null, 50), 16);
+  assert.equal(nextClassicCoefficient(null, 99), 16);
+  assert.equal(nextClassicCoefficient(null, 100), 10);
+
+  // Joueur importé déjà à un K bas (expérience acquise hors application) :
+  // un compteur de parties DANS l'application qui repart de zéro ne doit
+  // jamais le faire remonter à 40.
+  assert.equal(nextClassicCoefficient(16, 0), 16);
+  assert.equal(nextClassicCoefficient(10, 5), 10);
+  // Mais peut continuer à descendre si l'application constate encore plus
+  // de parties que le palier déjà atteint.
+  assert.equal(nextClassicCoefficient(20, 100), 10);
 });
