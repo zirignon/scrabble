@@ -72,7 +72,7 @@ export function NavBarClient({
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-emerald-700 text-white px-3.5 py-1.5 text-sm font-medium shadow-sm shadow-emerald-900/20 hover:bg-emerald-800 hover:shadow-md hover:shadow-emerald-900/25 transition-all"
+                className="btn-shine rounded-full bg-emerald-700 text-white px-3.5 py-1.5 text-sm font-medium shadow-sm shadow-emerald-900/20 hover:bg-emerald-800 hover:shadow-lg hover:shadow-emerald-900/30 hover:-translate-y-0.5 hover:scale-105 active:scale-95 active:translate-y-0 transition-all duration-200"
               >
                 Créer un compte
               </Link>

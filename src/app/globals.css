@@ -81,3 +81,35 @@ h1, h2, h3 {
     animation: none;
   }
 }
+
+/* Reflet lumineux balayant les boutons d'action principaux au survol, en
+   plus du lift/scale déjà posé en classes Tailwind sur chaque bouton — un
+   petit supplément d'éclat qui ne dépend d'aucun script. */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: -75%;
+  width: 50%;
+  background: linear-gradient(
+    115deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.btn-shine:hover::after {
+  left: 125%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-shine::after {
+    display: none;
+  }
+}

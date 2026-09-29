@@ -162,15 +162,21 @@ export default async function Home() {
           <div className="flex gap-3 mt-2">
             <Link
               href="/tournois"
-              className="rounded-full bg-emerald-700 text-white px-5 py-2.5 font-medium shadow-md shadow-emerald-900/20 hover:bg-emerald-800 hover:shadow-lg hover:shadow-emerald-900/25 hover:-translate-y-0.5 transition-all"
+              className="btn-shine group rounded-full bg-emerald-700 text-white px-5 py-2.5 font-medium shadow-md shadow-emerald-900/20 hover:bg-emerald-800 hover:shadow-xl hover:shadow-emerald-900/30 hover:-translate-y-1 hover:scale-105 active:scale-95 active:translate-y-0 transition-all duration-200"
             >
               Voir les tournois
+              <span className="inline-block ml-1.5 transition-transform duration-200 group-hover:translate-x-1">
+                →
+              </span>
             </Link>
             <Link
               href="/register"
-              className="rounded-full bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-5 py-2.5 font-medium shadow-md shadow-navy/20 hover:shadow-lg hover:shadow-navy/25 hover:-translate-y-0.5 transition-all"
+              className="btn-shine group rounded-full bg-navy hover:bg-navy/90 text-white dark:bg-navy-light dark:hover:bg-navy-light/90 dark:text-navy px-5 py-2.5 font-medium shadow-md shadow-navy/20 hover:shadow-xl hover:shadow-navy/30 hover:-translate-y-1 hover:scale-105 active:scale-95 active:translate-y-0 transition-all duration-200"
             >
               Créer un compte
+              <span className="inline-block ml-1.5 transition-transform duration-200 group-hover:translate-x-1">
+                →
+              </span>
             </Link>
           </div>
         </div>
