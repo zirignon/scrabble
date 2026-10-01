@@ -185,16 +185,17 @@ export function countKnockoutEntrants(matches: KnockoutRoundMatchLike[]): number
   return entrants;
 }
 
-// Nom du tour selon le nombre d'entrants, à la manière des tableaux
-// officiels : Finale, Demi-finales, Quarts de finale, Huitièmes de
-// finale...
+// Nom du tour selon le nombre d'entrants, au singulier comme demandé par
+// l'organisateur (« Quart de finale », « Demi-finale », pas « Quarts »/
+// « Demi-finales ») plutôt qu'à la manière des tableaux sportifs qui
+// pluralisent souvent ce nom.
 export function getKnockoutStageLabel(entrants: number): string {
   if (entrants <= 2) return "Finale";
-  if (entrants <= 4) return "Demi-finales";
-  if (entrants <= 8) return "Quarts de finale";
-  if (entrants <= 16) return "Huitièmes de finale";
-  if (entrants <= 32) return "Seizièmes de finale";
-  if (entrants <= 64) return "Trente-deuxièmes de finale";
+  if (entrants <= 4) return "Demi-finale";
+  if (entrants <= 8) return "Quart de finale";
+  if (entrants <= 16) return "Huitième de finale";
+  if (entrants <= 32) return "Seizième de finale";
+  if (entrants <= 64) return "Trente-deuxième de finale";
   return `Tour de ${entrants}`;
 }
 
@@ -242,8 +243,8 @@ export function knockoutStageLabelForRound(
 
 // Retrouve, pour un instant donné d'un tournoi (sa ronde la plus récente,
 // ou un ?ronde= précis pour un instantané), le nom du tour à élimination
-// directe en cours (Seizièmes de finale, Huitièmes de finale, Quarts de
-// finale, Demi-finales, Finale) — null si ce n'est pas (encore) une ronde à
+// directe en cours (Seizième de finale, Huitième de finale, Quart de
+// finale, Demi-finale, Finale) — null si ce n'est pas (encore) une ronde à
 // élimination directe : tournoi au format KNOCKOUT (toujours), GROUPS une
 // fois la phase de poules terminée (matchs sans poolId), ou toute autre
 // phase finale optionnelle (Tournament.finalPhaseEnabled), hors sous-phase
@@ -275,4 +276,24 @@ export async function getCurrentKnockoutStageLabel(
   }
 
   return knockoutStageLabelForRound(format, lastRound, lastRound.matches, leg1Matches);
+}
+
+// Numéro de la ronde la plus récente du tournoi (ou de l'instantané demandé
+// via uptoRoundNumber, voir l'export PDF "classement après la ronde N") —
+// sert à titrer le classement tant que la phase finale n'a pas commencé
+// (voir getCurrentKnockoutStageLabel ci-dessus, qui prend le relais une fois
+// le tableau entamé) : "Classement après la ronde N" plutôt qu'un simple
+// "Classement" muet sur l'avancement du tournoi. Null si aucune ronde
+// n'existe encore.
+export async function getLatestRoundNumber(
+  tournamentId: string,
+  uptoRoundNumber?: number
+): Promise<number | null> {
+  if (uptoRoundNumber !== undefined) return uptoRoundNumber;
+  const lastRound = await prisma.round.findFirst({
+    where: { tournamentId },
+    orderBy: { number: "desc" },
+    select: { number: true },
+  });
+  return lastRound?.number ?? null;
 }

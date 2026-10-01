@@ -6,7 +6,7 @@ import {
   type ClassicStandingRow,
 } from "@/lib/classic/standings";
 import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
-import { getCurrentKnockoutStageLabel } from "@/lib/classic/knockout";
+import { getCurrentKnockoutStageLabel, getLatestRoundNumber } from "@/lib/classic/knockout";
 import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
 import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
@@ -135,15 +135,17 @@ export async function GET(
     const standings = await computeClassicStandings(tournament.id, uptoRoundNumber);
     // Voir le commentaire équivalent sur la page classement publique : une
     // fois entré dans un tableau à élimination directe, le titre reprend le
-    // nom du tour en cours (Quarts de finale, Demi-finales, Finale, ...)
-    // plutôt que le simple "Classement".
-    const knockoutStageLabel = await getCurrentKnockoutStageLabel(
-      tournament.id,
-      tournament.format,
-      uptoRoundNumber
-    );
+    // nom du tour en cours (Quart de finale, Demi-finale, Finale, ...) ;
+    // sinon il reprend le numéro de la ronde globale la plus récente.
+    const [knockoutStageLabel, latestRoundNumber] = await Promise.all([
+      getCurrentKnockoutStageLabel(tournament.id, tournament.format, uptoRoundNumber),
+      getLatestRoundNumber(tournament.id, uptoRoundNumber),
+    ]);
+    const classementTitle =
+      knockoutStageLabel ??
+      (latestRoundNumber !== null ? `Classement après la ronde ${latestRoundNumber}` : "Classement");
     pdf = await renderTablePdf(
-      `${knockoutStageLabel ?? "Classement"} — ${tournament.name}`,
+      `${classementTitle} — ${tournament.name}`,
       subtitle,
       ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
       standings.map((row, i) => [

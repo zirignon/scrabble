@@ -10,7 +10,7 @@ import {
   computeClassicTeamPoolStandings,
 } from "@/lib/classic/teamPoolStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { getCurrentKnockoutStageLabel } from "@/lib/classic/knockout";
+import { getCurrentKnockoutStageLabel, getLatestRoundNumber } from "@/lib/classic/knockout";
 import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
 import { slugify } from "@/lib/slug";
 
@@ -153,14 +153,19 @@ export async function GET(
     } else {
       // Voir le commentaire équivalent côté classement individuel : une fois
       // entré dans un tableau à élimination directe, le titre reprend le nom
-      // du tour en cours plutôt que le simple "Classement par équipes".
-      const knockoutStageLabel = await getCurrentKnockoutStageLabel(
-        tournament.id,
-        tournament.format,
-        uptoRoundNumber
-      );
+      // du tour en cours ; sinon le numéro de la ronde globale la plus
+      // récente, plutôt que le simple "Classement par équipes".
+      const [knockoutStageLabel, latestRoundNumber] = await Promise.all([
+        getCurrentKnockoutStageLabel(tournament.id, tournament.format, uptoRoundNumber),
+        getLatestRoundNumber(tournament.id, uptoRoundNumber),
+      ]);
+      const classementTitle =
+        knockoutStageLabel ??
+        (latestRoundNumber !== null
+          ? `Classement par équipes après la ronde ${latestRoundNumber}`
+          : "Classement par équipes");
       pdf = await renderTablePdf(
-        `${knockoutStageLabel ?? "Classement par équipes"} — ${tournament.name}`,
+        `${classementTitle} — ${tournament.name}`,
         subtitle,
         teamColumns,
         generalSection.rows,

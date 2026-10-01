@@ -205,7 +205,7 @@ export async function GET(
 
   // Une ronde à élimination directe (tableau après poules, phase finale de
   // round-robin/suisse, ou format élimination directe pur) affiche son nom
-  // de tour (Demi-finales, Finale...) plutôt que son simple numéro — voir
+  // de tour (Demi-finale, Finale...) plutôt que son simple numéro — voir
   // le commentaire équivalent sur les pages rondes/écran public. Les rondes
   // de phase principale, celles de la phase suisse d'un tournoi Combiné
   // (voir isSwissPhase) et celles de phase finale sont regroupées dans des
@@ -218,7 +218,7 @@ export async function GET(
   // (numéro de ronde croissant) en "chunks" — soit des lignes de rondes
   // classiques à fusionner dans un même tableau "Phase finale", soit les
   // sections dédiées d'un tour en 2 manches + belle — plutôt que dans un
-  // seul tableau fusionné, pour que l'ordre d'impression (Demi-finales
+  // seul tableau fusionné, pour que l'ordre d'impression (Demi-finale
   // avant Finale, etc.) reste correct même quand certains tours utilisent
   // le format 2 manches + belle et d'autres non (ex. la Finale tant que sa
   // manche retour n'a pas encore été générée).
@@ -291,7 +291,7 @@ export async function GET(
   // tableau sans sous-titre suffit, comme avant. Dès qu'un tour en 2
   // manches + belle existe, les intitulés sont toujours affichés (sans quoi
   // un tableau "Phase finale" voisin resterait sans titre à côté de
-  // "Demi-finales"/"Finale").
+  // "Demi-finale"/"Finale").
   const hasStage = finalPhaseChunks.some((c) => c.kind === "stage");
   const phaseCount = [mainRows.length > 0, swissPhaseRows.length > 0, finalPhaseChunks.length > 0].filter(
     Boolean

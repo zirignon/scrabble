@@ -10,7 +10,7 @@ import {
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
 import { computeClassicEloReport } from "@/lib/classic/elo";
-import { getCurrentKnockoutStageLabel } from "@/lib/classic/knockout";
+import { getCurrentKnockoutStageLabel, getLatestRoundNumber } from "@/lib/classic/knockout";
 import {
   computeClassicTeamGeneralPoolStandings,
   computeClassicTeamPoolStandings,
@@ -69,13 +69,22 @@ export default async function TournamentStandingsPage({
   // KNOCKOUT, ou phase finale optionnelle générée après poules/suisse/
   // round-robin — voir Tournament.finalPhaseEnabled), le titre "Classement"
   // seul ne dit plus grand-chose : on le remplace par le nom du tour en
-  // cours (Seizièmes de finale, Huitièmes de finale, Quarts de finale,
-  // Demi-finales, Finale), comme déjà affiché sur les pages rondes et
-  // l'écran public.
-  const knockoutStageLabel =
+  // cours (Seizième de finale, Huitième de finale, Quart de finale,
+  // Demi-finale, Finale), comme déjà affiché sur les pages rondes et
+  // l'écran public. Tant que la phase finale n'a pas commencé, le titre
+  // reprend plutôt le numéro de la ronde globale la plus récente —
+  // "Classement après la ronde N" — pour les mêmes raisons que la section
+  // combinée poules+suisse plus bas (voir lastRound).
+  const [knockoutStageLabel, latestRoundNumber] =
     tournament.type === "CLASSIC"
-      ? await getCurrentKnockoutStageLabel(tournament.id, tournament.format)
-      : null;
+      ? await Promise.all([
+          getCurrentKnockoutStageLabel(tournament.id, tournament.format),
+          getLatestRoundNumber(tournament.id),
+        ])
+      : [null, null];
+  const classementTitle =
+    knockoutStageLabel ??
+    (latestRoundNumber !== null ? `Classement après la ronde ${latestRoundNumber}` : "Classement");
 
   const classicStandings =
     tournament.type === "CLASSIC" ? await computeClassicStandings(tournament.id) : [];
@@ -197,7 +206,7 @@ export default async function TournamentStandingsPage({
       {!(tournament.type === "CLASSIC" && isPoolFormat) && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>{knockoutStageLabel ?? "Classement"}</h2>
+            <h2 className={sectionHeading}>{classementTitle}</h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
@@ -691,7 +700,12 @@ export default async function TournamentStandingsPage({
       {tournament.isTeamEvent && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>{knockoutStageLabel ?? "Classement par équipes"}</h2>
+            <h2 className={sectionHeading}>
+              {knockoutStageLabel ??
+                (latestRoundNumber !== null
+                  ? `Classement par équipes après la ronde ${latestRoundNumber}`
+                  : "Classement par équipes")}
+            </h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
                 Exporter en CSV
