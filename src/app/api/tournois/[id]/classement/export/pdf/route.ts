@@ -85,6 +85,16 @@ export async function GET(
           })) > 0
         : false;
 
+    // GROUPS : une fois la phase finale à élimination directe lancée (voir
+    // generateFinalPhaseFromPoolsActionImpl), les classements par poule
+    // n'ont plus lieu d'être non plus — remplacés par le classement général
+    // qui a servi à qualifier les entrants, sous le titre du tour en cours
+    // (Quart de finale, Finale...), comme sur la page classement publique.
+    const groupsKnockoutStageLabel =
+      tournament.format === "GROUPS"
+        ? await getCurrentKnockoutStageLabel(tournament.id, tournament.format, uptoRoundNumber)
+        : null;
+
     let sections: PdfSection[];
     if (tournament.format === "COMBINED" && swissPhaseStarted) {
       const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id, uptoRoundNumber);
@@ -93,6 +103,16 @@ export async function GET(
           heading: `Classement après la ronde ${lastRound?.number}`,
           headers: standingsHeaders,
           rows: swissPhaseStandings.map(poolRowMapper),
+          columnWeights: poolColumnWeights,
+        },
+      ];
+    } else if (tournament.format === "GROUPS" && groupsKnockoutStageLabel !== null) {
+      const generalStandings = await computeClassicGeneralPoolStandings(tournament.id, uptoRoundNumber);
+      sections = [
+        {
+          heading: groupsKnockoutStageLabel,
+          headers: standingsHeaders,
+          rows: generalStandings.map(poolRowMapper),
           columnWeights: poolColumnWeights,
         },
       ];

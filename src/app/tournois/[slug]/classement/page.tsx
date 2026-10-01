@@ -164,18 +164,21 @@ export default async function TournamentStandingsPage({
         })) > 0
       : false;
 
-  // Classement général (fusion de toutes les poules) affiché en plus des
-  // classements par poule, entre la fin de la phase de poules et le début
-  // de la phase suisse — c'est ce même classement qui amorce la phase
-  // suisse (voir generateSwissPhaseRoundActionImpl). Une fois la phase
-  // suisse commencée, ce classement général est remplacé par le
-  // classement combiné ci-dessus (voir swissPhaseStarted).
+  // Classement général (fusion de toutes les poules), affiché dans 2 cas :
+  // - COMBINED, entre la fin de la phase de poules et le début de la phase
+  //   suisse — c'est ce même classement qui amorce la phase suisse (voir
+  //   generateSwissPhaseRoundActionImpl) ; remplacé par le classement
+  //   combiné ci-dessus une fois la phase suisse commencée (swissPhaseStarted).
+  // - GROUPS, une fois la phase finale à élimination directe lancée (voir
+  //   generateFinalPhaseFromPoolsActionImpl) : remplace alors "Classement
+  //   par poule", qui ne reflète plus la suite du tournoi (voir plus bas),
+  //   sous le titre du tour en cours (classementTitle/knockoutStageLabel).
   const generalPoolStandings =
-    tournament.type === "CLASSIC" &&
-    tournament.format === "COMBINED" &&
-    !tournament.isTeamEvent &&
-    !swissPhaseStarted
-      ? await computeClassicGeneralPoolStandings(tournament.id)
+    tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent
+      ? (tournament.format === "COMBINED" && !swissPhaseStarted) ||
+        (tournament.format === "GROUPS" && knockoutStageLabel !== null)
+        ? await computeClassicGeneralPoolStandings(tournament.id)
+        : []
       : [];
   const teamGeneralPoolStandings =
     tournament.type === "CLASSIC" &&
@@ -346,7 +349,8 @@ export default async function TournamentStandingsPage({
       {tournament.type === "CLASSIC" &&
         isPoolFormat &&
         !tournament.isTeamEvent &&
-        !(tournament.format === "COMBINED" && swissPhaseStarted) && (
+        !(tournament.format === "COMBINED" && swissPhaseStarted) &&
+        !(tournament.format === "GROUPS" && knockoutStageLabel !== null) && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className={sectionHeading}>Classement par poule</h2>
@@ -410,6 +414,60 @@ export default async function TournamentStandingsPage({
       )}
 
       {tournament.type === "CLASSIC" &&
+        tournament.format === "GROUPS" &&
+        !tournament.isTeamEvent &&
+        knockoutStageLabel !== null && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>{knockoutStageLabel}</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum} title="Forfaits (absences)">Abs.</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum}>Diff</th>
+                  <th className={thNum} title="Sonneborn-Berger">SB</th>
+                  <th className={thNum} title="Buchholz">Bchz</th>
+                  <th className={thNum} title="Buchholz médian">Bchz méd.</th>
+                  <th className={thNum} title="Score cumulé progressif">Cumul</th>
+                </tr>
+              </thead>
+              <tbody>
+                {generalPoolStandings.map((r, i) => (
+                  <tr key={r.playerId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={tdNum}>{r.forfeits}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                    <td className={tdNum}>{r.sonnebornBerger}</td>
+                    <td className={tdNum}>{r.buchholz}</td>
+                    <td className={tdNum}>{r.buchholzMedian}</td>
+                    <td className={tdNum}>{r.cumulativeScore}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" &&
         tournament.format === "COMBINED" &&
         !tournament.isTeamEvent &&
         !swissPhaseStarted &&
@@ -467,7 +525,12 @@ export default async function TournamentStandingsPage({
         swissPhaseStarted && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement après la ronde {lastRound?.number}</h2>
+            {/* classementTitle reprend automatiquement le nom du tour (Quart
+                de finale, Finale...) une fois la phase finale optionnelle
+                lancée après cette phase suisse — voir
+                Tournament.finalPhaseEnabled — sinon "Classement après la
+                ronde N" comme avant. */}
+            <h2 className={sectionHeading}>{classementTitle}</h2>
           </div>
           <div className={`overflow-x-auto ${card}`}>
             <table className="w-full text-sm border-collapse">
@@ -658,7 +721,9 @@ export default async function TournamentStandingsPage({
         swissPhaseStarted && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement après la ronde {lastRound?.number} (équipes)</h2>
+            <h2 className={sectionHeading}>
+              {knockoutStageLabel ?? `Classement après la ronde ${lastRound?.number} (équipes)`}
+            </h2>
           </div>
           <div className={`overflow-x-auto ${card}`}>
             <table className="w-full text-sm border-collapse">

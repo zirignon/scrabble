@@ -84,7 +84,22 @@ export async function GET(
         columnWeights: teamWeights,
       }));
 
-      if (tournament.format === "COMBINED") {
+      // GROUPS : une fois la phase finale à élimination directe lancée, les
+      // classements par poule n'ont plus lieu d'être — remplacés par le
+      // classement général (déjà figé, voir computeClassicTeamStandings)
+      // sous le titre du tour en cours, comme côté classement individuel.
+      const groupsKnockoutStageLabel =
+        tournament.format === "GROUPS"
+          ? await getCurrentKnockoutStageLabel(tournament.id, tournament.format, uptoRoundNumber)
+          : null;
+
+      if (tournament.format === "GROUPS" && groupsKnockoutStageLabel !== null) {
+        pdf = await renderMultiTablePdf(
+          `Classement par équipes — ${tournament.name}`,
+          subtitle,
+          [{ ...generalSection, heading: groupsKnockoutStageLabel }]
+        );
+      } else if (tournament.format === "COMBINED") {
         // Voir le commentaire équivalent côté classement individuel : une
         // fois la 1re ronde suisse générée, les classements par poule
         // n'ont plus lieu d'être affichés à côté du classement combiné, qui
