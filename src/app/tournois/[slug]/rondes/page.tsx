@@ -134,6 +134,7 @@ type RoundWithRelations = {
 
 interface KnockoutConfrontation {
   isBye: boolean;
+  isThirdPlace: boolean;
   homePlayer: RoundMatch["homePlayer"];
   awayPlayer: RoundMatch["awayPlayer"];
   // Score de l'exempt contre X (voir BYE_HOME_SCORE dans classic.ts) —
@@ -153,12 +154,16 @@ function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
   if (!leg1) return { confrontations: [], legLabels: [] };
 
   const legLabels = belle ? ["Aller", "Retour", "Belle"] : leg2 ? ["Aller", "Retour"] : ["Aller"];
-  const confrontations = leg1.matches
-    .filter((m) => !m.isThirdPlace)
-    .map((m1): KnockoutConfrontation => {
+  // Inclut le match pour la 3e place (le cas échéant) : il partage les
+  // mêmes rondes aller/retour/belle que le reste du tableau (voir
+  // generateNextKnockoutRoundActionImpl côté actions), donc la même
+  // reconstitution par confrontation s'applique telle quelle — à charge
+  // pour l'appelant de le séparer via isThirdPlace pour l'afficher à part.
+  const confrontations = leg1.matches.map((m1): KnockoutConfrontation => {
       if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
         return {
           isBye: true,
+          isThirdPlace: m1.isThirdPlace,
           homePlayer: m1.homePlayer,
           awayPlayer: m1.awayPlayer,
           byeScore: { home: m1.homeScore, away: m1.awayScore },
@@ -175,6 +180,7 @@ function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
         ) ?? null;
       return {
         isBye: false,
+        isThirdPlace: m1.isThirdPlace,
         homePlayer: m1.homePlayer,
         awayPlayer: m1.awayPlayer,
         legs: [m1, m2, mb].slice(0, legLabels.length),
@@ -328,9 +334,8 @@ export default async function TournamentRoundsPage({
           if (unit.kind === "stage") {
             const leg1 = unit.legRounds.find((r) => r.knockoutLeg === 1)!;
             const { confrontations, legLabels } = buildKnockoutConfrontations(unit.legRounds);
-            const thirdPlaceMatches = unit.legRounds.flatMap((r) =>
-              r.matches.filter((m) => m.isThirdPlace)
-            );
+            const mainConfrontations = confrontations.filter((c) => !c.isThirdPlace);
+            const thirdPlaceConfrontation = confrontations.find((c) => c.isThirdPlace) ?? null;
             return (
               <div key={unit.knockoutStage} id={`ronde-${leg1.number}`} className="flex flex-col gap-4 scroll-mt-20">
                 <div className="flex flex-col gap-1.5">
@@ -341,14 +346,20 @@ export default async function TournamentRoundsPage({
                       )}
                     </a>
                   </h3>
-                  <KnockoutConfrontationsTable confrontations={confrontations} legLabels={legLabels} />
+                  <KnockoutConfrontationsTable confrontations={mainConfrontations} legLabels={legLabels} />
                 </div>
-                {thirdPlaceMatches.length > 0 && (
+                {thirdPlaceConfrontation && (
                   <div className="flex flex-col gap-1.5">
                     <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
                       Match pour la 3ᵉ place
                     </h3>
-                    <MatchTable matches={thirdPlaceMatches} />
+                    {/* Même tableau aller/retour/belle que la confrontation
+                        principale (voir Tournament.knockoutTwoLegs) — la 3e
+                        place suit désormais exactement le même format. */}
+                    <KnockoutConfrontationsTable
+                      confrontations={[thirdPlaceConfrontation]}
+                      legLabels={legLabels}
+                    />
                   </div>
                 )}
               </div>

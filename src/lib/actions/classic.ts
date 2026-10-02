@@ -1779,7 +1779,10 @@ export const generateKnockoutBracketAction = safeRoundAction(generateKnockoutBra
 // la liste des confrontations concernées pour la créer).
 type TwoLegStageResolution =
   | { resolved: true; winners: string[]; losers: string[] }
-  | { resolved: false; splitPairings: { home: string; away: string; homeStarts: boolean }[] };
+  | {
+      resolved: false;
+      splitPairings: { home: string; away: string; homeStarts: boolean; isThirdPlace: boolean }[];
+    };
 
 async function resolveTwoLegStage(
   tournamentId: string,
@@ -1797,7 +1800,7 @@ async function resolveTwoLegStage(
 
   const winners: string[] = [];
   const losers: string[] = [];
-  const splitPairings: { home: string; away: string; homeStarts: boolean }[] = [];
+  const splitPairings: { home: string; away: string; homeStarts: boolean; isThirdPlace: boolean }[] = [];
 
   for (const m1 of leg1.matches) {
     const w1 = getKnockoutWinner(m1);
@@ -1807,7 +1810,7 @@ async function resolveTwoLegStage(
       );
     }
     if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
-      winners.push(w1);
+      if (!m1.isThirdPlace) winners.push(w1);
       continue;
     }
     if (!leg2) throw new Error("Générez d'abord la manche retour.");
@@ -1822,13 +1825,28 @@ async function resolveTwoLegStage(
       );
     }
     if (w1 === w2) {
-      winners.push(w1);
-      losers.push(w1 === m1.homePlayerId ? m1.awayPlayerId : m1.homePlayerId);
+      // Le match pour la 3e place suit les mêmes manches/belle que le reste
+      // du tableau (il partage les mêmes rondes de tour, voir
+      // generateNextKnockoutRoundActionImpl), mais son résultat ne doit
+      // jamais alimenter winners/losers : ce ne sont pas des vainqueurs de
+      // tour à apparier plus loin, et le mélanger au vainqueur du tour
+      // (souvent la finale elle-même) ferait croire à tort qu'il reste un
+      // tour à générer alors que le tournoi est terminé.
+      if (!m1.isThirdPlace) {
+        winners.push(w1);
+        losers.push(w1 === m1.homePlayerId ? m1.awayPlayerId : m1.homePlayerId);
+      }
       continue;
     }
-    // Chacun a gagné une manche : cette confrontation attend une belle.
+    // Chacun a gagné une manche : cette confrontation attend une belle,
+    // terrain d'égalité la 3e place comme n'importe quelle autre.
     if (!belle) {
-      splitPairings.push({ home: m1.homePlayerId, away: m1.awayPlayerId, homeStarts: m1.homeStarts });
+      splitPairings.push({
+        home: m1.homePlayerId,
+        away: m1.awayPlayerId,
+        homeStarts: m1.homeStarts,
+        isThirdPlace: m1.isThirdPlace,
+      });
       continue;
     }
     const mb = belle.matches.find(
@@ -1839,8 +1857,10 @@ async function resolveTwoLegStage(
     if (!wb) {
       throw new Error(`Le résultat de la table ${mb.table ?? "?"} (belle) n'est pas encore tranché.`);
     }
-    winners.push(wb);
-    losers.push(wb === m1.homePlayerId ? m1.awayPlayerId : m1.homePlayerId);
+    if (!m1.isThirdPlace) {
+      winners.push(wb);
+      losers.push(wb === m1.homePlayerId ? m1.awayPlayerId : m1.homePlayerId);
+    }
   }
 
   if (splitPairings.length > 0) {
@@ -1920,6 +1940,11 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
             awayPlayerId: m.awayPlayerId,
             status: "SCHEDULED",
             homeStarts: !m.homeStarts,
+            // Préserve l'étiquette "3e place" sur la manche retour, sans
+            // quoi elle réapparaîtrait comme une 2e confrontation du tour
+            // principal au lieu de rester groupée sous "Match pour la 3e
+            // place" (voir le commentaire équivalent sur resolveTwoLegStage).
+            isThirdPlace: m.isThirdPlace,
           },
         });
       }
@@ -1963,6 +1988,8 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
               status: "SCHEDULED",
               // La belle reprend le joueur qui débutait la manche aller.
               homeStarts: pairing.homeStarts,
+              // Voir le commentaire équivalent sur la manche retour.
+              isThirdPlace: pairing.isThirdPlace,
             },
           });
         }
@@ -1983,6 +2010,13 @@ async function generateNextKnockoutRoundActionImpl(tournamentId: string) {
           `Le résultat de la table ${match.table ?? "?"} n'est pas encore tranché (terminez la saisie ou résolvez l'égalité avant de continuer).`
         );
       }
+      // Voir le commentaire équivalent dans resolveTwoLegStage : le match
+      // pour la 3e place reste requis pour avancer (son résultat doit être
+      // tranché comme les autres), mais n'est jamais un vainqueur de tour à
+      // apparier plus loin — sans quoi, une fois la finale ET la 3e place
+      // jouées, ce tour semblerait en avoir 2 au lieu d'1 seul et génèrerait
+      // à tort un tour supplémentaire au lieu de conclure le tournoi.
+      if (match.isThirdPlace) continue;
       winners.push(winner);
       if (!match.isBye && match.homePlayerId && match.awayPlayerId) {
         losers.push(winner === match.homePlayerId ? match.awayPlayerId : match.homePlayerId);
@@ -2146,7 +2180,7 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
     if (match.isBye) {
       if (match.homeTeamId && !seenKeys.has(match.homeTeamId)) {
         seenKeys.add(match.homeTeamId);
-        winners.push(match.homeTeamId);
+        if (!match.isThirdPlace) winners.push(match.homeTeamId);
       }
       continue;
     }
@@ -2183,6 +2217,11 @@ async function generateNextTeamKnockoutRoundActionImpl(tournamentId: string) {
         "Égalité aux échiquiers pour une confrontation : elle doit être départagée manuellement avant de continuer."
       );
     }
+    // La confrontation pour la 3e place reste requise (son résultat doit
+    // être tranché comme les autres, voir allDecided plus haut), mais
+    // n'alimente jamais winners/losers — voir le commentaire équivalent
+    // côté individuel dans generateNextKnockoutRoundActionImpl.
+    if (match.isThirdPlace) continue;
     winners.push(homeBoardsWon > awayBoardsWon ? match.homeTeamId : match.awayTeamId);
     losers.push(homeBoardsWon > awayBoardsWon ? match.awayTeamId : match.homeTeamId);
   }
