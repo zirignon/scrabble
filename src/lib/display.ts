@@ -313,15 +313,52 @@ async function buildCurrent(tournament: {
     });
     if (!lastRound) return { kind: "matches", label: "Aucune ronde", groups: [] };
 
-    const grouped = lastRound.matches.some((m) => m.poolId);
+    // Pour un tour joué en 2 manches + belle (voir Tournament.knockoutTwoLegs),
+    // les confrontations d'un même tour peuvent avoir avancé à des rythmes
+    // différents : la finale peut être tranchée 2-0 (pas de belle générée)
+    // pendant que la 3e place, elle, attend encore sa belle — auquel cas la
+    // toute dernière ronde (par numéro) ne contient plus QUE cette belle, et
+    // s'en tenir à lastRound.matches ferait disparaître à tort la finale déjà
+    // conclue de l'écran "en cours". On reconstitue donc, pour chaque
+    // confrontation du tour, son match le plus avancé (celui de la ronde la
+    // plus récente où elle apparaît encore) — comme la page rondes le fait
+    // déjà pour son propre regroupement aller/retour/belle.
+    let currentMatches = lastRound.matches;
+    if (lastRound.knockoutStage !== null) {
+      const stageRounds = await prisma.round.findMany({
+        where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage },
+        orderBy: { number: "asc" },
+        include: {
+          matches: {
+            include: { homePlayer: true, awayPlayer: true, homeTeam: true, awayTeam: true, pool: true },
+            orderBy: { id: "asc" },
+          },
+        },
+      });
+      const confrontationKey = (m: (typeof stageRounds)[number]["matches"][number]) =>
+        m.isBye
+          ? `bye:${m.homePlayerId ?? m.homeTeamId}`
+          : `${m.isThirdPlace ? "3p" : "main"}:${m.homePlayerId ?? m.homeTeamId}:${m.awayPlayerId ?? m.awayTeamId}`;
+      const latestRoundNumberByConfrontation = new Map<string, number>();
+      for (const r of stageRounds) {
+        for (const m of r.matches) {
+          latestRoundNumberByConfrontation.set(confrontationKey(m), r.number);
+        }
+      }
+      currentMatches = stageRounds.flatMap((r) =>
+        r.matches.filter((m) => latestRoundNumberByConfrontation.get(confrontationKey(m)) === r.number)
+      );
+    }
+
+    const grouped = currentMatches.some((m) => m.poolId);
     // En équipes, chaque ligne Match ne représente qu'un échiquier d'une
     // confrontation (une équipe contre une autre) : plutôt que de répéter
     // le nom des deux équipes sur chaque ligne, on regroupe les échiquiers
     // d'une même confrontation sous un même titre et on affiche les noms
     // des deux joueurs qui s'affrontent sur cet échiquier.
-    const isTeamRound = lastRound.matches.some((m) => m.homeTeamId);
+    const isTeamRound = currentMatches.some((m) => m.homeTeamId);
     const groupsMap = new Map<string, DisplayRoundMatch[]>();
-    for (const m of lastRound.matches) {
+    for (const m of currentMatches) {
       const poolPrefix = grouped && m.pool ? `${m.pool.name} — ` : "";
       const groupName = m.isThirdPlace
         ? "Match pour la 3ᵉ place"
