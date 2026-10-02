@@ -29,6 +29,12 @@ export function DisplayBoard({
       : data.displayMode === "CURRENT"
         ? "current"
         : autoView;
+  // Rien n'est plus important que la finale elle-même : le nom du tournoi
+  // (toujours affiché jusqu'ici) cède la place à "FINALE" en grand une fois
+  // ce tour atteint, plutôt que de rester le titre dominant de l'écran.
+  const isFinaleStage =
+    data.current.kind === "matches" &&
+    (data.current.label === "Finale" || data.current.label.startsWith("Finale "));
 
   useEffect(() => {
     // Les navigateurs bloquent la lecture audio sans interaction préalable :
@@ -63,7 +69,7 @@ export function DisplayBoard({
   return (
     <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">
       <header className="flex items-center justify-between border-b border-black/20 pb-4">
-        <h1 className="text-4xl font-bold truncate">{data.tournamentName}</h1>
+        <h1 className="text-4xl font-bold truncate">{isFinaleStage ? "FINALE" : data.tournamentName}</h1>
         <div className="flex gap-4 text-2xl shrink-0">
           {data.standingsAvailable && (
             <>
