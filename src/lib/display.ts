@@ -393,18 +393,47 @@ async function buildCurrent(tournament: {
     // d'une même confrontation sous un même titre et on affiche les noms
     // des deux joueurs qui s'affrontent sur cet échiquier.
     const isTeamRound = currentMatches.some((m) => m.homeTeamId);
+    const isKnockoutRound =
+      tournament.format === "KNOCKOUT" ||
+      (tournament.format === "GROUPS" && !grouped) ||
+      (lastRound.isFinalPhase && !lastRound.isSwissPhase);
+    // Nom du tour (Quart de finale, Demi-finale, Finale...), calculé une
+    // fois ici pour servir à la fois de titre à l'écran (label, plus bas)
+    // et d'intitulé au-dessus du tableau de la confrontation principale
+    // elle-même — jusqu'ici seul "Match pour la 3e place" avait un
+    // intitulé, la confrontation principale restait sans titre propre.
+    let knockoutStageName: string | null = null;
+    if (isKnockoutRound) {
+      // Voir le commentaire équivalent sur les pages rondes : pour un tour
+      // joué en 2 manches + belle (Tournament.knockoutTwoLegs), seule la
+      // manche aller a un décompte d'entrants fiable (elle seule inclut les
+      // exempts) — on va la rechercher si la ronde en cours en est une autre.
+      let knockoutEntrants: number;
+      if (lastRound.knockoutStage !== null && lastRound.knockoutLeg !== 1) {
+        const leg1Round = await prisma.round.findFirst({
+          where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage, knockoutLeg: 1 },
+          include: { matches: true },
+        });
+        knockoutEntrants = leg1Round
+          ? countKnockoutEntrants(leg1Round.matches.filter((m) => !m.isThirdPlace))
+          : countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      } else {
+        knockoutEntrants = countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      }
+      knockoutStageName = getKnockoutStageLabel(knockoutEntrants);
+    }
     const groupsMap = new Map<string, DisplayRoundMatch[]>();
     for (const m of currentMatches) {
       const poolPrefix = grouped && m.pool ? `${m.pool.name} — ` : "";
       const groupName = m.isThirdPlace
         ? "Match pour la 3ᵉ place"
         : isTeamRound
-          ? `${poolPrefix}${m.homeTeam?.name ?? "?"}${
+          ? `${knockoutStageName ? `${knockoutStageName} — ` : poolPrefix}${m.homeTeam?.name ?? "?"}${
               m.isBye ? " vs X (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
             }`
           : grouped
             ? m.pool?.name ?? "—"
-            : "";
+            : (knockoutStageName ?? "");
       const rawHomeName =
         isTeamRound && !m.isBye
           ? m.homePlayer
@@ -448,28 +477,8 @@ async function buildCurrent(tournament: {
       });
       groupsMap.set(groupName, arr);
     }
-    const isKnockoutRound =
-      tournament.format === "KNOCKOUT" ||
-      (tournament.format === "GROUPS" && !grouped) ||
-      (lastRound.isFinalPhase && !lastRound.isSwissPhase);
     let label: string;
-    if (isKnockoutRound) {
-      // Voir le commentaire équivalent sur les pages rondes : pour un tour
-      // joué en 2 manches + belle (Tournament.knockoutTwoLegs), seule la
-      // manche aller a un décompte d'entrants fiable (elle seule inclut les
-      // exempts) — on va la rechercher si la ronde en cours en est une autre.
-      let knockoutEntrants: number;
-      if (lastRound.knockoutStage !== null && lastRound.knockoutLeg !== 1) {
-        const leg1Round = await prisma.round.findFirst({
-          where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage, knockoutLeg: 1 },
-          include: { matches: true },
-        });
-        knockoutEntrants = leg1Round
-          ? countKnockoutEntrants(leg1Round.matches.filter((m) => !m.isThirdPlace))
-          : countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
-      } else {
-        knockoutEntrants = countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
-      }
+    if (isKnockoutRound && knockoutStageName) {
       const knockoutLegSuffix =
         lastRound.knockoutLeg === 1
           ? " — Manche aller"
@@ -478,7 +487,7 @@ async function buildCurrent(tournament: {
             : lastRound.knockoutLeg === 3
               ? " — Belle"
               : "";
-      label = `${getKnockoutStageLabel(knockoutEntrants)}${knockoutLegSuffix}`;
+      label = `${knockoutStageName}${knockoutLegSuffix}`;
     } else {
       label = `Ronde ${lastRound.number}`;
     }
