@@ -83,8 +83,44 @@ export interface DisplayData {
   displayMode: DisplayMode;
   standingsTitle: string;
   standingsGroups: DisplayStandingGroup[];
+  // Faux une fois entré dans un tableau à élimination directe (voir
+  // isInKnockoutPhase) : le classement général ne bouge alors plus (voir
+  // computeClassicStandings, qui exclut les rondes de phase finale) et
+  // n'a donc plus rien à apporter sur l'écran en direct — l'écran
+  // n'alterne plus vers lui, quel que soit Tournament.displayMode.
+  standingsAvailable: boolean;
   current: DisplayCurrent;
   updatedAt: string;
+}
+
+// Vrai si la ronde la plus récente du tournoi fait partie d'un tableau à
+// élimination directe (tournoi au format KNOCKOUT, GROUPS une fois la
+// phase de poules terminée, ou toute autre phase finale optionnelle) —
+// même critère que buildCurrent (isKnockoutRound), dupliqué ici en version
+// allégée (pas besoin des relations joueurs/équipes) pour décider si le
+// classement général reste pertinent à afficher.
+async function isInKnockoutPhase(tournament: {
+  id: string;
+  type: string;
+  format: string | null;
+}): Promise<boolean> {
+  if (tournament.type !== "CLASSIC") return false;
+  const lastRound = await prisma.round.findFirst({
+    where: { tournamentId: tournament.id },
+    orderBy: { number: "desc" },
+    select: {
+      isFinalPhase: true,
+      isSwissPhase: true,
+      matches: { select: { poolId: true } },
+    },
+  });
+  if (!lastRound) return false;
+  const grouped = lastRound.matches.some((m) => m.poolId !== null);
+  return (
+    tournament.format === "KNOCKOUT" ||
+    (tournament.format === "GROUPS" && !grouped) ||
+    (lastRound.isFinalPhase && !lastRound.isSwissPhase)
+  );
 }
 
 async function buildStandings(tournament: {
@@ -498,8 +534,9 @@ async function buildCurrent(tournament: {
 export async function getDisplayData(tournamentId: string): Promise<DisplayData> {
   const tournament = await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
 
+  const inKnockoutPhase = await isInKnockoutPhase(tournament);
   const [{ title, groups }, current] = await Promise.all([
-    buildStandings(tournament),
+    inKnockoutPhase ? Promise.resolve({ title: "", groups: [] }) : buildStandings(tournament),
     buildCurrent(tournament),
   ]);
 
@@ -509,6 +546,7 @@ export async function getDisplayData(tournamentId: string): Promise<DisplayData>
     displayMode: tournament.displayMode,
     standingsTitle: title,
     standingsGroups: groups,
+    standingsAvailable: !inKnockoutPhase,
     current,
     updatedAt: new Date().toISOString(),
   };

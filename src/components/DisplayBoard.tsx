@@ -18,8 +18,13 @@ export function DisplayBoard({
 }) {
   const [data, setData] = useState<DisplayData>(initialData);
   const [autoView, setAutoView] = useState<"standings" | "current">("standings");
-  const view =
-    data.displayMode === "STANDINGS"
+  // Une fois en phase finale à élimination directe, le classement général
+  // reste figé (voir DisplayData.standingsAvailable) : l'écran reste sur
+  // les matchs en cours en permanence, même si l'organisateur avait figé
+  // le mode sur STANDINGS avant que la phase finale ne commence.
+  const view = !data.standingsAvailable
+    ? "current"
+    : data.displayMode === "STANDINGS"
       ? "standings"
       : data.displayMode === "CURRENT"
         ? "current"
@@ -60,10 +65,14 @@ export function DisplayBoard({
       <header className="flex items-center justify-between border-b border-black/20 pb-4">
         <h1 className="text-4xl font-bold truncate">{data.tournamentName}</h1>
         <div className="flex gap-4 text-2xl shrink-0">
-          <span className={view === "standings" ? "text-emerald-800" : "text-black/40"}>
-            {data.standingsTitle}
-          </span>
-          <span className="text-black/30">·</span>
+          {data.standingsAvailable && (
+            <>
+              <span className={view === "standings" ? "text-emerald-800" : "text-black/40"}>
+                {data.standingsTitle}
+              </span>
+              <span className="text-black/30">·</span>
+            </>
+          )}
           <span className={view === "current" ? "text-emerald-800" : "text-black/40"}>
             {data.current.label}
           </span>
