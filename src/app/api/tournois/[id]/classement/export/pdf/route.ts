@@ -181,8 +181,18 @@ export async function GET(
       }
     }
 
+    // "Classement par poule" n'a plus de sens comme titre de page une fois
+    // qu'il ne reste plus qu'un seul tableau agrégé (classement suisse figé
+    // d'un COMBINED, ou classement général d'un GROUPS après la phase
+    // finale) : son propre intitulé ("CLASSEMENT FINAL", nom du tour en
+    // cours...) suffit déjà, affiché juste en-dessous — le double titre
+    // induisait en erreur sur un classement qui n'est plus organisé par
+    // poule à ce stade.
+    const isSinglePoolFinalSection =
+      (tournament.format === "COMBINED" && swissPhaseStarted) ||
+      (tournament.format === "GROUPS" && groupsKnockoutStageLabel !== null);
     pdf = await renderMultiTablePdf(
-      `Classement par poule — ${tournament.name}`,
+      isSinglePoolFinalSection ? tournament.name : `Classement par poule — ${tournament.name}`,
       subtitle,
       sections,
       { landscape: true }
