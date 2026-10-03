@@ -90,8 +90,14 @@ export async function GET(
     // n'ont plus lieu d'être non plus — remplacés par le classement général
     // qui a servi à qualifier les entrants, sous le titre du tour en cours
     // (Quart de finale, Finale...), comme sur la page classement publique.
+    // COMBINED : même règle une fois la phase finale optionnelle lancée
+    // après la phase suisse (Tournament.finalPhaseEnabled) — ses rondes
+    // continuent la numérotation globale, donc sans ce titre le PDF
+    // afficherait à tort "Classement après la ronde N" avec N comptant les
+    // rondes à élimination directe, comme si elles faisaient partie de la
+    // phase suisse.
     const groupsKnockoutStageLabel =
-      tournament.format === "GROUPS"
+      tournament.format === "GROUPS" || tournament.format === "COMBINED"
         ? await getCurrentKnockoutStageLabel(tournament.id, tournament.format, uptoRoundNumber)
         : null;
 
@@ -100,7 +106,7 @@ export async function GET(
       const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id, uptoRoundNumber);
       sections = [
         {
-          heading: `Classement après la ronde ${lastRound?.number}`,
+          heading: groupsKnockoutStageLabel ?? `Classement après la ronde ${lastRound?.number}`,
           headers: standingsHeaders,
           rows: swissPhaseStandings.map(poolRowMapper),
           columnWeights: poolColumnWeights,

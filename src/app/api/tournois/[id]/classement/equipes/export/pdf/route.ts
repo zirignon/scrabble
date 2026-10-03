@@ -88,8 +88,11 @@ export async function GET(
       // classements par poule n'ont plus lieu d'être — remplacés par le
       // classement général (déjà figé, voir computeClassicTeamStandings)
       // sous le titre du tour en cours, comme côté classement individuel.
+      // COMBINED : même règle une fois la phase finale optionnelle lancée
+      // après la phase suisse — voir le commentaire équivalent côté
+      // classement individuel (classement/export/pdf/route.ts).
       const groupsKnockoutStageLabel =
-        tournament.format === "GROUPS"
+        tournament.format === "GROUPS" || tournament.format === "COMBINED"
           ? await getCurrentKnockoutStageLabel(tournament.id, tournament.format, uptoRoundNumber)
           : null;
 
@@ -129,7 +132,7 @@ export async function GET(
             subtitle,
             [
               {
-                heading: `Classement après la ronde ${lastRound?.number}`,
+                heading: groupsKnockoutStageLabel ?? `Classement après la ronde ${lastRound?.number}`,
                 headers: teamColumns,
                 rows: swissPhaseStandings.map(teamRowMapper),
                 columnWeights: teamWeights,
