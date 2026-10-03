@@ -41,7 +41,7 @@ export async function GET(
     // général qui mélangerait des joueurs ne s'étant jamais affrontés) —
     // voir la page classement publique, qui affiche déjà un tableau par
     // poule plutôt qu'un classement général unique dans ce cas.
-    const poolColumnWeights = [0.7, 3, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9];
+    const poolColumnWeights = [0.7, 3, 0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9];
     const poolRowMapper = (row: ClassicStandingRow, i: number) => [
       i + 1,
       `${row.lastName} ${row.firstName}`,
@@ -49,7 +49,6 @@ export async function GET(
       row.wins,
       row.draws,
       row.losses,
-      row.forfeits,
       row.matchPoints,
       row.diff,
       row.sonnebornBerger,
@@ -57,7 +56,7 @@ export async function GET(
       row.buchholzMedian,
       row.cumulativeScore,
     ];
-    const standingsHeaders = ["Rang", "Joueur", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"];
+    const standingsHeaders = ["Rang", "Joueur", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"];
 
     // Combiné (poules puis suisse) : voir le commentaire équivalent sur
     // Tournament.allowRematchesFromRound — une fois la 1re ronde suisse
@@ -173,7 +172,7 @@ export async function GET(
     pdf = await renderTablePdf(
       `${classementTitle} — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Abs.", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
+      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
       standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
@@ -185,7 +184,6 @@ export async function GET(
         row.wins,
         row.draws,
         row.losses,
-        row.forfeits,
         row.matchPoints,
         row.diff,
         row.sonnebornBerger,
@@ -198,7 +196,7 @@ export async function GET(
       // deux lignes, alors que toutes les autres colonnes restaient sur une
       // — les poids ci-dessous leur donnent la place nécessaire pour rester
       // sur une seule ligne, comme le reste de l'en-tête.
-      [0.7, 2.6, 0.8, 1.4, 0.8, 1.6, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9],
+      [0.7, 2.6, 0.8, 1.4, 0.8, 1.6, 0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9],
       { landscape: true }
     );
   } else {
