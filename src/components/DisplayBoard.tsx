@@ -32,6 +32,26 @@ function useResponsiveCellSize(desktopSize: number): number {
   return cellSize;
 }
 
+// Sous ce seuil, les groupes (Finale / Match pour la 3e place, poules...)
+// s'empilent en une seule colonne au lieu de se partager côte à côte la
+// largeur de l'écran — sur un téléphone, 2 colonnes de ~195px compressaient
+// chaque tableau au point de tronquer jusqu'aux en-têtes ("Table" devenait
+// "T..."). L'ordre d'empilement suit l'ordre naturel des groupes (la
+// finale avant le match pour la 3e place, voir groupsMap dans
+// src/lib/display.ts), donc la finale se retrouve en haut.
+function useIsNarrowViewport(breakpoint = 640): boolean {
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    function update() {
+      setIsNarrow(window.innerWidth < breakpoint);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [breakpoint]);
+  return isNarrow;
+}
+
 export function DisplayBoard({
   tournamentId,
   initialData,
@@ -114,10 +134,11 @@ export function DisplayBoard({
 }
 
 function StandingsView({ data }: { data: DisplayData }) {
-  const columns = Math.min(data.standingsGroups.length, 2) || 1;
+  const isNarrow = useIsNarrowViewport();
+  const columns = isNarrow ? 1 : Math.min(data.standingsGroups.length, 2) || 1;
   return (
     <div
-      className="flex-1 grid gap-4 overflow-auto sm:gap-6 lg:gap-10"
+      className="flex-1 grid content-start gap-4 overflow-auto sm:gap-6 lg:gap-10"
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {data.standingsGroups.map((group, gi) => (
@@ -250,6 +271,7 @@ function RackColumn({ rack }: { rack: string }) {
 function CurrentView({ data }: { data: DisplayData }) {
   const { current } = data;
   const gridCellSize = useResponsiveCellSize(38);
+  const isNarrow = useIsNarrowViewport();
 
   if (current.kind === "duplicate") {
     return (
@@ -271,10 +293,10 @@ function CurrentView({ data }: { data: DisplayData }) {
     );
   }
 
-  const columns = Math.min(current.groups.length, 2) || 1;
+  const columns = isNarrow ? 1 : Math.min(current.groups.length, 2) || 1;
   return (
     <div
-      className="flex-1 grid gap-4 overflow-auto sm:gap-6 lg:gap-10"
+      className="flex-1 grid content-start gap-4 overflow-auto sm:gap-6 lg:gap-10"
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {current.groups.map((group, gi) => (
