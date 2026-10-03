@@ -589,6 +589,9 @@ export default async function TournamentStandingsPage({
                 ronde N" comme avant ; "CLASSEMENT FINAL" une fois le
                 tournoi terminé (cotes fusionnées ci-dessous). */}
             <h2 className={sectionHeading}>{eloReport.length > 0 ? "CLASSEMENT FINAL" : classementTitle}</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
           </div>
           <div className={`overflow-x-auto ${card}`}>
             <table className="w-full text-sm border-collapse">

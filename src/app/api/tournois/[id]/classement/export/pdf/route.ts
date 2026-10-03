@@ -6,6 +6,7 @@ import {
   type ClassicStandingRow,
 } from "@/lib/classic/standings";
 import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
+import { computeClassicEloReport } from "@/lib/classic/elo";
 import { getCurrentKnockoutStageLabel, getLatestRoundNumber } from "@/lib/classic/knockout";
 import { computeDuplicateStandingsWithGames } from "@/lib/duplicate/standings";
 import { pdfResponse, renderTablePdf, renderMultiTablePdf, type PdfSection } from "@/lib/pdf";
@@ -32,6 +33,32 @@ export async function GET(
   const subtitle = `${tournament.type === "CLASSIC" ? "Scrabble classique" : "Scrabble duplicate"} — ${new Date(tournament.startDate).toLocaleDateString("fr-FR")}${
     uptoRoundNumber !== undefined ? ` — Instantané après la ronde ${uptoRoundNumber}` : ""
   }`;
+
+  // Cotes Elo fusionnées dans le tableau de classement (voir le commentaire
+  // équivalent sur la page classement publique) : seulement pour l'export
+  // "live" du classement actuel, jamais pour un instantané historique
+  // (?ronde=) — la cote finale n'a pas de sens à un instant passé du
+  // tournoi.
+  const eloReport =
+    uptoRoundNumber === undefined &&
+    tournament.type === "CLASSIC" &&
+    !tournament.isTeamEvent &&
+    (tournament.status === "COMPLETED" || tournament.status === "ARCHIVED")
+      ? await computeClassicEloReport(tournament.id)
+      : [];
+  const eloByPlayer = new Map(eloReport.map((r) => [r.playerId, r]));
+  const eloHeaders = ["Cote initiale", "K", "Évolution", "Nouvelle cote"];
+  const eloColumnWeights = [1, 0.5, 1, 1.2];
+  function eloCells(playerId: string): (string | number)[] {
+    const elo = eloByPlayer.get(playerId);
+    if (!elo) return ["—", "—", "—", "—"];
+    return [
+      elo.eloAtStart,
+      elo.coeffAtStart,
+      elo.evolution > 0 ? `+${elo.evolution}` : elo.evolution,
+      elo.newElo,
+    ];
+  }
 
   let pdf: Buffer;
   const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
@@ -105,20 +132,24 @@ export async function GET(
       const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id, uptoRoundNumber);
       sections = [
         {
-          heading: groupsKnockoutStageLabel ?? `Classement après la ronde ${lastRound?.number}`,
-          headers: standingsHeaders,
-          rows: swissPhaseStandings.map(poolRowMapper),
-          columnWeights: poolColumnWeights,
+          heading: eloReport.length > 0 ? "CLASSEMENT FINAL" : (groupsKnockoutStageLabel ?? `Classement après la ronde ${lastRound?.number}`),
+          headers: eloReport.length > 0 ? [...standingsHeaders, ...eloHeaders] : standingsHeaders,
+          rows: swissPhaseStandings.map((r, i) =>
+            eloReport.length > 0 ? [...poolRowMapper(r, i), ...eloCells(r.playerId)] : poolRowMapper(r, i)
+          ),
+          columnWeights: eloReport.length > 0 ? [...poolColumnWeights, ...eloColumnWeights] : poolColumnWeights,
         },
       ];
     } else if (tournament.format === "GROUPS" && groupsKnockoutStageLabel !== null) {
       const generalStandings = await computeClassicGeneralPoolStandings(tournament.id, uptoRoundNumber);
       sections = [
         {
-          heading: groupsKnockoutStageLabel,
-          headers: standingsHeaders,
-          rows: generalStandings.map(poolRowMapper),
-          columnWeights: poolColumnWeights,
+          heading: eloReport.length > 0 ? "CLASSEMENT FINAL" : groupsKnockoutStageLabel,
+          headers: eloReport.length > 0 ? [...standingsHeaders, ...eloHeaders] : standingsHeaders,
+          rows: generalStandings.map((r, i) =>
+            eloReport.length > 0 ? [...poolRowMapper(r, i), ...eloCells(r.playerId)] : poolRowMapper(r, i)
+          ),
+          columnWeights: eloReport.length > 0 ? [...poolColumnWeights, ...eloColumnWeights] : poolColumnWeights,
         },
       ];
     } else {
@@ -167,12 +198,17 @@ export async function GET(
       getLatestRoundNumber(tournament.id, uptoRoundNumber),
     ]);
     const classementTitle =
-      knockoutStageLabel ??
-      (latestRoundNumber !== null ? `Classement après la ronde ${latestRoundNumber}` : "Classement");
+      eloReport.length > 0
+        ? "CLASSEMENT FINAL"
+        : (knockoutStageLabel ??
+          (latestRoundNumber !== null ? `Classement après la ronde ${latestRoundNumber}` : "Classement"));
     pdf = await renderTablePdf(
       `${classementTitle} — ${tournament.name}`,
       subtitle,
-      ["Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul"],
+      [
+        "Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul",
+        ...(eloReport.length > 0 ? eloHeaders : []),
+      ],
       standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
@@ -190,13 +226,17 @@ export async function GET(
         row.buchholz,
         row.buchholzMedian,
         row.cumulativeScore,
+        ...(eloReport.length > 0 ? eloCells(row.playerId) : []),
       ]),
       // Idem : "Classement" et "Bchz méd." sont les libellés les plus longs
       // de leur catégorie (texte / chiffré) et repassaient sinon seuls sur
       // deux lignes, alors que toutes les autres colonnes restaient sur une
       // — les poids ci-dessous leur donnent la place nécessaire pour rester
       // sur une seule ligne, comme le reste de l'en-tête.
-      [0.7, 2.6, 0.8, 1.4, 0.8, 1.6, 0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9],
+      [
+        0.9, 2.6, 0.8, 1.4, 0.8, 1.6, 0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9,
+        ...(eloReport.length > 0 ? eloColumnWeights : []),
+      ],
       { landscape: true }
     );
   } else {
