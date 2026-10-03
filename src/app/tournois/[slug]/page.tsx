@@ -72,7 +72,7 @@ export default async function TournamentPublicPage({
           <form action={selfRegisterAction.bind(null, tournament.id)} className="mt-4">
             <button
               type="submit"
-              className="rounded-full bg-navy text-white px-5 py-2.5 text-sm font-medium shadow-md shadow-navy/20 hover:bg-navy/90 hover:shadow-lg hover:shadow-navy/25 hover:-translate-y-0.5 transition-all"
+              className="btn-shine rounded-full bg-navy text-white px-5 py-2.5 text-sm font-medium shadow-md shadow-navy/20 hover:bg-navy/90 hover:shadow-xl hover:shadow-navy/30 hover:-translate-y-1 hover:scale-105 active:scale-95 active:translate-y-0 transition-all duration-200"
             >
               S&apos;inscrire à ce tournoi
             </button>

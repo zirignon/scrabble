@@ -34,20 +34,20 @@ export function ClubRow({
 
   return (
     <tr className="border-b border-black/5 dark:border-white/5 align-top">
-      <td className="py-2 pr-4">
+      <td className="py-2 pr-2 sm:pr-4">
         <form id={formId} action={formAction} className="flex flex-wrap items-center gap-2">
-          <input name="name" defaultValue={club.name} required className={`${inputClass} w-40`} />
+          <input name="name" defaultValue={club.name} required className={`${inputClass} w-24 sm:w-40`} />
           <input
             name="city"
             defaultValue={club.city ?? ""}
             placeholder="Ville"
-            className={`${inputClass} w-28`}
+            className={`${inputClass} w-16 sm:w-28`}
           />
           <input
             name="federation"
             defaultValue={club.federation ?? ""}
             placeholder="Fédération"
-            className={`${inputClass} w-24`}
+            className={`${inputClass} w-14 sm:w-24`}
           />
           {club.code && (
             <span
@@ -60,8 +60,8 @@ export function ClubRow({
           {state.error && <p className="text-xs text-red-600 basis-full">{state.error}</p>}
         </form>
       </td>
-      <td className="py-2 pr-4">{club.playerCount}</td>
-      <td className="py-2 pr-4">
+      <td className="py-2 pr-2 sm:pr-4">{club.playerCount}</td>
+      <td className="py-2 pr-2 sm:pr-4">
         <button
           form={formId}
           type="submit"
@@ -71,7 +71,7 @@ export function ClubRow({
           {pending ? "..." : "Enregistrer"}
         </button>
       </td>
-      <td className="py-2 pr-4 text-right">
+      <td className="py-2 pr-2 sm:pr-4 text-right">
         <form action={deleteClubAction.bind(null, club.id)}>
           <button type="submit" className="text-red-600 hover:underline text-sm">
             Supprimer

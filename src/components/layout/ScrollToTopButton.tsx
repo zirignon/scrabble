@@ -26,7 +26,7 @@ export function ScrollToTopButton() {
       type="button"
       onClick={scrollToTop}
       aria-label="Remonter en haut de la page"
-      className={`fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white shadow-lg shadow-navy/30 transition-all duration-300 hover:bg-navy/90 hover:shadow-xl hover:-translate-y-0.5 dark:bg-navy-light dark:text-navy dark:shadow-black/30 dark:hover:bg-navy-light/90 ${
+      className={`fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white shadow-lg shadow-navy/30 transition-all duration-300 hover:bg-navy/90 hover:shadow-xl hover:-translate-y-1 hover:scale-110 active:scale-90 dark:bg-navy-light dark:text-navy dark:shadow-black/30 dark:hover:bg-navy-light/90 ${
         visible
           ? "opacity-100 translate-y-0 pointer-events-auto"
           : "opacity-0 translate-y-2 pointer-events-none"

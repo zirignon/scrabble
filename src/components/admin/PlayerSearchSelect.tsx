@@ -181,8 +181,8 @@ export function PlayerSearchSelect({
   const keepFocus = (e: React.MouseEvent) => e.preventDefault();
 
   return (
-    <form action={action} className="flex items-end gap-3">
-      <div className="flex flex-col gap-1 relative">
+    <form action={action} className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-1 relative flex-1 min-w-0 sm:flex-none">
         <label htmlFor="player-search" className="text-xs font-medium">
           {label}
         </label>
@@ -196,7 +196,7 @@ export function PlayerSearchSelect({
           onFocus={() => setOpen(query.trim().length >= 2)}
           autoComplete="off"
           placeholder="Tapez un nom ou un n° de licence..."
-          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm min-w-72"
+          className="w-full rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm sm:min-w-72"
         />
         <input type="hidden" name="playerId" value={selected?.id ?? ""} />
         {open && !selected && query.trim().length >= 2 && (
