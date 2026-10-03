@@ -155,7 +155,7 @@ export default async function GameMovesPage({
             <ScrabbleGrid grid={board} cellSize={26} />
           </div>
 
-          <div className="flex-1 min-w-[420px] flex flex-col gap-3">
+          <div className="w-full min-w-0 sm:w-auto sm:flex-1 sm:min-w-[420px] flex flex-col gap-3">
             {canManage ? (
               <ReferenceMoveNavigator
                 moves={navigatorMoves}
@@ -166,6 +166,7 @@ export default async function GameMovesPage({
                 initialRack={game.pendingRack ?? ""}
               />
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -197,6 +198,7 @@ export default async function GameMovesPage({
                   )}
                 </tbody>
               </table>
+              </div>
             )}
 
             <GameTimerControls

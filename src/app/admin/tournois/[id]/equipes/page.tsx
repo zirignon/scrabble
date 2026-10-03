@@ -106,6 +106,7 @@ export default async function TeamsPage({
             )}
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -147,6 +148,7 @@ export default async function TeamsPage({
               )}
             </tbody>
           </table>
+          </div>
 
           {canManage && (
             <PlayerSearchSelect

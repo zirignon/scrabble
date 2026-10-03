@@ -28,15 +28,23 @@ export function NavBarClient({
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 dark:border-white/10 bg-white/75 dark:bg-black/60 backdrop-blur-md shadow-sm shadow-black/[0.03] dark:shadow-black/20">
-      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+      {/* flex-wrap plutôt qu'une seule ligne forcée : sur téléphone, avec un
+          utilisateur connecté en staff, le logo + tous les liens (Tournois,
+          Espace organisateur, pastille du nom, Déconnexion) dépassaient
+          largement 390px de large et provoquaient un débordement horizontal
+          sur TOUTE page du site (ce bandeau est commun à toutes les pages).
+          Le texte "Scrabble Tournois" et la pastille du nom, moins
+          essentiels que les liens de navigation, ne réapparaissent qu'à
+          partir de sm: pour laisser la priorité aux liens sur mobile. */}
+      <div className="mx-auto max-w-5xl px-4 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <Link
           href="/"
           className="flex items-center gap-2 font-heading font-semibold text-lg transition-transform hover:scale-[1.02]"
         >
           <Logo size={26} />
-          Scrabble Tournois
+          <span className="hidden sm:inline">Scrabble Tournois</span>
         </Link>
-        <nav className="flex items-center gap-1.5 text-sm">
+        <nav className="flex items-center flex-wrap gap-1.5 text-sm">
           <Link
             href="/tournois"
             className={`${navLink} ${isTournois ? navLinkActive : navLinkInactive}`}
@@ -53,7 +61,7 @@ export function NavBarClient({
           )}
           {session ? (
             <>
-              <span className="ml-1 rounded-full bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/70 px-3 py-1 text-xs font-medium">
+              <span className="ml-1 rounded-full bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/70 px-3 py-1 text-xs font-medium hidden sm:inline-block">
                 {session.name}
               </span>
               <form action={logoutAction}>

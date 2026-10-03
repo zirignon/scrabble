@@ -214,6 +214,7 @@ export default async function PoolsPage({
               )}
             </div>
 
+            <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -247,18 +248,19 @@ export default async function PoolsPage({
                 )}
               </tbody>
             </table>
+            </div>
 
             {canManage && (
               <form
                 action={assignTeamToPoolAction.bind(null, tournament.id, pool.id)}
-                className="flex items-end gap-3"
+                className="flex flex-wrap items-end gap-3"
               >
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 flex-1 min-w-0 sm:flex-none">
                   <label className="text-xs font-medium">Ajouter une équipe</label>
                   <select
                     name="teamId"
                     required
-                    className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm min-w-64"
+                    className="w-full rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm sm:min-w-64"
                   >
                     <option value="">Sélectionner...</option>
                     {unassignedTeams.map((team) => (
@@ -377,6 +379,7 @@ export default async function PoolsPage({
             )}
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -412,18 +415,19 @@ export default async function PoolsPage({
               )}
             </tbody>
           </table>
+          </div>
 
           {canManage && (
             <form
               action={addPoolMemberAction.bind(null, tournament.id, pool.id)}
-              className="flex items-end gap-3"
+              className="flex flex-wrap items-end gap-3"
             >
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 flex-1 min-w-0 sm:flex-none">
                 <label className="text-xs font-medium">Ajouter un joueur</label>
                 <select
                   name="playerId"
                   required
-                  className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm min-w-64"
+                  className="w-full rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm sm:min-w-64"
                 >
                   <option value="">Sélectionner...</option>
                   {unassignedPlayers.map((player) => (

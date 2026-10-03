@@ -212,6 +212,7 @@ export default async function GamesPage({
                 )}
               </div>
 
+              <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -264,6 +265,7 @@ export default async function GamesPage({
                   })}
                 </tbody>
               </table>
+              </div>
               {canManage && (
                 <button
                   type="submit"

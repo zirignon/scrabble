@@ -24,6 +24,7 @@ export default async function AdminUsersPage() {
         <UserForm />
       </div>
 
+      <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -93,6 +94,7 @@ export default async function AdminUsersPage() {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
