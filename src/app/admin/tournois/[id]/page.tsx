@@ -29,16 +29,19 @@ export default async function ManageTournamentPage({
   const { id } = await params;
   const session = await requireRole(STAFF_ROLES);
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    include: {
-      registrations: {
-        include: { player: { include: { club: true } } },
-        orderBy: { createdAt: "asc" },
+  const [tournament, clubs] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      include: {
+        registrations: {
+          include: { player: { include: { club: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        _count: { select: { rounds: true, games: true, teams: true, pools: true } },
       },
-      _count: { select: { rounds: true, games: true, teams: true, pools: true } },
-    },
-  });
+    }),
+    prisma.club.findMany({ orderBy: { name: "asc" } }),
+  ]);
   if (!tournament) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
@@ -125,6 +128,7 @@ export default async function ManageTournamentPage({
             key={tournament.registrations.length}
             tournamentId={tournament.id}
             action={registerBound}
+            clubs={clubs}
           />
         )}
 

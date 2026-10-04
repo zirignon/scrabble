@@ -222,10 +222,10 @@ export async function GET(
       standings.map((row, i) => [
         i + 1,
         `${row.lastName} ${row.firstName}`,
-        row.category ?? "",
+        row.classification ?? "",
         row.clubName ?? "",
         row.federation ?? "",
-        row.classification ?? "",
+        row.category ?? "",
         row.played,
         row.wins,
         row.draws,
@@ -238,7 +238,7 @@ export async function GET(
         row.cumulativeScore,
         ...(eloReport.length > 0 ? eloCells(row.playerId) : []),
       ]),
-      // Idem : "Classement" et "Bchz méd." sont les libellés les plus longs
+      // Idem : "Catégorie" et "Bchz méd." sont les libellés les plus longs
       // de leur catégorie (texte / chiffré) et repassaient sinon seuls sur
       // deux lignes, alors que toutes les autres colonnes restaient sur une
       // — les poids ci-dessous leur donnent la place nécessaire pour rester

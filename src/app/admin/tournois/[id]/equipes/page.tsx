@@ -18,16 +18,19 @@ export default async function TeamsPage({
   const { id } = await params;
   const session = await requireRole(STAFF_ROLES);
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    include: {
-      registrations: { include: { player: true }, orderBy: { createdAt: "asc" } },
-      teams: {
-        orderBy: { createdAt: "asc" },
-        include: { members: { include: { player: true }, orderBy: { board: "asc" } } },
+  const [tournament, clubs] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      include: {
+        registrations: { include: { player: true }, orderBy: { createdAt: "asc" } },
+        teams: {
+          orderBy: { createdAt: "asc" },
+          include: { members: { include: { player: true }, orderBy: { board: "asc" } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.club.findMany({ orderBy: { name: "asc" } }),
+  ]);
   if (!tournament || !tournament.isTeamEvent) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
@@ -158,6 +161,7 @@ export default async function TeamsPage({
               label="Ajouter un joueur (nom ou licence)"
               submitLabel="+ Ajouter"
               action={addTeamMemberAction.bind(null, tournament.id, team.id)}
+              clubs={clubs}
             />
           )}
         </section>

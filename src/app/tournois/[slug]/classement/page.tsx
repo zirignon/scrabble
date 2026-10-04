@@ -286,10 +286,10 @@ export default async function TournamentStandingsPage({
                     <tr key={r.playerId} className={row}>
                       <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
                       <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
-                      <td className={td}>{r.category ?? "—"}</td>
+                      <td className={td}>{r.classification ?? "—"}</td>
                       <td className={td}>{r.clubName ?? "—"}</td>
                       <td className={td}>{r.federation ?? "—"}</td>
-                      <td className={td}>{r.classification ?? "—"}</td>
+                      <td className={td}>{r.category ?? "—"}</td>
                       <td className={tdNum}>{r.played}</td>
                       <td className={tdNum}>{r.wins}</td>
                       <td className={tdNum}>{r.draws}</td>
