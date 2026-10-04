@@ -1402,7 +1402,14 @@ export async function updateFinalPhaseSettingsAction(
     data: { finalPhaseEnabled, finalPhaseQualifiers },
   });
 
+  // Revalide aussi la page réglages elle-même (pas seulement rondes, qui
+  // affiche les boutons de génération affectés par ce réglage) : sans ça,
+  // le formulaire resterait affiché avec sa valeur d'avant la soumission
+  // jusqu'au prochain rechargement complet — donnant l'impression à tort
+  // que le changement ne s'est pas enregistré, alors qu'il l'est bien en
+  // base (voir le commentaire équivalent sur updateSwissSeedingAction).
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  revalidatePath(`/admin/tournois/${tournamentId}/reglages`);
 }
 
 // Fixe (ou retire) le nombre de rondes suisses que l'organisateur prévoit de
@@ -1433,6 +1440,7 @@ export async function updateSwissRoundsSettingsAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  revalidatePath(`/admin/tournois/${tournamentId}/reglages`);
 }
 
 // Fixe (ou retire) la ronde suisse à partir de laquelle les revanches sont
@@ -1464,6 +1472,7 @@ export async function updateAllowRematchesFromRoundAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  revalidatePath(`/admin/tournois/${tournamentId}/reglages`);
 }
 
 // Fixe la méthode d'appariement de la ronde 1 (tirage au sort ou Elo
@@ -1491,7 +1500,16 @@ export async function updateSwissSeedingAction(
     data: { swissSeeding },
   });
 
+  // Revalide aussi la page réglages elle-même, pas seulement rondes : le
+  // <select> de ce formulaire est non contrôlé (defaultValue), donc sans
+  // ça, après soumission, le rafraîchissement automatique de la route en
+  // cours allait rechercher la page réglages dans le cache du routeur —
+  // jamais invalidé — et réaffichait la valeur d'AVANT la soumission
+  // (ex. "Tirage au sort" réapparaissait après avoir choisi "Classement
+  // Elo"), donnant l'impression à tort que le choix ne s'était pas
+  // enregistré alors qu'il l'était bien en base.
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  revalidatePath(`/admin/tournois/${tournamentId}/reglages`);
 }
 
 // Active/désactive le match pour la 3e place (perdants de demi-finale) —
@@ -1512,6 +1530,7 @@ export async function updateThirdPlaceSettingsAction(
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  revalidatePath(`/admin/tournois/${tournamentId}/reglages`);
 }
 
 // Active/désactive le format 2 manches + belle pour tout tableau à
@@ -1530,6 +1549,7 @@ export async function updateKnockoutTwoLegsAction(tournamentId: string, formData
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/rondes`);
+  revalidatePath(`/admin/tournois/${tournamentId}/reglages`);
 }
 
 // Sélectionne les N premiers du classement général (round-robin ou

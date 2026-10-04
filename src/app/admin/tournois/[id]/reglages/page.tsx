@@ -27,6 +27,16 @@ function FinalPhaseSettingsForm({
       <p className="text-sm font-medium">Phase finale (optionnelle)</p>
       {canManage ? (
         <form
+          // Clé dérivée des valeurs actuelles : React 19 réinitialise les
+          // champs non contrôlés d'un <form action=...> à leur valeur
+          // d'AVANT la soumission une fois l'action terminée avec succès
+          // (comportement documenté, pas un bug de cache) — sans cette clé,
+          // le formulaire réapparaîtrait avec son ancienne valeur juste
+          // après l'enregistrement, donnant l'impression à tort que le
+          // changement ne s'est pas appliqué alors qu'il l'est bien en
+          // base. La clé force un remontage avec la nouvelle valeur dès
+          // qu'elle change.
+          key={`${finalPhaseEnabled}-${finalPhaseQualifiers}`}
           action={updateFinalPhaseSettingsAction.bind(null, tournamentId)}
           className="flex items-end gap-3"
         >
@@ -87,6 +97,8 @@ function SwissRoundsSettingsForm({
       <p className="text-sm font-medium">Nombre de rondes (suisse)</p>
       {canManage ? (
         <form
+          // Voir le commentaire équivalent sur FinalPhaseSettingsForm.
+          key={swissRoundsCount ?? "null"}
           action={updateSwissRoundsSettingsAction.bind(null, tournamentId)}
           className="flex items-end gap-3"
         >
@@ -147,6 +159,8 @@ function RematchSettingsForm({
       <p className="text-sm font-medium">Revanches (suisse)</p>
       {canManage ? (
         <form
+          // Voir le commentaire équivalent sur FinalPhaseSettingsForm.
+          key={allowRematchesFromRound ?? "null"}
           action={updateAllowRematchesFromRoundAction.bind(null, tournamentId)}
           className="flex items-end gap-3"
         >
@@ -204,6 +218,8 @@ function SwissSeedingSettingsForm({
       <p className="text-sm font-medium">Appariement de la ronde 1</p>
       {canManage && !roundOneGenerated ? (
         <form
+          // Voir le commentaire équivalent sur FinalPhaseSettingsForm.
+          key={swissSeeding}
           action={updateSwissSeedingAction.bind(null, tournamentId)}
           className="flex items-end gap-3"
         >
@@ -255,6 +271,8 @@ function ThirdPlaceSettingsForm({
       <p className="text-sm font-medium">Match pour la 3ᵉ place (optionnel)</p>
       {canManage ? (
         <form
+          // Voir le commentaire équivalent sur FinalPhaseSettingsForm.
+          key={String(thirdPlaceMatchEnabled)}
           action={updateThirdPlaceSettingsAction.bind(null, tournamentId)}
           className="flex items-end gap-3"
         >
@@ -299,6 +317,8 @@ function KnockoutTwoLegsSettingsForm({
       <p className="text-sm font-medium">Confrontations à élimination directe</p>
       {canManage ? (
         <form
+          // Voir le commentaire équivalent sur FinalPhaseSettingsForm.
+          key={String(knockoutTwoLegs)}
           action={updateKnockoutTwoLegsAction.bind(null, tournamentId)}
           className="flex items-end gap-3"
         >
