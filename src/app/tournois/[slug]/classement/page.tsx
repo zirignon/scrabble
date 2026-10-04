@@ -255,10 +255,10 @@ export default async function TournamentStandingsPage({
                 <tr className={headRow}>
                   <th className={`${th} pl-4`}>#</th>
                   <th className={th}>Joueur</th>
-                  <th className={th}>Âge</th>
+                  <th className={th}>Série</th>
                   <th className={th}>Club</th>
                   <th className={th}>Fédé</th>
-                  <th className={th}>Classement</th>
+                  <th className={th}>Catégorie</th>
                   <th className={thNum}>J</th>
                   <th className={thNum}>V</th>
                   <th className={thNum}>N</th>

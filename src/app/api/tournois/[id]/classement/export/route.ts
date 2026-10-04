@@ -22,10 +22,10 @@ export async function GET(
       [
         "Rang",
         "Joueur",
-        "Âge",
+        "Série",
         "Club",
         "Fédé",
-        "Classement",
+        "Catégorie",
         "Joués",
         "V",
         "N",

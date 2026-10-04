@@ -216,7 +216,7 @@ export async function GET(
       `${classementTitle} — ${tournament.name}`,
       subtitle,
       [
-        "Rang", "Joueur", "Âge", "Club", "Fédé", "Classement", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul",
+        "Rang", "Joueur", "Série", "Club", "Fédé", "Catégorie", "J", "V", "N", "D", "Pts", "Diff", "SB", "Bchz", "Bchz méd.", "Cumul",
         ...(eloReport.length > 0 ? eloHeaders : []),
       ],
       standings.map((row, i) => [
