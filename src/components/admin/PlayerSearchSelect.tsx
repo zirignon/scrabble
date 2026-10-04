@@ -52,17 +52,21 @@ function CreatePlayerInline({
     <div className="p-3 flex flex-col gap-2">
       <p className="text-xs font-medium">Nouveau joueur</p>
       <div className="flex gap-2">
+        {/* min-w-0 indispensable : un input flex-1 sans ça ne rétrécit
+            jamais sous sa largeur de contenu par défaut (min-width: auto
+            en flexbox), ce qui poussait la case "Prénom" hors de l'écran
+            sur téléphone au lieu de partager la largeur avec "Nom". */}
         <input
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           placeholder="Nom"
-          className="flex-1 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
         />
         <input
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           placeholder="Prénom"
-          className="flex-1 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
         />
       </div>
       <input
