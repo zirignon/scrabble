@@ -69,7 +69,17 @@ export default async function ManageTournamentPage({
 
       {canManage && (
         <div className="flex items-center gap-3">
-          <form action={statusBound} className="flex items-center gap-2">
+          <form
+            // Clé dérivée du statut actuel : sans ça, React 19 réinitialise
+            // ce <select> non contrôlé à sa valeur D'AVANT la soumission
+            // une fois l'action terminée avec succès (voir le commentaire
+            // équivalent sur SwissSeedingSettingsForm, page réglages) — le
+            // menu réaffichait l'ancien statut juste après "Mettre à jour"
+            // alors qu'il était bien enregistré en base.
+            key={tournament.status}
+            action={statusBound}
+            className="flex items-center gap-2"
+          >
             <label htmlFor="status" className="text-sm font-medium">
               Statut
             </label>
