@@ -10,7 +10,7 @@ import {
 } from "@/lib/actions/tournaments";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 import { PlayerSearchSelect } from "@/components/admin/PlayerSearchSelect";
-import { RegistrationStatusPill } from "@/components/public/StatusPill";
+import { RegistrationStatusPill, exportLink } from "@/components/public/StatusPill";
 
 const statusOptions = [
   ["DRAFT", "Brouillon"],
@@ -106,7 +106,19 @@ export default async function ManageTournamentPage({
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-heading text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-heading text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
+          {tournament.registrations.length > 0 && (
+            <div className="flex gap-3">
+              <a href={`/api/tournois/${tournament.id}/participants/export`} className={exportLink}>
+                Exporter en CSV
+              </a>
+              <a href={`/api/tournois/${tournament.id}/participants/export/pdf`} className={exportLink}>
+                Exporter en PDF
+              </a>
+            </div>
+          )}
+        </div>
 
         {canManage && (
           <PlayerSearchSelect
