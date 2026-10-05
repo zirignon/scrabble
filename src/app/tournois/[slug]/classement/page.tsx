@@ -239,6 +239,250 @@ export default async function TournamentStandingsPage({
         <h1 className="font-heading text-3xl font-semibold">Classement — {tournament.name}</h1>
       </div>
 
+      {tournament.type === "CLASSIC" &&
+        isPoolFormat &&
+        tournament.isTeamEvent &&
+        !(tournament.format === "COMBINED" && swissPhaseStarted) && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement par poule (équipes)</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
+          <div className="flex flex-col gap-6">
+            {teamPoolStandings.map(({ poolId, poolName, standings }) => (
+              <div key={poolId}>
+                <div className="mb-2"><PoolBadge name={poolName} /></div>
+                <div className={`overflow-x-auto ${card}`}>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className={headRow}>
+                      <th className={`${th} pl-4`}>#</th>
+                      <th className={th}>Équipe</th>
+                      <th className={thNum}>J</th>
+                      <th className={thNum}>V</th>
+                      <th className={thNum}>N</th>
+                      <th className={thNum}>D</th>
+                      <th className={thNum}>Pts</th>
+                      <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                        Éch. G/N/P
+                      </th>
+                      <th className={thNum}>Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((r, i) => (
+                      <tr key={r.teamId} className={row}>
+                        <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                        <td className={`${td} font-medium`}>{r.name}</td>
+                        <td className={tdNum}>{r.played}</td>
+                        <td className={tdNum}>{r.wins}</td>
+                        <td className={tdNum}>{r.draws}</td>
+                        <td className={tdNum}>{r.losses}</td>
+                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                        <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                        <td className={tdNum}>{r.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            ))}
+            {teamPoolStandings.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                Aucune poule créée pour le moment.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" &&
+        tournament.format === "COMBINED" &&
+        tournament.isTeamEvent &&
+        !swissPhaseStarted &&
+        teamGeneralPoolStandings.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement général (équipes)</h2>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className={thNum}>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamGeneralPoolStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" &&
+        tournament.format === "COMBINED" &&
+        tournament.isTeamEvent &&
+        swissPhaseStarted && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>
+              {knockoutStageLabel ??
+                (latestRoundNumber !== null
+                  ? `Classement après la ronde ${latestRoundNumber} (équipes)`
+                  : "Classement (équipes)")}
+            </h2>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className={thNum}>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamSwissPhaseStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tournament.isTeamEvent && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>
+              {knockoutStageLabel ??
+                (latestRoundNumber !== null
+                  ? `Classement par équipes après la ronde ${latestRoundNumber}`
+                  : "Classement par équipes")}
+            </h2>
+            <div className="flex gap-3">
+              <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
+                Exporter en CSV
+              </a>
+              <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+                Exporter en PDF
+              </a>
+            </div>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+          {tournament.type === "CLASSIC" ? (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className={thNum}>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classicTeamStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>Parties</th>
+                  <th className={thNum}>Score total</th>
+                  <th className={thNum}>Pénalités</th>
+                  <th className={thNum}>Net</th>
+                  <th className={thNum}>Négatif</th>
+                  <th className={thNum}>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {duplicateTeamStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.gamesPlayed}</td>
+                    <td className={tdNum}>{r.totalScore}</td>
+                    <td className={tdNum}>{r.totalPenalty}</td>
+                    <td className={tdNum}>{r.net}</td>
+                    <td className={tdNum}>{r.negatif ?? "—"}</td>
+                    <td className={`${tdNum} font-semibold`}>
+                      {r.pourcentage != null ? `${r.pourcentage.toFixed(2)} %` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          </div>
+        </section>
+      )}
+
       {showMainIndividualSection && (
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -693,250 +937,6 @@ export default async function TournamentStandingsPage({
                 ))}
               </tbody>
             </table>
-          </div>
-        </section>
-      )}
-
-      {tournament.type === "CLASSIC" &&
-        isPoolFormat &&
-        tournament.isTeamEvent &&
-        !(tournament.format === "COMBINED" && swissPhaseStarted) && (
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement par poule (équipes)</h2>
-            <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
-              Exporter en PDF
-            </a>
-          </div>
-          <div className="flex flex-col gap-6">
-            {teamPoolStandings.map(({ poolId, poolName, standings }) => (
-              <div key={poolId}>
-                <div className="mb-2"><PoolBadge name={poolName} /></div>
-                <div className={`overflow-x-auto ${card}`}>
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className={headRow}>
-                      <th className={`${th} pl-4`}>#</th>
-                      <th className={th}>Équipe</th>
-                      <th className={thNum}>J</th>
-                      <th className={thNum}>V</th>
-                      <th className={thNum}>N</th>
-                      <th className={thNum}>D</th>
-                      <th className={thNum}>Pts</th>
-                      <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                        Éch. G/N/P
-                      </th>
-                      <th className={thNum}>Diff</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.map((r, i) => (
-                      <tr key={r.teamId} className={row}>
-                        <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                        <td className={`${td} font-medium`}>{r.name}</td>
-                        <td className={tdNum}>{r.played}</td>
-                        <td className={tdNum}>{r.wins}</td>
-                        <td className={tdNum}>{r.draws}</td>
-                        <td className={tdNum}>{r.losses}</td>
-                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                        <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                        <td className={tdNum}>{r.diff}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-            ))}
-            {teamPoolStandings.length === 0 && (
-              <p className="text-sm text-black/50 dark:text-white/50">
-                Aucune poule créée pour le moment.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
-
-      {tournament.type === "CLASSIC" &&
-        tournament.format === "COMBINED" &&
-        tournament.isTeamEvent &&
-        !swissPhaseStarted &&
-        teamGeneralPoolStandings.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement général (équipes)</h2>
-          </div>
-          <div className={`overflow-x-auto ${card}`}>
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className={headRow}>
-                  <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>J</th>
-                  <th className={thNum}>V</th>
-                  <th className={thNum}>N</th>
-                  <th className={thNum}>D</th>
-                  <th className={thNum}>Pts</th>
-                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                    Éch. G/N/P
-                  </th>
-                  <th className={thNum}>Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teamGeneralPoolStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.played}</td>
-                    <td className={tdNum}>{r.wins}</td>
-                    <td className={tdNum}>{r.draws}</td>
-                    <td className={tdNum}>{r.losses}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                    <td className={tdNum}>{r.diff}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {tournament.type === "CLASSIC" &&
-        tournament.format === "COMBINED" &&
-        tournament.isTeamEvent &&
-        swissPhaseStarted && (
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>
-              {knockoutStageLabel ??
-                (latestRoundNumber !== null
-                  ? `Classement après la ronde ${latestRoundNumber} (équipes)`
-                  : "Classement (équipes)")}
-            </h2>
-          </div>
-          <div className={`overflow-x-auto ${card}`}>
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className={headRow}>
-                  <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>J</th>
-                  <th className={thNum}>V</th>
-                  <th className={thNum}>N</th>
-                  <th className={thNum}>D</th>
-                  <th className={thNum}>Pts</th>
-                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                    Éch. G/N/P
-                  </th>
-                  <th className={thNum}>Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teamSwissPhaseStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.played}</td>
-                    <td className={tdNum}>{r.wins}</td>
-                    <td className={tdNum}>{r.draws}</td>
-                    <td className={tdNum}>{r.losses}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                    <td className={tdNum}>{r.diff}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {tournament.isTeamEvent && (
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>
-              {knockoutStageLabel ??
-                (latestRoundNumber !== null
-                  ? `Classement par équipes après la ronde ${latestRoundNumber}`
-                  : "Classement par équipes")}
-            </h2>
-            <div className="flex gap-3">
-              <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
-                Exporter en CSV
-              </a>
-              <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
-                Exporter en PDF
-              </a>
-            </div>
-          </div>
-          <div className={`overflow-x-auto ${card}`}>
-          {tournament.type === "CLASSIC" ? (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className={headRow}>
-                  <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>J</th>
-                  <th className={thNum}>V</th>
-                  <th className={thNum}>N</th>
-                  <th className={thNum}>D</th>
-                  <th className={thNum}>Pts</th>
-                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                    Éch. G/N/P
-                  </th>
-                  <th className={thNum}>Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {classicTeamStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.played}</td>
-                    <td className={tdNum}>{r.wins}</td>
-                    <td className={tdNum}>{r.draws}</td>
-                    <td className={tdNum}>{r.losses}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                    <td className={tdNum}>{r.diff}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className={headRow}>
-                  <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>Parties</th>
-                  <th className={thNum}>Score total</th>
-                  <th className={thNum}>Pénalités</th>
-                  <th className={thNum}>Net</th>
-                  <th className={thNum}>Négatif</th>
-                  <th className={thNum}>%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {duplicateTeamStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.gamesPlayed}</td>
-                    <td className={tdNum}>{r.totalScore}</td>
-                    <td className={tdNum}>{r.totalPenalty}</td>
-                    <td className={tdNum}>{r.net}</td>
-                    <td className={tdNum}>{r.negatif ?? "—"}</td>
-                    <td className={`${tdNum} font-semibold`}>
-                      {r.pourcentage != null ? `${r.pourcentage.toFixed(2)} %` : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
           </div>
         </section>
       )}
