@@ -131,6 +131,13 @@ export default async function ManageTournamentPage({
       <section className="flex flex-col gap-3">
         <h2 className="font-heading text-lg font-semibold">Gérer le tournoi</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {tournament.type === "CLASSIC" && (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/reglages`}
+              title="Réglages"
+              detail="Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle"
+            />
+          )}
           <NavCard
             href="#inscriptions"
             title="Inscriptions"
@@ -152,18 +159,11 @@ export default async function ManageTournamentPage({
             />
           )}
           {tournament.type === "CLASSIC" ? (
-            <>
-              <NavCard
-                href={`/admin/tournois/${tournament.id}/rondes`}
-                title="Rondes et résultats"
-                detail={`${tournament._count.rounds} ronde(s) créée(s)`}
-              />
-              <NavCard
-                href={`/admin/tournois/${tournament.id}/reglages`}
-                title="Réglages"
-                detail="Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle"
-              />
-            </>
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/rondes`}
+              title="Rondes et résultats"
+              detail={`${tournament._count.rounds} ronde(s) créée(s)`}
+            />
           ) : (
             <NavCard
               href={`/admin/tournois/${tournament.id}/parties`}
