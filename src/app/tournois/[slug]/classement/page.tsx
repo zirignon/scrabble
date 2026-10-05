@@ -395,7 +395,15 @@ export default async function TournamentStandingsPage({
         </section>
       )}
 
-      {tournament.isTeamEvent && (
+      {/* showMainIndividualSection (nom trompeur, hérité des 3 sections
+          individuelles plus haut) gouverne tout autant cette section
+          équipes : sans cette garde, elle s'affichait AUSSI en format
+          Poules/Combiné, en double des sections "par poule"/"général"/
+          "combiné" juste au-dessus — et computeClassicTeamStandings,
+          qui l'alimente, exclut la phase finale (isFinalPhase: false),
+          donc elle restait figée aux résultats de la phase de poules une
+          fois la phase suisse commencée plutôt que de les suivre. */}
+      {tournament.isTeamEvent && showMainIndividualSection && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className={sectionHeading}>
