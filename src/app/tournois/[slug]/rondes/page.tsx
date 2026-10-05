@@ -55,10 +55,14 @@ function EncounterWinnerLabel({
 // carte à l'autre) : chaque confrontation ayant sa propre table
 // indépendante, un table-layout auto laisserait chacune caler ses colonnes
 // sur son propre contenu, décalant le "Score" d'une carte à l'autre.
+// min-w-[600px] + overflow-x-auto (plutôt que overflow-hidden) : sans eux,
+// les pourcentages de table-fixed compressaient les colonnes sous la
+// largeur de leur contenu sur petit écran, tronquant les noms de joueurs
+// et la colonne Statut au lieu de laisser le tableau défiler.
 function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; forceNotBye?: boolean }) {
   return (
-    <div className={`overflow-hidden ${card}`}>
-      <table className="w-full text-sm border-collapse table-fixed">
+    <div className={`overflow-x-auto ${card}`}>
+      <table className="w-full min-w-[600px] text-sm border-collapse table-fixed">
         <thead>
           <tr className={headRow}>
             <th className={`${th} w-[34%] pl-4`}>Domicile</th>

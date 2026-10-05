@@ -197,6 +197,11 @@ function MatchRow({
 // carte à l'autre) : chaque poule/confrontation ayant sa propre table
 // indépendante, un table-layout auto laisserait chacune caler ses colonnes
 // sur son propre contenu, décalant les colonnes d'une carte à l'autre.
+// min-w-[760px] + le conteneur overflow-x-auto qui l'entoure sont
+// indispensables sur petit écran : sans eux, les pourcentages de
+// table-fixed compressaient les colonnes sous la largeur de leur propre
+// contenu (deux champs de score ou un nom de joueur), qui débordait alors
+// visuellement sur la colonne voisine au lieu de rester dans sa cellule.
 function MatchTable({
   matches,
   canManage,
@@ -207,34 +212,36 @@ function MatchTable({
   tournamentId: string;
 }) {
   return (
-    <table className="w-full text-sm border-collapse table-fixed">
-      <thead>
-        <tr className="text-left border-b border-black/10 dark:border-white/10">
-          <th className="py-2 pr-4 w-[6%]">Table</th>
-          <th className="py-2 pr-4 w-[18%]">Domicile</th>
-          <th className="py-2 pr-4 w-[20%]">Score</th>
-          <th className="py-2 pl-3 pr-4 w-[18%]">Extérieur</th>
-          <th className="py-2 pl-3 pr-4 w-[38%]">Statut</th>
-        </tr>
-      </thead>
-      <tbody>
-        {matches.map((match) => (
-          <MatchRow
-            key={match.id}
-            match={match}
-            canManage={canManage}
-            tournamentId={tournamentId}
-          />
-        ))}
-        {matches.length === 0 && (
-          <tr>
-            <td colSpan={5} className="py-3 text-black/50 dark:text-white/50">
-              Aucun match dans cette ronde.
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[760px] text-sm border-collapse table-fixed">
+        <thead>
+          <tr className="text-left border-b border-black/10 dark:border-white/10">
+            <th className="py-2 pr-4 w-[6%]">Table</th>
+            <th className="py-2 pr-4 w-[18%]">Domicile</th>
+            <th className="py-2 pr-4 w-[20%]">Score</th>
+            <th className="py-2 pl-3 pr-4 w-[18%]">Extérieur</th>
+            <th className="py-2 pl-3 pr-4 w-[38%]">Statut</th>
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {matches.map((match) => (
+            <MatchRow
+              key={match.id}
+              match={match}
+              canManage={canManage}
+              tournamentId={tournamentId}
+            />
+          ))}
+          {matches.length === 0 && (
+            <tr>
+              <td colSpan={5} className="py-3 text-black/50 dark:text-white/50">
+                Aucun match dans cette ronde.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
