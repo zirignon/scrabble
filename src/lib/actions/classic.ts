@@ -1135,7 +1135,20 @@ async function generateSwissPhaseRoundActionImpl(tournamentId: string) {
     standingsForPairing = standings.map((s) => ({ playerId: s.playerId, matchPoints: s.matchPoints }));
   }
 
+  // Un joueur déjà exempté (contre X) en phase de poules ne doit pas
+  // retomber sur X en phase suisse non plus — generateSwissRound ne le
+  // réappariera à X que si tout le monde en a déjà eu un (voir son
+  // commentaire), donc l'inclure ici suffit à l'exclure en priorité, y
+  // compris une fois les revanches autorisées (allowRematchesFromRound ne
+  // concerne que les REVANCHES entre deux vrais entrants, jamais X).
+  const poolByeMatches = await prisma.match.findMany({
+    where: { round: { tournamentId }, poolId: { not: null }, isBye: true },
+    select: { homePlayerId: true },
+  });
   const playersWithBye = new Set<string>();
+  for (const m of poolByeMatches) {
+    if (m.homePlayerId) playersWithBye.add(m.homePlayerId);
+  }
   for (const m of previousSwissMatches) {
     if (m.isBye && m.homePlayerId) playersWithBye.add(m.homePlayerId);
   }
@@ -1283,7 +1296,17 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
   const boardCount = teams[0]?.members.length ?? 0;
   if (boardCount === 0) throw new Error("Chaque équipe qualifiée doit avoir au moins un joueur.");
 
+  // Voir le commentaire équivalent dans generateSwissPhaseRoundActionImpl :
+  // une équipe déjà exemptée en phase de poules ne doit pas retomber sur X
+  // en phase suisse non plus.
+  const poolByeMatches = await prisma.match.findMany({
+    where: { round: { tournamentId }, poolId: { not: null }, isBye: true },
+    select: { homeTeamId: true },
+  });
   const teamsWithBye = new Set<string>();
+  for (const m of poolByeMatches) {
+    if (m.homeTeamId) teamsWithBye.add(m.homeTeamId);
+  }
   for (const m of previousSwissMatches) {
     if (m.isBye && m.homeTeamId) teamsWithBye.add(m.homeTeamId);
   }
