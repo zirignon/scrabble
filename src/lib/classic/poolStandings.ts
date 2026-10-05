@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { computeStandingsFromMatches, type ClassicStandingRow } from "@/lib/classic/standings";
+import { computeStandingsFromMatches, expandTeamByeMatches, type ClassicStandingRow } from "@/lib/classic/standings";
 
 export interface PoolStandings {
   poolId: string;
@@ -34,6 +34,15 @@ function poolIndividualPlayers(pool: {
   ];
 }
 
+// Pour expandTeamByeMatches (voir son commentaire) : un exempt d'équipe
+// (homeTeamId renseigné, homePlayerId/awayPlayerId null) doit être crédité
+// individuellement à chaque joueur de l'équipe exemptée, sans quoi ses
+// joueurs se retrouvent avec un "joué" de moins que les autres au même
+// point du tournoi.
+function teamMemberIdsById(teams: { id: string; members: { playerId: string }[] }[]) {
+  return new Map(teams.map((t) => [t.id, t.members.map((m) => m.playerId)]));
+}
+
 // Classement par poule : chaque poule joue son propre round-robin interne,
 // donc son classement (points de match, départages) ne doit tenir compte
 // que des matchs internes à la poule. Réutilise le même calcul que le
@@ -58,7 +67,10 @@ export async function computeClassicPoolStandings(
     poolName: pool.name,
     standings: computeStandingsFromMatches(
       poolIndividualPlayers(pool),
-      pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+      expandTeamByeMatches(
+        pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+        teamMemberIdsById(pool.teams)
+      ),
       uptoRoundNumber
     ),
   }));
@@ -87,9 +99,13 @@ export async function computeClassicGeneralPoolStandings(
     },
   });
 
+  const teamMemberIdsByTeamId = teamMemberIdsById(pools.flatMap((pool) => pool.teams));
   return computeStandingsFromMatches(
     pools.flatMap((pool) => poolIndividualPlayers(pool)),
-    pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))),
+    expandTeamByeMatches(
+      pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))),
+      teamMemberIdsByTeamId
+    ),
     uptoRoundNumber
   );
 }

@@ -38,6 +38,40 @@ export interface StandingsMatchLike {
   roundNumber: number;
 }
 
+// Une confrontation d'équipes est représentée en base par une seule ligne
+// Match par exempt (homeTeamId renseigné, homePlayerId/awayPlayerId null —
+// voir BYE_HOME_SCORE dans classic.ts) : correct pour le classement par
+// équipes (qui compte cette ligne telle quelle), mais computeStandingsFromMatches
+// ne peut créditer PERSONNE d'un "joué" dessus puisqu'aucun playerId n'y
+// figure. Résultat côté classement individuel : les joueurs d'une équipe
+// exemptée se retrouvaient avec un "joué" de moins que les autres, pourtant
+// au même point du tournoi — alors qu'un exempt individuel (tournoi hors
+// équipes) est bien compté comme une partie jouée. On réécrit donc chaque
+// ligne d'exempt d'équipe en une ligne par joueur de l'équipe avant le
+// calcul, pour que l'exempt soit crédité à chacun individuellement, exactement
+// comme au niveau équipe.
+export function expandTeamByeMatches<
+  M extends {
+    isBye: boolean;
+    homeTeamId?: string | null;
+    homePlayerId: string | null;
+    awayPlayerId: string | null;
+  },
+>(matches: M[], teamMemberIdsByTeamId: Map<string, string[]>): M[] {
+  const expanded: M[] = [];
+  for (const match of matches) {
+    if (match.isBye && match.homeTeamId && !match.homePlayerId) {
+      const memberIds = teamMemberIdsByTeamId.get(match.homeTeamId) ?? [];
+      for (const playerId of memberIds) {
+        expanded.push({ ...match, homePlayerId: playerId });
+      }
+      continue;
+    }
+    expanded.push(match);
+  }
+  return expanded;
+}
+
 // Cœur du calcul de classement classique (points de match, différence de
 // score, départages Buchholz et Sonneborn-Berger), factorisé pour être
 // réutilisé aussi bien sur l'ensemble d'un tournoi que sur une poule.
@@ -303,7 +337,7 @@ export async function computeClassicStandings(
   tournamentId: string,
   uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
-  const [registrations, matches] = await Promise.all([
+  const [registrations, matches, teams] = await Promise.all([
     prisma.registration.findMany({
       where: { tournamentId },
       include: { player: { include: { club: true } } },
@@ -324,7 +358,11 @@ export async function computeClassicStandings(
       where: { round: { tournamentId, isFinalPhase: false } },
       include: { round: true },
     }),
+    // Sert uniquement à expandTeamByeMatches ci-dessous (tournoi par
+    // équipes) — requête à vide (et sans effet) pour un tournoi individuel.
+    prisma.team.findMany({ where: { tournamentId }, select: { id: true, members: { select: { playerId: true } } } }),
   ]);
+  const teamMemberIdsByTeamId = new Map(teams.map((t) => [t.id, t.members.map((m) => m.playerId)]));
 
   return computeStandingsFromMatches(
     registrations.map((r) => ({
@@ -336,7 +374,10 @@ export async function computeClassicStandings(
       clubName: r.player.club?.name ?? null,
       federation: r.player.federation ?? r.player.club?.federation ?? null,
     })),
-    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    expandTeamByeMatches(
+      matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+      teamMemberIdsByTeamId
+    ),
     uptoRoundNumber
   );
 }
@@ -356,18 +397,26 @@ export async function computeClassicSwissPhaseStandings(
   tournamentId: string,
   uptoRoundNumber?: number
 ): Promise<ClassicStandingRow[]> {
-  const allMatches = await prisma.match.findMany({
-    where: { round: { tournamentId, isSwissPhase: true } },
-    include: { round: true },
-  });
+  const [allMatches, teams] = await Promise.all([
+    prisma.match.findMany({
+      where: { round: { tournamentId, isSwissPhase: true } },
+      include: { round: true },
+    }),
+    // Sert uniquement à expandTeamByeMatches ci-dessous (tournoi par
+    // équipes) — requête à vide (et sans effet) pour un tournoi individuel.
+    prisma.team.findMany({ where: { tournamentId }, select: { id: true, members: { select: { playerId: true } } } }),
+  ]);
+  const teamMemberIdsByTeamId = new Map(teams.map((t) => [t.id, t.members.map((m) => m.playerId)]));
   // Instantané : voir le commentaire équivalent sur computeStandingsFromMatches.
   // Filtré ici (plutôt que de ne passer uptoRoundNumber qu'au calcul) pour que
   // playerIds ci-dessous ne retienne pas des qualifiés dont la 1re ronde
   // suisse n'existait pas encore à cet instant.
-  const matches =
+  const matches = expandTeamByeMatches(
     uptoRoundNumber !== undefined
       ? allMatches.filter((m) => m.round.number <= uptoRoundNumber)
-      : allMatches;
+      : allMatches,
+    teamMemberIdsByTeamId
+  );
 
   const playerIds = new Set<string>();
   for (const m of matches) {
