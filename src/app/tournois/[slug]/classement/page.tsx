@@ -123,8 +123,13 @@ export default async function TournamentStandingsPage({
       : [];
 
   const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
+  // Même en tournoi par équipes, le classement individuel (performance
+  // personnelle de chaque joueur sur ses échiquiers, indépendamment du
+  // résultat de son équipe) reste calculé et affiché, en plus du classement
+  // par équipes — voir plus bas, sections dupliquées avec le même calcul
+  // que pour un tournoi individuel classique.
   const poolStandings =
-    tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent
+    tournament.type === "CLASSIC" && isPoolFormat
       ? await computeClassicPoolStandings(tournament.id)
       : [];
   const teamPoolStandings =
@@ -141,7 +146,7 @@ export default async function TournamentStandingsPage({
   // poules restreint aux qualifiés plutôt qu'un classement vide (voir
   // computeClassicSwissPhaseStandings/computeClassicTeamSwissPhaseStandings).
   const swissPhaseStandings =
-    tournament.type === "CLASSIC" && tournament.format === "COMBINED" && !tournament.isTeamEvent
+    tournament.type === "CLASSIC" && tournament.format === "COMBINED"
       ? await computeClassicSwissPhaseStandings(tournament.id)
       : [];
   const teamSwissPhaseStandings =
@@ -173,7 +178,7 @@ export default async function TournamentStandingsPage({
   //   par poule", qui ne reflète plus la suite du tournoi (voir plus bas),
   //   sous le titre du tour en cours (classementTitle/knockoutStageLabel).
   const generalPoolStandings =
-    tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent
+    tournament.type === "CLASSIC" && isPoolFormat
       ? (tournament.format === "COMBINED" && !swissPhaseStarted) ||
         (tournament.format === "GROUPS" && knockoutStageLabel !== null)
         ? await computeClassicGeneralPoolStandings(tournament.id)
@@ -187,21 +192,22 @@ export default async function TournamentStandingsPage({
       ? await computeClassicTeamGeneralPoolStandings(tournament.id)
       : [];
 
-  // Les 3 sections individuelles (non équipes) ci-dessous affichent chacune
-  // un classement complet et unique, selon le format/l'avancement du
-  // tournoi — jamais plus d'une à la fois. Une fois le tournoi terminé
-  // (eloReport non vide), c'est dans celle qui s'affiche que les cotes sont
-  // fusionnées, sous le titre "CLASSEMENT FINAL" — voir plus bas.
+  // Les 3 sections individuelles ci-dessous (affichées en tournoi par
+  // équipes EN PLUS des sections équipes correspondantes, jamais à leur
+  // place) montrent chacune un classement complet et unique, selon le
+  // format/l'avancement du tournoi — jamais plus d'une à la fois. Une fois
+  // le tournoi terminé (eloReport non vide — jamais en tournoi par équipes,
+  // les cotes Elo ne concernant que le classique individuel), c'est dans
+  // celle qui s'affiche que les cotes sont fusionnées, sous le titre
+  // "CLASSEMENT FINAL" — voir plus bas.
   const showMainIndividualSection = !(tournament.type === "CLASSIC" && isPoolFormat);
   const showGroupsFinalSection =
     tournament.type === "CLASSIC" &&
     tournament.format === "GROUPS" &&
-    !tournament.isTeamEvent &&
     knockoutStageLabel !== null;
   const showCombinedSwissSection =
     tournament.type === "CLASSIC" &&
     tournament.format === "COMBINED" &&
-    !tournament.isTeamEvent &&
     swissPhaseStarted;
   // Hors de ces 3 cas (ex : tournoi par poules terminé avant toute phase
   // finale), aucun classement individuel unique n'est affiché — la section
@@ -210,6 +216,10 @@ export default async function TournamentStandingsPage({
   const eloMergedIntoStandings =
     eloReport.length > 0 &&
     (showMainIndividualSection || showGroupsFinalSection || showCombinedSwissSection);
+  // Ajouté aux titres des 3 sections individuelles ci-dessus en tournoi par
+  // équipes, pour les distinguer de la section "classement par équipes"
+  // affichée juste à côté (même titre de base sinon, voir classementTitle).
+  const individualSuffix = tournament.isTeamEvent ? " (individuel)" : "";
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-10">
@@ -232,7 +242,9 @@ export default async function TournamentStandingsPage({
       {showMainIndividualSection && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>{eloReport.length > 0 ? "CLASSEMENT FINAL" : classementTitle}</h2>
+            <h2 className={sectionHeading}>
+              {eloReport.length > 0 ? "CLASSEMENT FINAL" : `${classementTitle}${individualSuffix}`}
+            </h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
@@ -390,12 +402,11 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" &&
         isPoolFormat &&
-        !tournament.isTeamEvent &&
         !(tournament.format === "COMBINED" && swissPhaseStarted) &&
         !(tournament.format === "GROUPS" && knockoutStageLabel !== null) && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement par poule</h2>
+            <h2 className={sectionHeading}>{`Classement par poule${individualSuffix}`}</h2>
             <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
               Exporter en PDF
             </a>
@@ -456,7 +467,9 @@ export default async function TournamentStandingsPage({
       {showGroupsFinalSection && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>{eloReport.length > 0 ? "CLASSEMENT FINAL" : knockoutStageLabel}</h2>
+            <h2 className={sectionHeading}>
+              {eloReport.length > 0 ? "CLASSEMENT FINAL" : `${knockoutStageLabel}${individualSuffix}`}
+            </h2>
             <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
               Exporter en PDF
             </a>
@@ -525,12 +538,11 @@ export default async function TournamentStandingsPage({
 
       {tournament.type === "CLASSIC" &&
         tournament.format === "COMBINED" &&
-        !tournament.isTeamEvent &&
         !swissPhaseStarted &&
         generalPoolStandings.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement général</h2>
+            <h2 className={sectionHeading}>{`Classement général${individualSuffix}`}</h2>
           </div>
           <div className={`overflow-x-auto ${card}`}>
             <table className="w-full text-sm border-collapse">
@@ -582,7 +594,9 @@ export default async function TournamentStandingsPage({
                 Tournament.finalPhaseEnabled — sinon "Classement après la
                 ronde N" comme avant ; "CLASSEMENT FINAL" une fois le
                 tournoi terminé (cotes fusionnées ci-dessous). */}
-            <h2 className={sectionHeading}>{eloReport.length > 0 ? "CLASSEMENT FINAL" : classementTitle}</h2>
+            <h2 className={sectionHeading}>
+              {eloReport.length > 0 ? "CLASSEMENT FINAL" : `${classementTitle}${individualSuffix}`}
+            </h2>
             <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
               Exporter en PDF
             </a>

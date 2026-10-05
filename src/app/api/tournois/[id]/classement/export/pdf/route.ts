@@ -62,12 +62,15 @@ export async function GET(
 
   let pdf: Buffer;
   const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
-  if (tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent) {
+  if (tournament.type === "CLASSIC" && isPoolFormat) {
     // Poules : chaque poule joue son propre round-robin interne, donc son
     // classement n'a de sens que par poule (contrairement au classement
     // général qui mélangerait des joueurs ne s'étant jamais affrontés) —
     // voir la page classement publique, qui affiche déjà un tableau par
-    // poule plutôt qu'un classement général unique dans ce cas.
+    // poule plutôt qu'un classement général unique dans ce cas. Même en
+    // tournoi par équipes, cet export reste le classement INDIVIDUEL
+    // (performance par joueur) — l'export équipes dédié vit dans
+    // classement/equipes/export/pdf/route.ts.
     const poolColumnWeights = [0.7, 3, 0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 0.7, 0.9, 1.3, 0.9];
     const poolRowMapper = (row: ClassicStandingRow, i: number) => [
       i + 1,
@@ -193,8 +196,14 @@ export async function GET(
     const isSinglePoolFinalSection =
       (tournament.format === "COMBINED" && swissPhaseStarted) ||
       (tournament.format === "GROUPS" && groupsKnockoutStageLabel !== null);
+    // En tournoi par équipes, ce document reste le classement INDIVIDUEL
+    // (performance par joueur) — précisé dans le titre pour ne pas le
+    // confondre avec l'export équipes, un fichier PDF distinct.
+    const individualSuffix = tournament.isTeamEvent ? " (individuel)" : "";
     pdf = await renderMultiTablePdf(
-      isSinglePoolFinalSection ? tournament.name : `Classement par poule — ${tournament.name}`,
+      isSinglePoolFinalSection
+        ? `${tournament.name}${individualSuffix}`
+        : `Classement par poule${individualSuffix} — ${tournament.name}`,
       subtitle,
       sections,
       { landscape: true }

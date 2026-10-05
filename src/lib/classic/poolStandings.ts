@@ -7,6 +7,33 @@ export interface PoolStandings {
   standings: ClassicStandingRow[];
 }
 
+// Les joueurs d'une poule viennent de 2 sources mutuellement exclusives
+// selon le type de tournoi : PoolMember (tournoi individuel, voir
+// addPoolMemberAction) ou, en tournoi par équipes, les membres des équipes
+// rattachées à la poule (voir assignTeamToPoolAction — aucun PoolMember
+// n'est jamais créé dans ce cas). Sert au calcul du classement INDIVIDUEL
+// d'une poule, y compris en tournoi par équipes (performance personnelle de
+// chaque joueur sur ses échiquiers, distincte du classement par équipes).
+function poolIndividualPlayers(pool: {
+  members: { playerId: string; player: { firstName: string; lastName: string } }[];
+  teams: { members: { playerId: string; player: { firstName: string; lastName: string } }[] }[];
+}) {
+  return [
+    ...pool.members.map((m) => ({
+      playerId: m.playerId,
+      firstName: m.player.firstName,
+      lastName: m.player.lastName,
+    })),
+    ...pool.teams.flatMap((t) =>
+      t.members.map((m) => ({
+        playerId: m.playerId,
+        firstName: m.player.firstName,
+        lastName: m.player.lastName,
+      }))
+    ),
+  ];
+}
+
 // Classement par poule : chaque poule joue son propre round-robin interne,
 // donc son classement (points de match, départages) ne doit tenir compte
 // que des matchs internes à la poule. Réutilise le même calcul que le
@@ -21,6 +48,7 @@ export async function computeClassicPoolStandings(
     orderBy: { createdAt: "asc" },
     include: {
       members: { include: { player: true } },
+      teams: { include: { members: { include: { player: true } } } },
       matches: { include: { round: true } },
     },
   });
@@ -29,11 +57,7 @@ export async function computeClassicPoolStandings(
     poolId: pool.id,
     poolName: pool.name,
     standings: computeStandingsFromMatches(
-      pool.members.map((m) => ({
-        playerId: m.playerId,
-        firstName: m.player.firstName,
-        lastName: m.player.lastName,
-      })),
+      poolIndividualPlayers(pool),
       pool.matches.map((m) => ({ ...m, roundNumber: m.round.number })),
       uptoRoundNumber
     ),
@@ -58,18 +82,13 @@ export async function computeClassicGeneralPoolStandings(
     orderBy: { createdAt: "asc" },
     include: {
       members: { include: { player: true } },
+      teams: { include: { members: { include: { player: true } } } },
       matches: { include: { round: true } },
     },
   });
 
   return computeStandingsFromMatches(
-    pools.flatMap((pool) =>
-      pool.members.map((m) => ({
-        playerId: m.playerId,
-        firstName: m.player.firstName,
-        lastName: m.player.lastName,
-      }))
-    ),
+    pools.flatMap((pool) => poolIndividualPlayers(pool)),
     pools.flatMap((pool) => pool.matches.map((m) => ({ ...m, roundNumber: m.round.number }))),
     uptoRoundNumber
   );
