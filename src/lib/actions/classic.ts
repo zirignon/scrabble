@@ -629,37 +629,15 @@ async function generateNextTeamSwissRoundActionImpl(tournamentId: string) {
       data: { tournamentId, number: upcomingRoundNumber },
     });
 
+    // Numéros de table en continu sur toute la ronde (voir
+    // createTeamEncounterMatches) — cette fonction créait auparavant ses
+    // matchs à la main avec table = board + 1, redémarrant à 1 à chaque
+    // confrontation au lieu de poursuivre la numérotation de la ronde.
+    const tableCounter = createTableCounter();
     for (const pairing of pairings) {
       const homeTeam = teamsById.get(pairing.home)!;
-
-      if (pairing.away === null) {
-        await tx.match.create({
-          data: {
-            roundId: round.id,
-            homeTeamId: homeTeam.id,
-            isBye: true,
-            status: "PLAYED",
-            homeScore: BYE_HOME_SCORE,
-            awayScore: BYE_AWAY_SCORE,
-          },
-        });
-        continue;
-      }
-
-      const awayTeam = teamsById.get(pairing.away)!;
-      for (let board = 0; board < boardCount; board++) {
-        await tx.match.create({
-          data: {
-            roundId: round.id,
-            table: board + 1,
-            homeTeamId: homeTeam.id,
-            awayTeamId: awayTeam.id,
-            homePlayerId: homeTeam.members[board].playerId,
-            awayPlayerId: awayTeam.members[board].playerId,
-            status: "SCHEDULED",
-          },
-        });
-      }
+      const awayTeam = pairing.away !== null ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round.id, homeTeam, awayTeam, boardCount, tableCounter);
     }
   });
 
@@ -1352,37 +1330,14 @@ async function generateTeamSwissPhaseRoundActionImpl(tournamentId: string) {
       data: { tournamentId, number: (last?.number ?? 0) + 1, isFinalPhase: true, isSwissPhase: true },
     });
 
+    // Numéros de table en continu sur toute la ronde (voir
+    // createTeamEncounterMatches) — même correctif que
+    // generateNextTeamSwissRoundActionImpl.
+    const tableCounter = createTableCounter();
     for (const pairing of pairings) {
       const homeTeam = teamsById.get(pairing.home)!;
-
-      if (pairing.away === null) {
-        await tx.match.create({
-          data: {
-            roundId: round.id,
-            homeTeamId: homeTeam.id,
-            isBye: true,
-            status: "PLAYED",
-            homeScore: BYE_HOME_SCORE,
-            awayScore: BYE_AWAY_SCORE,
-          },
-        });
-        continue;
-      }
-
-      const awayTeam = teamsById.get(pairing.away)!;
-      for (let board = 0; board < boardCount; board++) {
-        await tx.match.create({
-          data: {
-            roundId: round.id,
-            table: board + 1,
-            homeTeamId: homeTeam.id,
-            awayTeamId: awayTeam.id,
-            homePlayerId: homeTeam.members[board].playerId,
-            awayPlayerId: awayTeam.members[board].playerId,
-            status: "SCHEDULED",
-          },
-        });
-      }
+      const awayTeam = pairing.away !== null ? teamsById.get(pairing.away)! : null;
+      await createTeamEncounterMatches(tx, round.id, homeTeam, awayTeam, boardCount, tableCounter);
     }
   });
 
