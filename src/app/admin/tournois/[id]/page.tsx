@@ -10,7 +10,25 @@ import {
 } from "@/lib/actions/tournaments";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 import { PlayerSearchSelect } from "@/components/admin/PlayerSearchSelect";
-import { RegistrationStatusPill, exportLink } from "@/components/public/StatusPill";
+import { RegistrationStatusPill, exportLink, card, cardHover } from "@/components/public/StatusPill";
+
+// Carte de navigation cliquable (grille "Gérer le tournoi" en haut de page) :
+// un href commençant par "#" fait défiler vers une section plus bas sur
+// cette même page (Inscriptions, Affichage), les autres mènent à une
+// sous-page dédiée (Équipes, Poules, Rondes, Réglages, Parties) — regroupées
+// ici avant même le détail des inscriptions, pour qu'elles ne soient plus
+// noyées au milieu de la page sous un long tableau.
+function NavCard({ href, title, detail }: { href: string; title: string; detail: string }) {
+  return (
+    <a
+      href={href}
+      className={`${card} ${cardHover} flex flex-col gap-1 px-4 py-3`}
+    >
+      <p className="font-medium">{title}</p>
+      <p className="text-xs text-black/60 dark:text-white/60">{detail}</p>
+    </a>
+  );
+}
 
 const statusOptions = [
   ["DRAFT", "Brouillon"],
@@ -55,6 +73,8 @@ export default async function ManageTournamentPage({
     ["STANDINGS", "Classement"],
     ["CURRENT", tournament.type === "CLASSIC" ? "Ronde en cours" : "Partie en cours"],
   ] as const;
+  const currentDisplayModeLabel =
+    displayModeOptions.find(([value]) => value === tournament.displayMode)?.[1] ?? "Automatique";
 
   return (
     <div className="flex flex-col gap-8">
@@ -109,6 +129,59 @@ export default async function ManageTournamentPage({
       )}
 
       <section className="flex flex-col gap-3">
+        <h2 className="font-heading text-lg font-semibold">Gérer le tournoi</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <NavCard
+            href="#inscriptions"
+            title="Inscriptions"
+            detail={`${tournament.registrations.length} inscrit(s)`}
+          />
+          {tournament.isTeamEvent && (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/equipes`}
+              title="Équipes"
+              detail={`${tournament._count.teams} équipe(s) créée(s)`}
+            />
+          )}
+          {tournament.type === "CLASSIC" &&
+            (tournament.format === "GROUPS" || tournament.format === "COMBINED") && (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/poules`}
+              title="Poules"
+              detail={`${tournament._count.pools} poule(s) créée(s)`}
+            />
+          )}
+          {tournament.type === "CLASSIC" ? (
+            <>
+              <NavCard
+                href={`/admin/tournois/${tournament.id}/rondes`}
+                title="Rondes et résultats"
+                detail={`${tournament._count.rounds} ronde(s) créée(s)`}
+              />
+              <NavCard
+                href={`/admin/tournois/${tournament.id}/reglages`}
+                title="Réglages"
+                detail="Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle"
+              />
+            </>
+          ) : (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/parties`}
+              title="Parties et scores"
+              detail={`${tournament._count.games} partie(s) créée(s)`}
+            />
+          )}
+          {canManage && (
+            <NavCard
+              href="#affichage"
+              title="Affichage grand écran"
+              detail={`Mode actuel : ${currentDisplayModeLabel}`}
+            />
+          )}
+        </div>
+      </section>
+
+      <section id="inscriptions" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-heading text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
           {tournament.registrations.length > 0 && (
@@ -181,67 +254,8 @@ export default async function ManageTournamentPage({
         </div>
       </section>
 
-
-      <section className="flex flex-col gap-3">
-        {tournament.isTeamEvent && (
-          <Link
-            href={`/admin/tournois/${tournament.id}/equipes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les équipes</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.teams} équipe(s) créée(s)
-            </p>
-          </Link>
-        )}
-        {tournament.type === "CLASSIC" &&
-          (tournament.format === "GROUPS" || tournament.format === "COMBINED") && (
-          <Link
-            href={`/admin/tournois/${tournament.id}/poules`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les poules</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.pools} poule(s) créée(s)
-            </p>
-          </Link>
-        )}
-        {tournament.type === "CLASSIC" ? (
-          <>
-            <Link
-              href={`/admin/tournois/${tournament.id}/rondes`}
-              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-            >
-              <p className="font-medium">Gérer les rondes et résultats</p>
-              <p className="text-xs text-black/60 dark:text-white/60">
-                {tournament._count.rounds} ronde(s) créée(s)
-              </p>
-            </Link>
-            <Link
-              href={`/admin/tournois/${tournament.id}/reglages`}
-              className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-            >
-              <p className="font-medium">Réglages</p>
-              <p className="text-xs text-black/60 dark:text-white/60">
-                Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle
-              </p>
-            </Link>
-          </>
-        ) : (
-          <Link
-            href={`/admin/tournois/${tournament.id}/parties`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les parties et scores</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.games} partie(s) créée(s)
-            </p>
-          </Link>
-        )}
-      </section>
-
       {canManage && (
-        <section className="flex flex-col gap-3">
+        <section id="affichage" className="flex flex-col gap-3">
           <div>
             <h2 className="font-heading text-lg font-semibold">Affichage grand écran</h2>
           </div>
