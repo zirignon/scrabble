@@ -93,9 +93,7 @@ export async function GET(
     // récente, poules incluses).
     const lastRound =
       tournament.format === "COMBINED"
-        ? uptoRoundNumber !== undefined
-          ? { number: uptoRoundNumber }
-          : await prisma.round.findFirst({ where: { tournamentId: tournament.id }, orderBy: { number: "desc" } })
+        ? { number: await getLatestRoundNumber(tournament.id, uptoRoundNumber) }
         : null;
     // À un instant donné (uptoRoundNumber), la phase suisse n'est "démarrée"
     // que si une ronde suisse existe déjà à ce numéro ou avant — distinct de
@@ -132,7 +130,11 @@ export async function GET(
       const swissPhaseStandings = await computeClassicSwissPhaseStandings(tournament.id, uptoRoundNumber);
       sections = [
         {
-          heading: eloReport.length > 0 ? "CLASSEMENT FINAL" : (groupsKnockoutStageLabel ?? `Classement après la ronde ${lastRound?.number}`),
+          heading:
+            eloReport.length > 0
+              ? "CLASSEMENT FINAL"
+              : (groupsKnockoutStageLabel ??
+                (lastRound?.number != null ? `Classement après la ronde ${lastRound.number}` : "Classement")),
           headers: eloReport.length > 0 ? [...standingsHeaders, ...eloHeaders] : standingsHeaders,
           rows: swissPhaseStandings.map((r, i) =>
             eloReport.length > 0 ? [...poolRowMapper(r, i), ...eloCells(r.playerId)] : poolRowMapper(r, i)

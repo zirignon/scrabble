@@ -73,8 +73,8 @@ export default async function TournamentStandingsPage({
   // Demi-finale, Finale), comme déjà affiché sur les pages rondes et
   // l'écran public. Tant que la phase finale n'a pas commencé, le titre
   // reprend plutôt le numéro de la ronde globale la plus récente —
-  // "Classement après la ronde N" — pour les mêmes raisons que la section
-  // combinée poules+suisse plus bas (voir lastRound).
+  // "Classement après la ronde N" — même variable réutilisée pour la
+  // section combinée poules+suisse plus bas.
   const [knockoutStageLabel, latestRoundNumber] =
     tournament.type === "CLASSIC"
       ? await Promise.all([
@@ -153,15 +153,9 @@ export default async function TournamentStandingsPage({
   // n'ont plus lieu d'être affichés à côté (voir plus bas) : seul le
   // classement combiné compte désormais, sous le titre "Classement après
   // la ronde N" plutôt que "Phase suisse" — N étant la ronde globale la
-  // plus récente du tournoi (poules incluses, voir la numérotation
-  // continue des rondes).
-  const lastRound =
-    tournament.type === "CLASSIC" && tournament.format === "COMBINED"
-      ? await prisma.round.findFirst({
-          where: { tournamentId: tournament.id },
-          orderBy: { number: "desc" },
-        })
-      : null;
+  // plus récente DONT LES RÉSULTATS SONT COMPLETS (poules incluses, voir
+  // la numérotation continue des rondes) — latestRoundNumber, déjà calculé
+  // plus haut via getLatestRoundNumber, convient telle quelle ici aussi.
   const swissPhaseStarted =
     tournament.type === "CLASSIC" && tournament.format === "COMBINED"
       ? (await prisma.round.count({
@@ -802,7 +796,10 @@ export default async function TournamentStandingsPage({
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className={sectionHeading}>
-              {knockoutStageLabel ?? `Classement après la ronde ${lastRound?.number} (équipes)`}
+              {knockoutStageLabel ??
+                (latestRoundNumber !== null
+                  ? `Classement après la ronde ${latestRoundNumber} (équipes)`
+                  : "Classement (équipes)")}
             </h2>
           </div>
           <div className={`overflow-x-auto ${card}`}>

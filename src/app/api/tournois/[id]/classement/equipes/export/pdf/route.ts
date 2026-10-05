@@ -107,13 +107,7 @@ export async function GET(
         // fois la 1re ronde suisse générée, les classements par poule
         // n'ont plus lieu d'être affichés à côté du classement combiné, qui
         // les remplace entièrement.
-        const lastRound =
-          uptoRoundNumber !== undefined
-            ? { number: uptoRoundNumber }
-            : await prisma.round.findFirst({
-                where: { tournamentId: tournament.id },
-                orderBy: { number: "desc" },
-              });
+        const lastRound = { number: await getLatestRoundNumber(tournament.id, uptoRoundNumber) };
         // À un instant donné (uptoRoundNumber), distinct de l'état actuel du
         // tournoi — voir le commentaire équivalent côté individuel.
         const swissPhaseStarted =
@@ -132,7 +126,9 @@ export async function GET(
             subtitle,
             [
               {
-                heading: groupsKnockoutStageLabel ?? `Classement après la ronde ${lastRound?.number}`,
+                heading:
+                  groupsKnockoutStageLabel ??
+                  (lastRound.number != null ? `Classement après la ronde ${lastRound.number}` : "Classement"),
                 headers: teamColumns,
                 rows: swissPhaseStandings.map(teamRowMapper),
                 columnWeights: teamWeights,

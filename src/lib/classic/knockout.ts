@@ -278,22 +278,42 @@ export async function getCurrentKnockoutStageLabel(
   return knockoutStageLabelForRound(format, lastRound, lastRound.matches, leg1Matches);
 }
 
-// Numéro de la ronde la plus récente du tournoi (ou de l'instantané demandé
-// via uptoRoundNumber, voir l'export PDF "classement après la ronde N") —
-// sert à titrer le classement tant que la phase finale n'a pas commencé
-// (voir getCurrentKnockoutStageLabel ci-dessus, qui prend le relais une fois
-// le tableau entamé) : "Classement après la ronde N" plutôt qu'un simple
-// "Classement" muet sur l'avancement du tournoi. Null si aucune ronde
-// n'existe encore.
+// Numéro de la ronde la plus récente DONT LES RÉSULTATS SONT COMPLETS (ou de
+// l'instantané demandé via uptoRoundNumber, voir l'export PDF "classement
+// après la ronde N") — sert à titrer le classement tant que la phase finale
+// n'a pas commencé (voir getCurrentKnockoutStageLabel ci-dessus, qui prend
+// le relais une fois le tableau entamé) : "Classement après la ronde N"
+// plutôt qu'un simple "Classement" muet sur l'avancement du tournoi.
+//
+// Ne retient PAS simplement la dernière ronde créée : juste après avoir
+// généré la ronde N (appariements posés, aucun score encore saisi), le
+// classement affiché ne reflète encore que les N-1 rondes précédentes
+// (computeStandingsFromMatches/teamStandings ignorent les matchs encore
+// SCHEDULED) — annoncer "après la ronde N" à ce moment-là serait donc
+// trompeur. On redescend les rondes par ordre décroissant jusqu'à trouver
+// la première entièrement jouée.
+//
+// Null si aucune ronde n'est encore complète (y compris si le tournoi n'a
+// aucune ronde).
 export async function getLatestRoundNumber(
   tournamentId: string,
   uptoRoundNumber?: number
 ): Promise<number | null> {
   if (uptoRoundNumber !== undefined) return uptoRoundNumber;
-  const lastRound = await prisma.round.findFirst({
+  const rounds = await prisma.round.findMany({
     where: { tournamentId },
     orderBy: { number: "desc" },
-    select: { number: true },
+    select: {
+      number: true,
+      matches: { select: { isBye: true, homePlayerId: true, awayPlayerId: true, status: true } },
+    },
   });
-  return lastRound?.number ?? null;
+  for (const round of rounds) {
+    if (round.matches.length === 0) continue;
+    const allDecided = round.matches.every(
+      (m) => m.isBye || !m.homePlayerId || !m.awayPlayerId || m.status !== "SCHEDULED"
+    );
+    if (allDecided) return round.number;
+  }
+  return null;
 }
