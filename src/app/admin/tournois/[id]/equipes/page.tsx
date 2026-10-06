@@ -18,16 +18,19 @@ export default async function TeamsPage({
   const { id } = await params;
   const session = await requireRole(STAFF_ROLES);
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    include: {
-      registrations: { include: { player: true }, orderBy: { createdAt: "asc" } },
-      teams: {
-        orderBy: { createdAt: "asc" },
-        include: { members: { include: { player: true }, orderBy: { board: "asc" } } },
+  const [tournament, clubs] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      include: {
+        registrations: { include: { player: true }, orderBy: { createdAt: "asc" } },
+        teams: {
+          orderBy: { createdAt: "asc" },
+          include: { members: { include: { player: true }, orderBy: { board: "asc" } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.club.findMany({ orderBy: { name: "asc" } }),
+  ]);
   if (!tournament || !tournament.isTeamEvent) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
@@ -52,13 +55,6 @@ export default async function TeamsPage({
         <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mt-1">
           Équipes — {tournament.name}
         </h1>
-        <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-          Recherchez un joueur par nom ou n° de licence pour l&apos;ajouter
-          directement à une équipe : il sera automatiquement inscrit au
-          tournoi s&apos;il ne l&apos;était pas déjà.
-          {tournament.type === "CLASSIC" &&
-            " Toutes les équipes doivent avoir le même nombre de joueurs avant de générer les rondes (un échiquier par joueur)."}
-        </p>
         <Link
           href={`/tournois/${tournament.slug}`}
           target="_blank"
@@ -113,6 +109,7 @@ export default async function TeamsPage({
             )}
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -154,6 +151,7 @@ export default async function TeamsPage({
               )}
             </tbody>
           </table>
+          </div>
 
           {canManage && (
             <PlayerSearchSelect
@@ -163,6 +161,7 @@ export default async function TeamsPage({
               label="Ajouter un joueur (nom ou licence)"
               submitLabel="+ Ajouter"
               action={addTeamMemberAction.bind(null, tournament.id, team.id)}
+              clubs={clubs}
             />
           )}
         </section>

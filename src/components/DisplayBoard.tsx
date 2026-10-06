@@ -9,6 +9,49 @@ import { playBeep, unlockAudioOnFirstInteraction } from "@/lib/beep";
 
 const ROTATE_MS = 12000;
 
+// La grille Scrabble (15x15 + libellés) et le chevalet ont une taille de
+// case fixe en pixels (pas des classes Tailwind responsives) : sans cela,
+// la taille pensée pour un grand écran de projection (cellSize=38, soit
+// ~600px de large) déborderait largement d'un téléphone. Recalculée au
+// redimensionnement plutôt qu'une seule fois au montage, pour suivre une
+// rotation d'écran ou un changement de fenêtre.
+function useResponsiveCellSize(desktopSize: number): number {
+  const [cellSize, setCellSize] = useState(desktopSize);
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth;
+      if (w < 480) setCellSize(Math.round(desktopSize * 0.42));
+      else if (w < 768) setCellSize(Math.round(desktopSize * 0.6));
+      else if (w < 1024) setCellSize(Math.round(desktopSize * 0.8));
+      else setCellSize(desktopSize);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [desktopSize]);
+  return cellSize;
+}
+
+// Sous ce seuil, les groupes (Finale / Match pour la 3e place, poules...)
+// s'empilent en une seule colonne au lieu de se partager côte à côte la
+// largeur de l'écran — sur un téléphone, 2 colonnes de ~195px compressaient
+// chaque tableau au point de tronquer jusqu'aux en-têtes ("Table" devenait
+// "T..."). L'ordre d'empilement suit l'ordre naturel des groupes (la
+// finale avant le match pour la 3e place, voir groupsMap dans
+// src/lib/display.ts), donc la finale se retrouve en haut.
+function useIsNarrowViewport(breakpoint = 640): boolean {
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    function update() {
+      setIsNarrow(window.innerWidth < breakpoint);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [breakpoint]);
+  return isNarrow;
+}
+
 export function DisplayBoard({
   tournamentId,
   initialData,
@@ -18,12 +61,23 @@ export function DisplayBoard({
 }) {
   const [data, setData] = useState<DisplayData>(initialData);
   const [autoView, setAutoView] = useState<"standings" | "current">("standings");
-  const view =
-    data.displayMode === "STANDINGS"
+  // Une fois en phase finale à élimination directe, le classement général
+  // reste figé (voir DisplayData.standingsAvailable) : l'écran reste sur
+  // les matchs en cours en permanence, même si l'organisateur avait figé
+  // le mode sur STANDINGS avant que la phase finale ne commence.
+  const view = !data.standingsAvailable
+    ? "current"
+    : data.displayMode === "STANDINGS"
       ? "standings"
       : data.displayMode === "CURRENT"
         ? "current"
         : autoView;
+  // Rien n'est plus important que la finale elle-même : le nom du tournoi
+  // (toujours affiché jusqu'ici) cède la place à "FINALE" en grand une fois
+  // ce tour atteint, plutôt que de rester le titre dominant de l'écran.
+  const isFinaleStage =
+    data.current.kind === "matches" &&
+    (data.current.label === "Finale" || data.current.label.startsWith("Finale "));
 
   useEffect(() => {
     // Les navigateurs bloquent la lecture audio sans interaction préalable :
@@ -56,14 +110,18 @@ export function DisplayBoard({
   }, [data.displayMode]);
 
   return (
-    <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-12 py-8 gap-6 overflow-hidden">
-      <header className="flex items-center justify-between border-b border-black/20 pb-4">
-        <h1 className="text-4xl font-bold truncate">{data.tournamentName}</h1>
-        <div className="flex gap-4 text-2xl shrink-0">
-          <span className={view === "standings" ? "text-emerald-800" : "text-black/40"}>
-            {data.standingsTitle}
-          </span>
-          <span className="text-black/30">·</span>
+    <div className="min-h-screen w-full bg-sky-100 text-slate-900 flex flex-col px-4 py-4 gap-3 overflow-x-hidden sm:px-8 sm:py-6 sm:gap-5 lg:px-12 lg:py-8 lg:gap-6">
+      <header className="flex items-center justify-between gap-3 border-b border-black/20 pb-3 sm:pb-4">
+        <h1 className="text-xl font-bold truncate sm:text-2xl lg:text-4xl">{isFinaleStage ? "FINALE" : data.tournamentName}</h1>
+        <div className="flex gap-2 text-sm shrink-0 sm:gap-4 sm:text-lg lg:text-2xl">
+          {data.standingsAvailable && (
+            <>
+              <span className={view === "standings" ? "text-emerald-800" : "text-black/40"}>
+                {data.standingsTitle}
+              </span>
+              <span className="text-black/30">·</span>
+            </>
+          )}
           <span className={view === "current" ? "text-emerald-800" : "text-black/40"}>
             {data.current.label}
           </span>
@@ -76,21 +134,25 @@ export function DisplayBoard({
 }
 
 function StandingsView({ data }: { data: DisplayData }) {
-  const columns = Math.min(data.standingsGroups.length, 2) || 1;
+  const isNarrow = useIsNarrowViewport();
+  const columns = isNarrow ? 1 : Math.min(data.standingsGroups.length, 2) || 1;
   return (
-    <div className="flex-1 grid gap-10 overflow-auto" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+    <div
+      className="flex-1 grid content-start gap-4 overflow-auto sm:gap-6 lg:gap-10"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
       {data.standingsGroups.map((group, gi) => (
         <div key={gi}>
           {group.name && (
-            <h2 className="text-3xl font-semibold mb-3 text-emerald-800">{group.name}</h2>
+            <h2 className="text-lg font-semibold mb-2 text-emerald-800 sm:text-xl sm:mb-3 lg:text-3xl">{group.name}</h2>
           )}
-          <table className="w-full text-2xl border-collapse">
+          <table className="w-full text-sm border-collapse sm:text-lg lg:text-2xl">
             <thead>
-              <tr className="text-left text-black/50 text-xl border-b border-black/20">
-                <th className="py-2 pr-4">#</th>
-                <th className="py-2 pr-4">Nom</th>
+              <tr className="text-left text-black/50 text-xs border-b border-black/20 sm:text-base lg:text-xl">
+                <th className="py-1 pr-2 sm:py-2 sm:pr-4">#</th>
+                <th className="py-1 pr-2 sm:py-2 sm:pr-4">Nom</th>
                 {group.rows[0]?.columns.map((c) => (
-                  <th key={c.label} className="py-2 pr-4 text-right">
+                  <th key={c.label} className="py-1 pr-2 text-right whitespace-nowrap sm:py-2 sm:pr-4">
                     {c.label}
                   </th>
                 ))}
@@ -99,10 +161,10 @@ function StandingsView({ data }: { data: DisplayData }) {
             <tbody>
               {group.rows.map((row) => (
                 <tr key={row.rank} className="border-b border-black/10">
-                  <td className="py-2 pr-4 font-bold">{row.rank}</td>
-                  <td className="py-2 pr-4">{row.name}</td>
+                  <td className="py-1 pr-2 font-bold sm:py-2 sm:pr-4">{row.rank}</td>
+                  <td className="py-1 pr-2 sm:py-2 sm:pr-4">{row.name}</td>
                   {row.columns.map((c) => (
-                    <td key={c.label} className="py-2 pr-4 text-right tabular-nums">
+                    <td key={c.label} className="py-1 pr-2 text-right tabular-nums sm:py-2 sm:pr-4">
                       {c.value}
                     </td>
                   ))}
@@ -110,7 +172,7 @@ function StandingsView({ data }: { data: DisplayData }) {
               ))}
               {group.rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-4 text-black/40 text-xl">
+                  <td colSpan={8} className="py-4 text-black/40 text-sm sm:text-xl">
                     Pas encore de classement.
                   </td>
                 </tr>
@@ -162,15 +224,15 @@ function DisplayTimer({ timer }: { timer: DisplayGameTimer }) {
       : "text-black/70";
 
   return (
-    <span className={`text-8xl font-bold tabular-nums ${colorClass}`}>{formatClock(remaining)}</span>
+    <span className={`text-4xl font-bold tabular-nums sm:text-6xl lg:text-8xl ${colorClass}`}>{formatClock(remaining)}</span>
   );
 }
 
 function RackColumn({ rack }: { rack: string }) {
-  const cellSize = 56;
+  const cellSize = useResponsiveCellSize(56);
   const letters = rack.split("");
   return (
-    <div className="flex flex-col gap-2 bg-white p-4 rounded-lg shadow-xl border border-black/10">
+    <div className="flex flex-col gap-1 bg-white p-2 rounded-lg shadow-xl border border-black/10 sm:gap-2 sm:p-4">
       {letters.map((letter, i) => {
         if (letter === "+") {
           return (
@@ -208,19 +270,21 @@ function RackColumn({ rack }: { rack: string }) {
 
 function CurrentView({ data }: { data: DisplayData }) {
   const { current } = data;
+  const gridCellSize = useResponsiveCellSize(38);
+  const isNarrow = useIsNarrowViewport();
 
   if (current.kind === "duplicate") {
     return (
-      <div className="flex-1 overflow-auto flex flex-col gap-6">
+      <div className="flex-1 overflow-auto flex flex-col gap-3 sm:gap-6">
         {current.timer && (
           <div className="flex items-center justify-center">
             <DisplayTimer timer={current.timer} />
           </div>
         )}
-        <div className="flex flex-1 items-start justify-center gap-10">
+        <div className="flex flex-1 items-start justify-center gap-3 sm:gap-10">
           {current.grid && (
-            <div className="bg-white p-4 rounded-lg shadow-xl border border-black/10">
-              <ScrabbleGrid grid={current.grid} cellSize={38} />
+            <div className="bg-white p-2 rounded-lg shadow-xl border border-black/10 sm:p-4">
+              <ScrabbleGrid grid={current.grid} cellSize={gridCellSize} />
             </div>
           )}
           {current.currentRack && <RackColumn rack={current.currentRack} />}
@@ -229,37 +293,47 @@ function CurrentView({ data }: { data: DisplayData }) {
     );
   }
 
-  const columns = Math.min(current.groups.length, 2) || 1;
+  const columns = isNarrow ? 1 : Math.min(current.groups.length, 2) || 1;
   return (
-    <div className="flex-1 grid gap-10 overflow-auto" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+    <div
+      className="flex-1 grid content-start gap-4 overflow-auto sm:gap-6 lg:gap-10"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
       {current.groups.map((group, gi) => (
         <div key={gi}>
           {group.name && (
-            <h2 className="text-3xl font-semibold mb-3 text-emerald-800">{group.name}</h2>
+            <h2 className="text-lg font-semibold mb-2 text-emerald-800 sm:text-xl sm:mb-3 lg:text-3xl">{group.name}</h2>
           )}
-          <table className="w-full text-2xl border-collapse table-fixed">
+          {/* table-fixed + colonnes en % : sans largeur fixe, un nom de
+              joueur long pousserait la colonne Score hors de l'écran sur
+              un petit viewport. Les en-têtes ont besoin de leur propre
+              `overflow-hidden` (pas seulement les cellules) : un <th> sans
+              ça déborde visuellement sur la colonne suivante au lieu
+              d'être tronqué, ce qui produisait un chevauchement illisible
+              ("Table"/"Domicile" superposés) sur téléphone. */}
+          <table className="w-full text-xs border-collapse table-fixed sm:text-base md:text-xl lg:text-2xl">
             <thead>
-              <tr className="text-left text-black/50 text-lg border-b border-black/20">
-                <th className="py-2 pr-4 w-[9%]">Table</th>
-                <th className="py-2 pr-4 w-[33%]">Domicile</th>
-                <th className="py-2 pr-4 w-[25%] text-center">Score</th>
-                <th className="py-2 pr-4 w-[33%]">Extérieur</th>
+              <tr className="text-left text-black/50 text-[10px] border-b border-black/20 sm:text-sm lg:text-lg">
+                <th className="py-1 pr-1 w-[14%] truncate sm:py-2 sm:pr-4 sm:w-[9%]">Table</th>
+                <th className="py-1 pr-1 w-[30%] truncate sm:py-2 sm:pr-4 sm:w-[33%]">Domicile</th>
+                <th className="py-1 pr-1 w-[26%] text-center truncate sm:py-2 sm:pr-4 sm:w-[25%]">Score</th>
+                <th className="py-1 pr-1 w-[30%] truncate sm:py-2 sm:pr-4 sm:w-[33%]">Extérieur</th>
               </tr>
             </thead>
             <tbody>
               {group.matches.map((m, mi) => (
                 <tr key={mi} className="border-b border-black/10 align-middle">
-                  <td className="py-3 pr-2 tabular-nums">{m.table ?? "—"}</td>
-                  <td className="py-3 pr-4 text-xl leading-tight break-words">{m.home}</td>
-                  <td className="py-3 pr-4 text-center tabular-nums text-xl whitespace-nowrap overflow-hidden">
-                    {m.isBye ? "Exempt" : `${m.homeScore ?? "–"} - ${m.awayScore ?? "–"}`}
+                  <td className="py-1.5 pr-1 tabular-nums sm:py-3 sm:pr-2">{m.table ?? "—"}</td>
+                  <td className="py-1.5 pr-1 leading-tight break-words sm:py-3 sm:pr-4">{m.home}</td>
+                  <td className="py-1.5 pr-1 text-center tabular-nums whitespace-nowrap overflow-hidden sm:py-3 sm:pr-4">
+                    {m.homeScore ?? "–"} - {m.awayScore ?? "–"}
                   </td>
-                  <td className="py-3 pr-4 text-xl leading-tight break-words">{m.away ?? ""}</td>
+                  <td className="py-1.5 pr-1 leading-tight break-words sm:py-3 sm:pr-4">{m.away ?? ""}</td>
                 </tr>
               ))}
               {group.matches.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-4 text-black/40 text-xl">
+                  <td colSpan={4} className="py-4 text-black/40 text-sm sm:text-xl">
                     Aucun match.
                   </td>
                 </tr>

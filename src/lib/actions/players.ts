@@ -74,12 +74,21 @@ const quickPlayerSchema = z.object({
   firstName: z.string().min(1, "Prénom requis."),
   lastName: z.string().min(1, "Nom requis."),
   licenseNumber: z.string().optional(),
+  clubId: z.string().optional(),
+  category: z.string().optional(),
+  classification: z.string().optional(),
+  classificationClassic: z.string().optional(),
+  federation: z.string().optional(),
 });
 
 // Création minimale d'un joueur directement depuis un écran d'inscription
 // (tournoi ou équipe) plutôt que via la fiche complète de /admin/joueurs —
 // accessible aux organisateurs/arbitres (STAFF_ROLES), contrairement à
-// savePlayerAction qui reste réservé aux administrateurs.
+// savePlayerAction qui reste réservé aux administrateurs. Reprend les
+// champs club/catégorie/séries/fédération (sans les champs Elo, hors
+// propos à l'inscription) : sans eux, un joueur créé ainsi apparaissait
+// dans le classement avec ces colonnes vides, contrairement à un joueur
+// créé via la fiche complète.
 export async function createPlayerQuickAction(
   formData: FormData
 ): Promise<{ playerId?: string; error?: string }> {
@@ -89,6 +98,11 @@ export async function createPlayerQuickAction(
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
     licenseNumber: formData.get("licenseNumber") || undefined,
+    clubId: formData.get("clubId") || undefined,
+    category: formData.get("category") || undefined,
+    classification: formData.get("classification") || undefined,
+    classificationClassic: formData.get("classificationClassic") || undefined,
+    federation: formData.get("federation") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };

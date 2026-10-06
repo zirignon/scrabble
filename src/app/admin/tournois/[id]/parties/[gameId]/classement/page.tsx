@@ -51,6 +51,7 @@ export default async function GameClassementPage({
         </div>
       </div>
 
+      <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -121,6 +122,7 @@ export default async function GameClassementPage({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

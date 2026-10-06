@@ -55,10 +55,14 @@ function EncounterWinnerLabel({
 // carte à l'autre) : chaque confrontation ayant sa propre table
 // indépendante, un table-layout auto laisserait chacune caler ses colonnes
 // sur son propre contenu, décalant le "Score" d'une carte à l'autre.
+// min-w-[600px] + overflow-x-auto (plutôt que overflow-hidden) : sans eux,
+// les pourcentages de table-fixed compressaient les colonnes sous la
+// largeur de leur contenu sur petit écran, tronquant les noms de joueurs
+// et la colonne Statut au lieu de laisser le tableau défiler.
 function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; forceNotBye?: boolean }) {
   return (
-    <div className={`overflow-hidden ${card}`}>
-      <table className="w-full text-sm border-collapse table-fixed">
+    <div className={`overflow-x-auto ${card}`}>
+      <table className="w-full min-w-[600px] text-sm border-collapse table-fixed">
         <thead>
           <tr className={headRow}>
             <th className={`${th} w-[34%] pl-4`}>Domicile</th>
@@ -70,6 +74,10 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
         <tbody>
           {matches.map((match) => {
             const isBye = match.isBye && !forceNotBye;
+            // Un exempt est un vrai appariement contre X (voir
+            // BYE_HOME_SCORE dans classic.ts) : "X" plutôt qu'un tiret pour
+            // le côté sans adversaire réel.
+            const opponentPlaceholder = isBye ? "X" : "—";
             // Par équipes, homeStarts alterne d'un échiquier à l'autre au
             // sein d'une même confrontation (voir createTeamEncounterMatches)
             // pour équilibrer qui débute la partie ; le joueur qui débute
@@ -78,45 +86,188 @@ function MatchTable({ matches, forceNotBye = false }: { matches: RoundMatch[]; f
             const leftName = match.homeStarts
               ? match.homePlayer
                 ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                : "—"
+                : opponentPlaceholder
               : match.awayPlayer
                 ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                : "—";
+                : opponentPlaceholder;
             const rightName = match.homeStarts
               ? match.awayPlayer
                 ? `${match.awayPlayer.lastName} ${match.awayPlayer.firstName}`
-                : "—"
+                : opponentPlaceholder
               : match.homePlayer
                 ? `${match.homePlayer.lastName} ${match.homePlayer.firstName}`
-                : "—";
+                : opponentPlaceholder;
             const leftScore = match.homeStarts ? match.homeScore : match.awayScore;
             const rightScore = match.homeStarts ? match.awayScore : match.homeScore;
-            const leftWins =
-              !isBye && leftScore != null && rightScore != null && leftScore > rightScore;
-            const rightWins =
-              !isBye && leftScore != null && rightScore != null && rightScore > leftScore;
+            const leftWins = leftScore != null && rightScore != null && leftScore > rightScore;
+            const rightWins = leftScore != null && rightScore != null && rightScore > leftScore;
             return (
               <tr key={match.id} className={matchRow}>
                 <td className={`${matchCell} pl-4 truncate`}>{leftName}</td>
                 <td className={`${scoreCell} text-center`}>
-                  {isBye ? (
-                    "—"
-                  ) : (
-                    <>
-                      <span className={leftWins ? "text-moss dark:text-moss-light" : ""}>
-                        {leftScore ?? "-"}
-                      </span>
-                      {" - "}
-                      <span className={rightWins ? "text-moss dark:text-moss-light" : ""}>
-                        {rightScore ?? "-"}
-                      </span>
-                    </>
-                  )}
+                  <span className={leftWins ? "text-moss dark:text-moss-light" : ""}>
+                    {leftScore ?? "-"}
+                  </span>
+                  {" - "}
+                  <span className={rightWins ? "text-moss dark:text-moss-light" : ""}>
+                    {rightScore ?? "-"}
+                  </span>
                 </td>
                 <td className={`${matchCell} truncate`}>{rightName}</td>
                 <td className={`${matchCell} pr-4`}>
                   <MatchStatusPill status={match.status} isBye={forceNotBye ? false : match.isBye} />
                 </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type RoundWithRelations = {
+  id: string;
+  number: number;
+  isFinalPhase: boolean;
+  isSwissPhase: boolean;
+  knockoutLeg: number | null;
+  knockoutStage: number | null;
+  matches: RoundMatch[];
+};
+
+interface KnockoutConfrontation {
+  isBye: boolean;
+  isThirdPlace: boolean;
+  homePlayer: RoundMatch["homePlayer"];
+  awayPlayer: RoundMatch["awayPlayer"];
+  // Score de l'exempt contre X (voir BYE_HOME_SCORE dans classic.ts) —
+  // uniquement renseigné quand isBye est vrai.
+  byeScore?: { home: number | null; away: number | null };
+  legs: (RoundMatch | null)[];
+}
+
+// Voir le commentaire équivalent côté admin.
+function buildKnockoutConfrontations(legRounds: RoundWithRelations[]): {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+} {
+  const leg1 = legRounds.find((r) => r.knockoutLeg === 1);
+  const leg2 = legRounds.find((r) => r.knockoutLeg === 2);
+  const belle = legRounds.find((r) => r.knockoutLeg === 3);
+  if (!leg1) return { confrontations: [], legLabels: [] };
+
+  const legLabels = belle ? ["Aller", "Retour", "Belle"] : leg2 ? ["Aller", "Retour"] : ["Aller"];
+  // Inclut le match pour la 3e place (le cas échéant) : il partage les
+  // mêmes rondes aller/retour/belle que le reste du tableau (voir
+  // generateNextKnockoutRoundActionImpl côté actions), donc la même
+  // reconstitution par confrontation s'applique telle quelle — à charge
+  // pour l'appelant de le séparer via isThirdPlace pour l'afficher à part.
+  const confrontations = leg1.matches.map((m1): KnockoutConfrontation => {
+      if (m1.isBye || !m1.homePlayerId || !m1.awayPlayerId) {
+        return {
+          isBye: true,
+          isThirdPlace: m1.isThirdPlace,
+          homePlayer: m1.homePlayer,
+          awayPlayer: m1.awayPlayer,
+          byeScore: { home: m1.homeScore, away: m1.awayScore },
+          legs: [],
+        };
+      }
+      const m2 =
+        leg2?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      const mb =
+        belle?.matches.find(
+          (m) => m.homePlayerId === m1.homePlayerId && m.awayPlayerId === m1.awayPlayerId
+        ) ?? null;
+      return {
+        isBye: false,
+        isThirdPlace: m1.isThirdPlace,
+        homePlayer: m1.homePlayer,
+        awayPlayer: m1.awayPlayer,
+        legs: [m1, m2, mb].slice(0, legLabels.length),
+      };
+    });
+  return { confrontations, legLabels };
+}
+
+type RenderUnit =
+  | { kind: "single"; round: RoundWithRelations }
+  | { kind: "stage"; knockoutStage: number; legRounds: RoundWithRelations[] };
+
+// Voir le commentaire équivalent côté admin.
+function buildKnockoutRenderUnits(rounds: RoundWithRelations[]): RenderUnit[] {
+  const units: RenderUnit[] = [];
+  const seenStages = new Set<number>();
+  for (const round of rounds) {
+    if (round.knockoutStage !== null) {
+      if (seenStages.has(round.knockoutStage)) continue;
+      seenStages.add(round.knockoutStage);
+      const legRounds = rounds.filter((r) => r.knockoutStage === round.knockoutStage);
+      if (legRounds.length >= 2) {
+        units.push({ kind: "stage", knockoutStage: round.knockoutStage, legRounds });
+        continue;
+      }
+      units.push({ kind: "single", round });
+      continue;
+    }
+    units.push({ kind: "single", round });
+  }
+  return units;
+}
+
+// Version en lecture seule de la table de confrontations aller-retour-belle
+// (voir l'équivalent interactif côté admin) : une ligne par confrontation,
+// une colonne par manche.
+function KnockoutConfrontationsTable({
+  confrontations,
+  legLabels,
+}: {
+  confrontations: KnockoutConfrontation[];
+  legLabels: string[];
+}) {
+  return (
+    <div className={`overflow-hidden overflow-x-auto ${card}`}>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className={headRow}>
+            <th className={`${th} pl-4`}>Domicile</th>
+            {legLabels.map((label) => (
+              <th key={label} className={`${th} text-center`}>
+                {label}
+              </th>
+            ))}
+            <th className={`${th} pr-4`}>Extérieur</th>
+          </tr>
+        </thead>
+        <tbody>
+          {confrontations.map((c, i) => {
+            const homeName = c.homePlayer ? `${c.homePlayer.lastName} ${c.homePlayer.firstName}` : "—";
+            const awayName = c.awayPlayer
+              ? `${c.awayPlayer.lastName} ${c.awayPlayer.firstName}`
+              : c.isBye
+                ? "X"
+                : "—";
+            return (
+              <tr key={i} className={matchRow}>
+                <td className={`${matchCell} pl-4 truncate`}>{homeName}</td>
+                {c.isBye ? (
+                  <td colSpan={legLabels.length} className={`${matchCell} text-center`}>
+                    {c.byeScore?.home ?? "-"} - {c.byeScore?.away ?? "-"} (exempt)
+                  </td>
+                ) : (
+                  legLabels.map((label, i2) => {
+                    const m = c.legs[i2];
+                    return (
+                      <td key={label} className={`${scoreCell} text-center whitespace-nowrap`}>
+                        {m ? `${m.homeScore ?? "-"} - ${m.awayScore ?? "-"}` : "—"}
+                      </td>
+                    );
+                  })
+                )}
+                <td className={`${matchCell} pr-4 truncate`}>{awayName}</td>
               </tr>
             );
           })}
@@ -160,18 +311,10 @@ export default async function TournamentRoundsPage({
   });
   if (!tournament || tournament.type !== "CLASSIC") notFound();
 
-  // Numéro de ronde relatif à la phase suisse d'un tournoi COMBINED (poules
-  // puis suisse) — voir le commentaire équivalent côté admin.
-  const swissPhaseRoundNumberById = new Map<string, number>();
-  {
-    let n = 0;
-    for (const r of tournament.rounds) {
-      if (r.isSwissPhase) {
-        n += 1;
-        swissPhaseRoundNumberById.set(r.id, n);
-      }
-    }
-  }
+  // Regroupe les rondes aller/retour/belle d'un même tour dès qu'au moins 2
+  // manches existent (voir buildKnockoutRenderUnits), pour l'affichage
+  // compact façon feuille de match ci-dessous.
+  const renderUnits = buildKnockoutRenderUnits(tournament.rounds);
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-6">
@@ -191,7 +334,43 @@ export default async function TournamentRoundsPage({
       </div>
 
       <div className="flex flex-col gap-6">
-        {tournament.rounds.map((round) => {
+        {renderUnits.map((unit) => {
+          if (unit.kind === "stage") {
+            const leg1 = unit.legRounds.find((r) => r.knockoutLeg === 1)!;
+            const { confrontations, legLabels } = buildKnockoutConfrontations(unit.legRounds);
+            const mainConfrontations = confrontations.filter((c) => !c.isThirdPlace);
+            const thirdPlaceConfrontation = confrontations.find((c) => c.isThirdPlace) ?? null;
+            return (
+              <div key={unit.knockoutStage} id={`ronde-${leg1.number}`} className="flex flex-col gap-4 scroll-mt-20">
+                <div className="flex flex-col gap-1.5">
+                  <h3 className={roundHeading}>
+                    <a href={`#ronde-${leg1.number}`} className="hover:underline">
+                      {getKnockoutStageLabel(
+                        countKnockoutEntrants(leg1.matches.filter((m) => !m.isThirdPlace))
+                      )}
+                    </a>
+                  </h3>
+                  <KnockoutConfrontationsTable confrontations={mainConfrontations} legLabels={legLabels} />
+                </div>
+                {thirdPlaceConfrontation && (
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-sm font-semibold text-navy dark:text-navy-light">
+                      Match pour la 3ᵉ place
+                    </h3>
+                    {/* Même tableau aller/retour/belle que la confrontation
+                        principale (voir Tournament.knockoutTwoLegs) — la 3e
+                        place suit désormais exactement le même format. */}
+                    <KnockoutConfrontationsTable
+                      confrontations={[thirdPlaceConfrontation]}
+                      legLabels={legLabels}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          const round = unit.round;
           const roundHasPoolMatches = round.matches.some((m) => m.pool);
 
           if (
@@ -212,8 +391,12 @@ export default async function TournamentRoundsPage({
             }
 
             return (
-              <div key={round.id} className="flex flex-col gap-4">
-                <h3 className={roundHeading}>Ronde {round.number}</h3>
+              <div key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-4 scroll-mt-20">
+                <h3 className={roundHeading}>
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    Ronde {round.number}
+                  </a>
+                </h3>
                 {[...byPool.values()].map(({ poolName, matches }) => (
                   <div key={poolName} className="flex flex-col gap-1.5">
                     <PoolBadge name={poolName} />
@@ -232,14 +415,14 @@ export default async function TournamentRoundsPage({
             const mainMatches = round.matches.filter((m) => !m.isThirdPlace);
             const thirdPlaceMatches = round.matches.filter((m) => m.isThirdPlace);
             return (
-              <div key={round.id} className="flex flex-col gap-4">
+              <div key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-4 scroll-mt-20">
                 <div className="flex flex-col gap-1.5">
                   <h3 className={roundHeading}>
-                    {isKnockoutRound
-                      ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
-                      : round.isSwissPhase
-                        ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
+                    <a href={`#ronde-${round.number}`} className="hover:underline">
+                      {isKnockoutRound
+                        ? getKnockoutStageLabel(countKnockoutEntrants(mainMatches))
                         : `Ronde ${round.number}`}
+                    </a>
                   </h3>
                   <MatchTable matches={mainMatches} />
                 </div>
@@ -266,7 +449,7 @@ export default async function TournamentRoundsPage({
               {
                 poolName: string;
                 encounters: Map<string, { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }>;
-                byeTeamNames: string[];
+                byes: { name: string; homeScore: number | null; awayScore: number | null }[];
               }
             >();
 
@@ -276,12 +459,18 @@ export default async function TournamentRoundsPage({
                 byPool.set(match.pool.id, {
                   poolName: match.pool.name,
                   encounters: new Map(),
-                  byeTeamNames: [],
+                  byes: [],
                 });
               }
               const entry = byPool.get(match.pool.id)!;
               if (match.isBye) {
-                if (match.homeTeam) entry.byeTeamNames.push(match.homeTeam.name);
+                if (match.homeTeam) {
+                  entry.byes.push({
+                    name: match.homeTeam.name,
+                    homeScore: match.homeScore,
+                    awayScore: match.awayScore,
+                  });
+                }
                 continue;
               }
               if (!match.homeTeam || !match.awayTeam) continue;
@@ -297,9 +486,13 @@ export default async function TournamentRoundsPage({
             }
 
             return (
-              <div key={round.id} className="flex flex-col gap-5">
-                <h3 className={roundHeading}>Ronde {round.number}</h3>
-                {[...byPool.values()].map(({ poolName, encounters, byeTeamNames }) => (
+              <div key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-5 scroll-mt-20">
+                <h3 className={roundHeading}>
+                  <a href={`#ronde-${round.number}`} className="hover:underline">
+                    Ronde {round.number}
+                  </a>
+                </h3>
+                {[...byPool.values()].map(({ poolName, encounters, byes }) => (
                   <div key={poolName} className="flex flex-col gap-3">
                     <PoolBadge name={poolName} />
                     {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
@@ -318,9 +511,9 @@ export default async function TournamentRoundsPage({
                         <MatchTable matches={matches} forceNotBye />
                       </div>
                     ))}
-                    {byeTeamNames.map((name) => (
+                    {byes.map(({ name, homeScore, awayScore }) => (
                       <p key={name} className="text-sm text-black/50 dark:text-white/50 pl-4">
-                        {name} : équipe exempte pour cette ronde.
+                        {name} vs X : {homeScore ?? "-"} - {awayScore ?? "-"} (exempt)
                       </p>
                     ))}
                   </div>
@@ -337,13 +530,15 @@ export default async function TournamentRoundsPage({
             string,
             { homeTeamName: string; awayTeamName: string; matches: typeof round.matches }
           >();
-          const byeTeamNames: string[] = [];
+          const byes: { name: string; homeScore: number | null; awayScore: number | null }[] = [];
           let thirdPlaceEncounter: { homeTeamName: string; awayTeamName: string; matches: typeof round.matches } | null =
             null;
 
           for (const match of round.matches) {
             if (match.isBye) {
-              if (match.homeTeam) byeTeamNames.push(match.homeTeam.name);
+              if (match.homeTeam) {
+                byes.push({ name: match.homeTeam.name, homeScore: match.homeScore, awayScore: match.awayScore });
+              }
               continue;
             }
             if (!match.homeTeam || !match.awayTeam) continue;
@@ -374,15 +569,15 @@ export default async function TournamentRoundsPage({
             tournament.format === "GROUPS" ||
             (round.isFinalPhase && !round.isSwissPhase);
           return (
-            <div key={round.id} className="flex flex-col gap-4">
+            <div key={round.id} id={`ronde-${round.number}`} className="flex flex-col gap-4 scroll-mt-20">
               <h3 className={roundHeading}>
-                {isKnockoutRound
-                  ? getKnockoutStageLabel(
-                      countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
-                    )
-                  : round.isSwissPhase
-                    ? `Ronde suisse ${swissPhaseRoundNumberById.get(round.id)}`
+                <a href={`#ronde-${round.number}`} className="hover:underline">
+                  {isKnockoutRound
+                    ? getKnockoutStageLabel(
+                        countKnockoutEntrants([...encounters.values()].flatMap((e) => e.matches))
+                      )
                     : `Ronde ${round.number}`}
+                </a>
               </h3>
               {[...encounters.values()].map(({ homeTeamName, awayTeamName, matches }) => (
                 <div key={`${homeTeamName}:${awayTeamName}`} className="flex flex-col gap-1.5">
@@ -399,9 +594,9 @@ export default async function TournamentRoundsPage({
                   <MatchTable matches={matches} forceNotBye />
                 </div>
               ))}
-              {byeTeamNames.map((name) => (
+              {byes.map(({ name, homeScore, awayScore }) => (
                 <p key={name} className="text-sm text-black/50 dark:text-white/50">
-                  {name} : équipe exempte pour cette ronde.
+                  {name} vs X : {homeScore ?? "-"} - {awayScore ?? "-"} (exempt)
                 </p>
               ))}
               {thirdPlaceEncounter && (

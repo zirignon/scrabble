@@ -76,11 +76,6 @@ function FormulaSettingsForm({
           {formulaLabel[duplicateFormula ?? "NORMALE"]} · {rythmeLabel[duplicateRythme ?? "NORMAL"]}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        La formule détermine les règles de jeu (tirage, primes de Scrabble)
-        et le rythme la durée par défaut du chronomètre des nouvelles
-        parties.
-      </p>
     </div>
   );
 }
@@ -217,6 +212,7 @@ export default async function GamesPage({
                 )}
               </div>
 
+              <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -269,6 +265,7 @@ export default async function GamesPage({
                   })}
                 </tbody>
               </table>
+              </div>
               {canManage && (
                 <button
                   type="submit"

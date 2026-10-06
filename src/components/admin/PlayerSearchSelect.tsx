@@ -14,18 +14,28 @@ interface PlayerResult {
 // Petit formulaire replié par défaut, pour créer un joueur qui n'existe pas
 // encore en base sans quitter l'écran d'inscription — le champ recherche
 // est repris tel quel comme point de départ (convention Nom Prénom du
-// site), à corriger si besoin.
+// site), à corriger si besoin. Reprend aussi club/catégorie/séries/
+// fédération (comme la fiche complète /admin/joueurs) : sans ça, un joueur
+// créé ici apparaissait dans le classement du tournoi avec ces colonnes
+// vides, contrairement à un joueur déjà présent en base.
 function CreatePlayerInline({
   initialQuery,
+  clubs,
   onCreated,
 }: {
   initialQuery: string;
+  clubs: { id: string; name: string }[];
   onCreated: (player: PlayerResult) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
+  const [clubId, setClubId] = useState("");
+  const [category, setCategory] = useState("");
+  const [classificationClassic, setClassificationClassic] = useState("");
+  const [classification, setClassification] = useState("");
+  const [federation, setFederation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -52,17 +62,21 @@ function CreatePlayerInline({
     <div className="p-3 flex flex-col gap-2">
       <p className="text-xs font-medium">Nouveau joueur</p>
       <div className="flex gap-2">
+        {/* min-w-0 indispensable : un input flex-1 sans ça ne rétrécit
+            jamais sous sa largeur de contenu par défaut (min-width: auto
+            en flexbox), ce qui poussait la case "Prénom" hors de l'écran
+            sur téléphone au lieu de partager la largeur avec "Nom". */}
         <input
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           placeholder="Nom"
-          className="flex-1 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
         />
         <input
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           placeholder="Prénom"
-          className="flex-1 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
         />
       </div>
       <input
@@ -71,6 +85,46 @@ function CreatePlayerInline({
         placeholder="N° de licence (optionnel)"
         className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
       />
+      <select
+        value={clubId}
+        onChange={(e) => setClubId(e.target.value)}
+        className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+      >
+        <option value="">Club (optionnel)</option>
+        {clubs.map((club) => (
+          <option key={club.id} value={club.id}>
+            {club.name}
+          </option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <input
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          placeholder="Catégorie"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+        />
+        <input
+          value={federation}
+          onChange={(e) => setFederation(e.target.value)}
+          placeholder="Fédé (FR, QC...)"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+        />
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={classificationClassic}
+          onChange={(e) => setClassificationClassic(e.target.value)}
+          placeholder="Série classique (J, C, B, A...)"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+        />
+        <input
+          value={classification}
+          onChange={(e) => setClassification(e.target.value)}
+          placeholder="Série duplicate (1A, 2B, 7...)"
+          className="flex-1 min-w-0 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+        />
+      </div>
       {error && <p className="text-xs text-brick">{error}</p>}
       <div className="flex gap-2">
         <button
@@ -83,6 +137,11 @@ function CreatePlayerInline({
             formData.set("lastName", lastName.trim());
             formData.set("firstName", firstName.trim());
             if (licenseNumber.trim()) formData.set("licenseNumber", licenseNumber.trim());
+            if (clubId) formData.set("clubId", clubId);
+            if (category.trim()) formData.set("category", category.trim());
+            if (classificationClassic.trim()) formData.set("classificationClassic", classificationClassic.trim());
+            if (classification.trim()) formData.set("classification", classification.trim());
+            if (federation.trim()) formData.set("federation", federation.trim());
             startTransition(async () => {
               const result = await createPlayerQuickAction(formData);
               if (result.error || !result.playerId) {
@@ -94,7 +153,7 @@ function CreatePlayerInline({
                 lastName: lastName.trim(),
                 firstName: firstName.trim(),
                 licenseNumber: licenseNumber.trim() || null,
-                clubName: null,
+                clubName: clubs.find((c) => c.id === clubId)?.name ?? null,
               });
               setOpen(false);
             });
@@ -123,6 +182,7 @@ export function PlayerSearchSelect({
   tournamentId,
   action,
   context,
+  clubs = [],
   label = "Ajouter un joueur (nom ou licence)",
   submitLabel = "Inscrire",
 }: {
@@ -132,6 +192,10 @@ export function PlayerSearchSelect({
   // joueurs déjà dans une équipe de ce tournoi (voir /api/joueurs/search),
   // l'inscription au tournoi se fait automatiquement à l'ajout.
   context?: "team";
+  // Liste des clubs existants, proposée dans "+ Créer un nouveau joueur"
+  // (voir CreatePlayerInline) — absente, le menu "Club" n'affiche que
+  // l'option vide.
+  clubs?: { id: string; name: string }[];
   label?: string;
   submitLabel?: string;
 }) {
@@ -181,8 +245,8 @@ export function PlayerSearchSelect({
   const keepFocus = (e: React.MouseEvent) => e.preventDefault();
 
   return (
-    <form action={action} className="flex items-end gap-3">
-      <div className="flex flex-col gap-1 relative">
+    <form action={action} className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-1 relative flex-1 min-w-0 sm:flex-none">
         <label htmlFor="player-search" className="text-xs font-medium">
           {label}
         </label>
@@ -196,7 +260,7 @@ export function PlayerSearchSelect({
           onFocus={() => setOpen(query.trim().length >= 2)}
           autoComplete="off"
           placeholder="Tapez un nom ou un n° de licence..."
-          className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm min-w-72"
+          className="w-full rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm sm:min-w-72"
         />
         <input type="hidden" name="playerId" value={selected?.id ?? ""} />
         {open && !selected && query.trim().length >= 2 && (
@@ -209,6 +273,7 @@ export function PlayerSearchSelect({
                 souris juste avant le clic. */}
             <CreatePlayerInline
               initialQuery={query}
+              clubs={clubs}
               onCreated={(player) => {
                 setSelected(player);
                 setResults([]);

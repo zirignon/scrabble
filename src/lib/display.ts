@@ -83,8 +83,44 @@ export interface DisplayData {
   displayMode: DisplayMode;
   standingsTitle: string;
   standingsGroups: DisplayStandingGroup[];
+  // Faux une fois entré dans un tableau à élimination directe (voir
+  // isInKnockoutPhase) : le classement général ne bouge alors plus (voir
+  // computeClassicStandings, qui exclut les rondes de phase finale) et
+  // n'a donc plus rien à apporter sur l'écran en direct — l'écran
+  // n'alterne plus vers lui, quel que soit Tournament.displayMode.
+  standingsAvailable: boolean;
   current: DisplayCurrent;
   updatedAt: string;
+}
+
+// Vrai si la ronde la plus récente du tournoi fait partie d'un tableau à
+// élimination directe (tournoi au format KNOCKOUT, GROUPS une fois la
+// phase de poules terminée, ou toute autre phase finale optionnelle) —
+// même critère que buildCurrent (isKnockoutRound), dupliqué ici en version
+// allégée (pas besoin des relations joueurs/équipes) pour décider si le
+// classement général reste pertinent à afficher.
+async function isInKnockoutPhase(tournament: {
+  id: string;
+  type: string;
+  format: string | null;
+}): Promise<boolean> {
+  if (tournament.type !== "CLASSIC") return false;
+  const lastRound = await prisma.round.findFirst({
+    where: { tournamentId: tournament.id },
+    orderBy: { number: "desc" },
+    select: {
+      isFinalPhase: true,
+      isSwissPhase: true,
+      matches: { select: { poolId: true } },
+    },
+  });
+  if (!lastRound) return false;
+  const grouped = lastRound.matches.some((m) => m.poolId !== null);
+  return (
+    tournament.format === "KNOCKOUT" ||
+    (tournament.format === "GROUPS" && !grouped) ||
+    (lastRound.isFinalPhase && !lastRound.isSwissPhase)
+  );
 }
 
 async function buildStandings(tournament: {
@@ -239,6 +275,12 @@ async function buildStandings(tournament: {
 
 // Mêmes colonnes que la page publique de classement (/tournois/[slug]/classement),
 // pour que l'affichage grand écran montre exactement les mêmes départages.
+// Sous-ensemble des colonnes du classement complet (voir la page classement,
+// qui elle affiche aussi Abs./SB/Bchz/Bchz méd./Cumul) : à la taille de
+// police nécessaire pour rester lisible à distance sur l'écran géant, ces
+// départages en plus des 6 colonnes essentielles ci-dessous ne laissaient
+// plus assez de place — surtout avec 2 poules affichées côte à côte —,
+// provoquant un chevauchement des en-têtes et des valeurs.
 function classicIndividualColumns(s: {
   played: number;
   wins: number;
@@ -257,13 +299,8 @@ function classicIndividualColumns(s: {
     { label: "V", value: String(s.wins) },
     { label: "N", value: String(s.draws) },
     { label: "D", value: String(s.losses) },
-    { label: "Abs.", value: String(s.forfeits) },
     { label: "Pts", value: String(s.matchPoints) },
     { label: "Diff", value: formatDiff(s.diff) },
-    { label: "SB", value: String(s.sonnebornBerger) },
-    { label: "Bchz", value: String(s.buchholz) },
-    { label: "Bchz méd.", value: String(s.buchholzMedian) },
-    { label: "Cumul", value: String(s.cumulativeScore) },
   ];
 }
 
@@ -312,25 +349,91 @@ async function buildCurrent(tournament: {
     });
     if (!lastRound) return { kind: "matches", label: "Aucune ronde", groups: [] };
 
-    const grouped = lastRound.matches.some((m) => m.poolId);
+    // Pour un tour joué en 2 manches + belle (voir Tournament.knockoutTwoLegs),
+    // les confrontations d'un même tour peuvent avoir avancé à des rythmes
+    // différents : la finale peut être tranchée 2-0 (pas de belle générée)
+    // pendant que la 3e place, elle, attend encore sa belle — auquel cas la
+    // toute dernière ronde (par numéro) ne contient plus QUE cette belle, et
+    // s'en tenir à lastRound.matches ferait disparaître à tort la finale déjà
+    // conclue de l'écran "en cours". On reconstitue donc, pour chaque
+    // confrontation du tour, son match le plus avancé (celui de la ronde la
+    // plus récente où elle apparaît encore) — comme la page rondes le fait
+    // déjà pour son propre regroupement aller/retour/belle.
+    let currentMatches = lastRound.matches;
+    if (lastRound.knockoutStage !== null) {
+      const stageRounds = await prisma.round.findMany({
+        where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage },
+        orderBy: { number: "asc" },
+        include: {
+          matches: {
+            include: { homePlayer: true, awayPlayer: true, homeTeam: true, awayTeam: true, pool: true },
+            orderBy: { id: "asc" },
+          },
+        },
+      });
+      const confrontationKey = (m: (typeof stageRounds)[number]["matches"][number]) =>
+        m.isBye
+          ? `bye:${m.homePlayerId ?? m.homeTeamId}`
+          : `${m.isThirdPlace ? "3p" : "main"}:${m.homePlayerId ?? m.homeTeamId}:${m.awayPlayerId ?? m.awayTeamId}`;
+      const latestRoundNumberByConfrontation = new Map<string, number>();
+      for (const r of stageRounds) {
+        for (const m of r.matches) {
+          latestRoundNumberByConfrontation.set(confrontationKey(m), r.number);
+        }
+      }
+      currentMatches = stageRounds.flatMap((r) =>
+        r.matches.filter((m) => latestRoundNumberByConfrontation.get(confrontationKey(m)) === r.number)
+      );
+    }
+
+    const grouped = currentMatches.some((m) => m.poolId);
     // En équipes, chaque ligne Match ne représente qu'un échiquier d'une
     // confrontation (une équipe contre une autre) : plutôt que de répéter
     // le nom des deux équipes sur chaque ligne, on regroupe les échiquiers
     // d'une même confrontation sous un même titre et on affiche les noms
     // des deux joueurs qui s'affrontent sur cet échiquier.
-    const isTeamRound = lastRound.matches.some((m) => m.homeTeamId);
+    const isTeamRound = currentMatches.some((m) => m.homeTeamId);
+    const isKnockoutRound =
+      tournament.format === "KNOCKOUT" ||
+      (tournament.format === "GROUPS" && !grouped) ||
+      (lastRound.isFinalPhase && !lastRound.isSwissPhase);
+    // Nom du tour (Quart de finale, Demi-finale, Finale...), calculé une
+    // fois ici pour servir à la fois de titre à l'écran (label, plus bas)
+    // et d'intitulé au-dessus du tableau de la confrontation principale
+    // elle-même — jusqu'ici seul "Match pour la 3e place" avait un
+    // intitulé, la confrontation principale restait sans titre propre.
+    let knockoutStageName: string | null = null;
+    if (isKnockoutRound) {
+      // Voir le commentaire équivalent sur les pages rondes : pour un tour
+      // joué en 2 manches + belle (Tournament.knockoutTwoLegs), seule la
+      // manche aller a un décompte d'entrants fiable (elle seule inclut les
+      // exempts) — on va la rechercher si la ronde en cours en est une autre.
+      let knockoutEntrants: number;
+      if (lastRound.knockoutStage !== null && lastRound.knockoutLeg !== 1) {
+        const leg1Round = await prisma.round.findFirst({
+          where: { tournamentId: tournament.id, knockoutStage: lastRound.knockoutStage, knockoutLeg: 1 },
+          include: { matches: true },
+        });
+        knockoutEntrants = leg1Round
+          ? countKnockoutEntrants(leg1Round.matches.filter((m) => !m.isThirdPlace))
+          : countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      } else {
+        knockoutEntrants = countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace));
+      }
+      knockoutStageName = getKnockoutStageLabel(knockoutEntrants);
+    }
     const groupsMap = new Map<string, DisplayRoundMatch[]>();
-    for (const m of lastRound.matches) {
+    for (const m of currentMatches) {
       const poolPrefix = grouped && m.pool ? `${m.pool.name} — ` : "";
       const groupName = m.isThirdPlace
         ? "Match pour la 3ᵉ place"
         : isTeamRound
-          ? `${poolPrefix}${m.homeTeam?.name ?? "?"}${
-              m.isBye ? " (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
+          ? `${knockoutStageName ? `${knockoutStageName} — ` : poolPrefix}${m.homeTeam?.name ?? "?"}${
+              m.isBye ? " vs X (exempt)" : ` vs ${m.awayTeam?.name ?? "?"}`
             }`
           : grouped
             ? m.pool?.name ?? "—"
-            : "";
+            : (knockoutStageName ?? "");
       const rawHomeName =
         isTeamRound && !m.isBye
           ? m.homePlayer
@@ -342,7 +445,7 @@ async function buildCurrent(tournament: {
               ? `${m.homePlayer.lastName} ${m.homePlayer.firstName}`
               : "?";
       const rawAwayName = m.isBye
-        ? null
+        ? "X"
         : isTeamRound
           ? m.awayPlayer
             ? `${m.awayPlayer.lastName} ${m.awayPlayer.firstName}`
@@ -357,7 +460,7 @@ async function buildCurrent(tournament: {
       // joueur qui débute est toujours affiché à gauche, sans toucher
       // homeTeamId/awayTeamId (utilisés pour le classement par équipes).
       const swapForDisplay = isTeamRound && !m.isBye && !m.homeStarts;
-      // rawAwayName n'est null que pour un bye, exclu de swapForDisplay.
+      // rawAwayName vaut toujours "X" pour un bye (exclu de swapForDisplay).
       const leftName = swapForDisplay ? (rawAwayName as string) : rawHomeName;
       const rightName = swapForDisplay ? rawHomeName : rawAwayName;
       const leftScore = swapForDisplay ? m.awayScore : m.homeScore;
@@ -374,20 +477,17 @@ async function buildCurrent(tournament: {
       });
       groupsMap.set(groupName, arr);
     }
-    const isKnockoutRound =
-      tournament.format === "KNOCKOUT" ||
-      (tournament.format === "GROUPS" && !grouped) ||
-      (lastRound.isFinalPhase && !lastRound.isSwissPhase);
     let label: string;
-    if (isKnockoutRound) {
-      label = getKnockoutStageLabel(
-        countKnockoutEntrants(lastRound.matches.filter((m) => !m.isThirdPlace))
-      );
-    } else if (lastRound.isSwissPhase) {
-      const swissPhaseRoundNumber = await prisma.round.count({
-        where: { tournamentId: tournament.id, isSwissPhase: true, number: { lte: lastRound.number } },
-      });
-      label = `Ronde suisse ${swissPhaseRoundNumber}`;
+    if (isKnockoutRound && knockoutStageName) {
+      const knockoutLegSuffix =
+        lastRound.knockoutLeg === 1
+          ? " — Manche aller"
+          : lastRound.knockoutLeg === 2
+            ? " — Manche retour"
+            : lastRound.knockoutLeg === 3
+              ? " — Belle"
+              : "";
+      label = `${knockoutStageName}${knockoutLegSuffix}`;
     } else {
       label = `Ronde ${lastRound.number}`;
     }
@@ -443,8 +543,9 @@ async function buildCurrent(tournament: {
 export async function getDisplayData(tournamentId: string): Promise<DisplayData> {
   const tournament = await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
 
+  const inKnockoutPhase = await isInKnockoutPhase(tournament);
   const [{ title, groups }, current] = await Promise.all([
-    buildStandings(tournament),
+    inKnockoutPhase ? Promise.resolve({ title: "", groups: [] }) : buildStandings(tournament),
     buildCurrent(tournament),
   ]);
 
@@ -454,6 +555,7 @@ export async function getDisplayData(tournamentId: string): Promise<DisplayData>
     displayMode: tournament.displayMode,
     standingsTitle: title,
     standingsGroups: groups,
+    standingsAvailable: !inKnockoutPhase,
     current,
     updatedAt: new Date().toISOString(),
   };

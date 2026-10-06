@@ -21,14 +21,10 @@ export default async function AdminUsersPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold text-navy dark:text-navy-light mb-1">Utilisateurs</h1>
-        <p className="text-sm text-black/60 dark:text-white/60 mb-4">
-          Créez un compte pour un organisateur ou un arbitre — l&apos;inscription
-          publique ne crée que des comptes joueurs, il n&apos;existe pas d&apos;auto-
-          promotion.
-        </p>
         <UserForm />
       </div>
 
+      <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -98,6 +94,7 @@ export default async function AdminUsersPage() {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
