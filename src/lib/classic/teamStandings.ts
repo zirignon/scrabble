@@ -31,7 +31,9 @@ export interface TeamStandingsMatchLike {
 // individuels : une confrontation d'équipes (ronde + paire d'équipes) est
 // regroupée à partir des matchs de ses différents échiquiers. Le résultat
 // du match d'équipes se décide à la majorité d'échiquiers gagnés (3 pts
-// victoire, 1 pt égalité, 0 pt défaite). Départage : différentiel
+// victoire, 2 pts égalité, 1 pt défaite jouée, 0 pt si l'équipe était
+// absente — même barème que le classement individuel, voir applyResult
+// dans standings.ts). Départage : différentiel
 // d'échiquiers (gagnés − perdus) puis différence de points cumulés. Une
 // confrontation n'est comptabilisée que lorsque tous ses échiquiers sont
 // joués (aucun encore SCHEDULED). Factorisé pour être réutilisé aussi bien
@@ -133,6 +135,8 @@ export function computeTeamStandingsFromMatches(
     let boardsDrawn = 0;
     let homePointsFor = 0;
     let awayPointsFor = 0;
+    let homeForfeitBoards = 0;
+    let awayForfeitBoards = 0;
 
     for (const board of boards) {
       if (board.status === "PLAYED" && board.homeScore != null && board.awayScore != null) {
@@ -143,11 +147,19 @@ export function computeTeamStandingsFromMatches(
         else boardsDrawn += 1;
       } else if (board.status === "FORFEIT_HOME") {
         awayBoardsWon += 1;
+        homeForfeitBoards += 1;
       } else if (board.status === "FORFEIT_AWAY") {
         homeBoardsWon += 1;
+        awayForfeitBoards += 1;
       }
       // CANCELLED : échiquier non comptabilisé.
     }
+    // Une équipe n'est considérée absente (forfait) à la confrontation que si
+    // elle est forfait sur TOUS ses échiquiers — distinct d'une défaite
+    // réellement jouée, voir applyResult (standings.ts) pour l'équivalent
+    // individuel.
+    const homeFullyForfeited = boards.length > 0 && homeForfeitBoards === boards.length;
+    const awayFullyForfeited = boards.length > 0 && awayForfeitBoards === boards.length;
 
     home.boardsWon += homeBoardsWon;
     home.boardsLost += awayBoardsWon;
@@ -167,15 +179,17 @@ export function computeTeamStandingsFromMatches(
       home.wins += 1;
       home.matchPoints += 3;
       away.losses += 1;
+      if (!awayFullyForfeited) away.matchPoints += 1;
     } else if (homeBoardsWon < awayBoardsWon) {
       away.wins += 1;
       away.matchPoints += 3;
       home.losses += 1;
+      if (!homeFullyForfeited) home.matchPoints += 1;
     } else {
       home.draws += 1;
       away.draws += 1;
-      home.matchPoints += 1;
-      away.matchPoints += 1;
+      home.matchPoints += 2;
+      away.matchPoints += 2;
     }
   }
 

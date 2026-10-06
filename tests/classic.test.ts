@@ -517,6 +517,49 @@ test("classement équipes : l'exempté compte pour un score conventionnel de 50-
   assert.equal(a.diff, 50);
 });
 
+test("classement équipes : barème victoire 3 / nul 2 / défaite jouée 1 / forfait 0", () => {
+  const teams = [
+    { teamId: "a", name: "A" },
+    { teamId: "b", name: "B" },
+  ];
+
+  // Confrontation réellement jouée sur 2 échiquiers : A gagne les deux
+  // échiquiers, B perd en ayant réellement joué (pas de forfait) -> 1 pt.
+  const played = computeTeamStandingsFromMatches(teams, [
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 400, awayScore: 300, status: "PLAYED" },
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 380, awayScore: 320, status: "PLAYED" },
+  ]);
+  assert.equal(played.find((r) => r.teamId === "a")!.matchPoints, 3);
+  assert.equal(played.find((r) => r.teamId === "b")!.matchPoints, 1);
+
+  // Confrontation nulle (1 échiquier gagné chacun) -> 2 pts chacun.
+  const draw = computeTeamStandingsFromMatches(teams, [
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 400, awayScore: 300, status: "PLAYED" },
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 300, awayScore: 400, status: "PLAYED" },
+  ]);
+  assert.equal(draw.find((r) => r.teamId === "a")!.matchPoints, 2);
+  assert.equal(draw.find((r) => r.teamId === "b")!.matchPoints, 2);
+
+  // L'équipe A est absente sur tous ses échiquiers (forfait complet, distinct
+  // d'un exempt) : B gagne (3 pts), A n'a joué aucun échiquier -> 0 pt, pas 1.
+  const forfeited = computeTeamStandingsFromMatches(teams, [
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 0, awayScore: 50, status: "FORFEIT_HOME" },
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 0, awayScore: 50, status: "FORFEIT_HOME" },
+  ]);
+  assert.equal(forfeited.find((r) => r.teamId === "a")!.matchPoints, 0);
+  assert.equal(forfeited.find((r) => r.teamId === "b")!.matchPoints, 3);
+
+  // Un seul échiquier forfait sur deux (l'équipe a tout de même joué l'autre
+  // échiquier) : défaite réellement disputée pour l'équipe, pas un forfait
+  // complet -> 1 pt, pas 0.
+  const partialForfeit = computeTeamStandingsFromMatches(teams, [
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 0, awayScore: 50, status: "FORFEIT_HOME" },
+    { roundId: "r1", roundNumber: 1, isBye: false, homeTeamId: "a", awayTeamId: "b", homeScore: 300, awayScore: 400, status: "PLAYED" },
+  ]);
+  assert.equal(partialForfeit.find((r) => r.teamId === "a")!.matchPoints, 1);
+  assert.equal(partialForfeit.find((r) => r.teamId === "b")!.matchPoints, 3);
+});
+
 test("classement individuel : uptoRoundNumber reconstitue un instantané, même si des rondes plus récentes ont depuis été jouées", () => {
   const players = [
     { playerId: "a", firstName: "A", lastName: "A" },
