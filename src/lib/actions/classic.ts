@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { requireRole, canManageTournament, canRecordResults, STAFF_ROLES } from "@/lib/guards";
 import { generateRoundRobinRounds } from "@/lib/classic/pairing";
 import { generateSwissRound, generateSwissRoundWithForfeits, seedFirstSwissRound } from "@/lib/classic/swiss";
 import { computeClassicStandings, computeClassicSwissPhaseStandings } from "@/lib/classic/standings";
@@ -50,6 +50,21 @@ async function assertCanManage(tournamentId: string) {
     where: { id: tournamentId },
   });
   if (!canManageTournament(session, tournament.organizerId)) {
+    throw new Error("Non autorisé.");
+  }
+  return tournament;
+}
+
+// Même principe qu'assertCanManage, mais pour la seule saisie de résultat
+// (recordMatchResultAction) : un REFEREE assigné à ce tournoi (voir
+// canRecordResults, src/lib/permissions.ts) y a aussi droit, sans avoir
+// les pleins pouvoirs d'organisateur sur le reste du tournoi.
+async function assertCanRecordResults(tournamentId: string) {
+  const session = await requireRole(STAFF_ROLES);
+  const tournament = await prisma.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+  });
+  if (!(await canRecordResults(session, tournament))) {
     throw new Error("Non autorisé.");
   }
   return tournament;
@@ -2454,7 +2469,7 @@ export async function recordMatchResultAction(
   matchId: string,
   formData: FormData
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "match", id: matchId });
   const parsed = resultSchema.safeParse({
     homeScore: formData.get("homeScore") || undefined,

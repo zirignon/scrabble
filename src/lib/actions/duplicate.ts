@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { requireRole, canManageTournament, canRecordResults, STAFF_ROLES } from "@/lib/guards";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
 import {
   BOARD_SIZE,
@@ -33,6 +33,22 @@ async function assertCanManage(tournamentId: string) {
     where: { id: tournamentId },
   });
   if (!canManageTournament(session, tournament.organizerId)) {
+    throw new Error("Non autorisé.");
+  }
+  return tournament;
+}
+
+// Même principe qu'assertCanManage, mais pour les seules actions de saisie
+// de résultat (scores, coups, pénalités) ci-dessous : un REFEREE assigné à
+// ce tournoi (voir canRecordResults, src/lib/permissions.ts) y a aussi
+// droit, sans les pleins pouvoirs d'organisateur sur le reste du tournoi
+// (réglages, chrono, grille de référence, création de partie...).
+async function assertCanRecordResults(tournamentId: string) {
+  const session = await requireRole(STAFF_ROLES);
+  const tournament = await prisma.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+  });
+  if (!(await canRecordResults(session, tournament))) {
     throw new Error("Non autorisé.");
   }
   return tournament;
@@ -208,7 +224,7 @@ export async function saveGameScoresAction(
   gameId: string,
   formData: FormData
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
   // Le champ "top" n'est présent dans le formulaire qu'en mode simple (sans
@@ -324,7 +340,7 @@ export async function addMoveAction(
   playerId: string,
   formData: FormData
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const parsed = moveSchema.safeParse({
     rack: formData.get("rack") || undefined,
@@ -373,7 +389,7 @@ export async function updateMoveAction(
   moveId: string,
   formData: FormData
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   await assertMoveInGame(gameId, moveId);
   const parsed = moveSchema.safeParse({
@@ -415,7 +431,7 @@ export async function deleteMoveAction(
   gameId: string,
   moveId: string
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   await assertMoveInGame(gameId, moveId);
   const move = await prisma.duplicateMove.delete({ where: { id: moveId } });
@@ -438,7 +454,7 @@ export async function saveTurnScoresAction(
   turnNumber: number,
   formData: FormData
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
   const [referenceMove, registrations] = await Promise.all([
@@ -516,7 +532,7 @@ export async function toggleSoloConfirmationAction(
   playerId: string,
   turnNumber: number
 ) {
-  await assertCanManage(tournamentId);
+  await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
   const allMoves = await prisma.duplicateMove.findMany({
