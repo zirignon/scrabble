@@ -271,9 +271,8 @@ Après `npm run db:seed` :
   sans action de l'arbitre. Le score déjà enregistré du coup qui a posé
   cette lettre n'est jamais recalculé — seul l'affichage change. Le
   logiciel ne simule pas le sac physique : cette estimation reste
-  indicative (un joker non résolu listé comme épuisé l'indique), et
-  l'arbitre corrige au besoin via les boutons « Résoudre »/« Annuler »
-  (section « Jokers sur la grille », page de détail de la partie)
+  indicative, sans contrôle manuel pour la corriger (choix délibéré,
+  la résolution étant entièrement automatique)
 - Classement cumulé (rang, licence, nom, prénoms séparés, classification,
   catégorie, club, nationalité, cumul net, négatif et pourcentage cumulés
   par rapport au cumul des tops, puis une colonne par partie jouée) et une

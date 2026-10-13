@@ -14,8 +14,8 @@ import {
 } from "../src/lib/duplicate/board";
 
 // isJokerFormula est pure : seules les 3 formules "joker" (voir le
-// commentaire sur getBingoRules) autorisent la résolution d'un joker posé
-// sur la grille (resolveJokerAction).
+// commentaire sur getBingoRules) déclenchent la résolution automatique
+// d'un joker posé sur la grille (validateGameRackAction).
 test("isJokerFormula : seules les formules joker renvoient true", () => {
   assert.equal(isJokerFormula("JOKER"), true);
   assert.equal(isJokerFormula("SEPT_SUR_HUIT_JOKER"), true);
@@ -185,9 +185,10 @@ test("applyResolvedJokers : une case hors grille ou vide ne provoque pas d'erreu
 
 const prisma = new PrismaClient();
 
-// Vérifie le flux complet de resolveJokerAction (reproduit directement ici
-// en base, la Server Action elle-même n'étant pas invocable hors requête
-// Next.js — voir la note équivalente dans tests/permissions.test.ts) :
+// Vérifie le mécanisme de résolution d'un joker (reproduit directement ici
+// en base l'insertion ResolvedJoker que validateGameRackAction effectue
+// automatiquement — la Server Action elle-même n'étant pas invocable hors
+// requête Next.js, voir la note équivalente dans tests/permissions.test.ts) :
 // résoudre un joker crée bien la ligne ResolvedJoker, l'affichage de la
 // grille (reconstructBoard + applyResolvedJokers) la montre alors comme
 // une lettre normale, et le score déjà enregistré du coup de référence
@@ -246,7 +247,7 @@ test(
       const boardBefore = reconstructBoard(beforeMoves);
       assert.equal(boardBefore[7][8]?.isBlank, true);
 
-      // Résolution (reproduit resolveJokerAction, sans la couche requireRole).
+      // Résolution (reproduit l'insertion ResolvedJoker de validateGameRackAction).
       await prisma.resolvedJoker.upsert({
         where: { gameId_row_col: { gameId: game.id, row: 8, col: 9 } },
         update: {},

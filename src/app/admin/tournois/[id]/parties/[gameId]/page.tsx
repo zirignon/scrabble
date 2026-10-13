@@ -6,17 +6,13 @@ import {
   addReferenceMoveAction,
   deleteReferenceMoveAction,
   findReferenceMoveSolutionsAction,
-  resolveJokerAction,
   saveTurnScoresAction,
   toggleSoloConfirmationAction,
-  unresolveJokerAction,
   updateReferenceMoveAction,
 } from "@/lib/actions/duplicate";
 import {
   reconstructBoard,
   applyResolvedJokers,
-  isJokerFormula,
-  computeRemainingLetters,
   formatReference,
   getFreeAvertissementCount,
   getRythmeAlertSeconds,
@@ -100,38 +96,10 @@ export default async function GameMovesPage({
   if (!canEnterScores) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
+  // Un joker joué est résolu automatiquement dès la validation du tirage
+  // du tour suivant (voir validateGameRackAction) : la grille affichée
+  // reflète déjà cet état, sans contrôle manuel sur cette page.
   const board = applyResolvedJokers(reconstructBoard(game.referenceMoves), game.resolvedJokers);
-  // Cases encore en joker non résolu sur la grille affichée, pour proposer
-  // à l'arbitre de les résoudre une fois la lettre remplacée dans le sac
-  // (règlement FISF, voir le commentaire sur getBingoRules) — uniquement
-  // pertinent dans les formules joker, voir isJokerFormula.
-  const remainingLetters = isJokerFormula(tournament.duplicateFormula)
-    ? computeRemainingLetters(game.referenceMoves, game.resolvedJokers)
-    : {};
-  const unresolvedJokers = isJokerFormula(tournament.duplicateFormula)
-    ? board.flatMap((rowCells, r) =>
-        rowCells.flatMap((cell, c) =>
-          cell?.isBlank
-            ? [
-                {
-                  row: r + 1,
-                  col: c + 1,
-                  letter: cell.letter,
-                  reference: formatReference(r + 1, c + 1, "ACROSS"),
-                  remaining: remainingLetters[cell.letter] ?? 0,
-                },
-              ]
-            : []
-        )
-      )
-    : [];
-  const resolvedJokerCells = isJokerFormula(tournament.duplicateFormula)
-    ? game.resolvedJokers
-        .map((r) => ({ ...r, reference: formatReference(r.row, r.col, "ACROSS") }))
-        .sort((a, b) => a.reference.localeCompare(b.reference))
-    : [];
-  const resolveJokerBound = resolveJokerAction.bind(null, tournament.id, game.id);
-  const unresolveJokerBound = unresolveJokerAction.bind(null, tournament.id, game.id);
   const addReferenceMoveBound = addReferenceMoveAction.bind(null, tournament.id, game.id);
   const updateReferenceMoveBound = updateReferenceMoveAction.bind(null, tournament.id, game.id);
   const deleteReferenceMoveBound = deleteReferenceMoveAction.bind(null, tournament.id, game.id);
@@ -255,64 +223,6 @@ export default async function GameMovesPage({
               tournamentId={tournament.id}
               duplicateFormula={tournament.duplicateFormula}
             />
-
-            {canManage && isJokerFormula(tournament.duplicateFormula) && (
-              <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
-                <p className="text-sm font-medium">Jokers sur la grille</p>
-                {unresolvedJokers.length === 0 ? (
-                  <p className="text-sm text-black/50 dark:text-white/50">
-                    Aucun joker non résolu sur la grille.
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-1.5">
-                    {unresolvedJokers.map((j) => (
-                      <li
-                        key={`${j.row}-${j.col}`}
-                        className="flex items-center justify-between gap-3 text-sm"
-                      >
-                        <span>
-                          {j.reference} — lettre {j.letter}
-                          {j.remaining <= 0 && (
-                            <span className="text-brick"> (lettre épuisée, estimation)</span>
-                          )}
-                        </span>
-                        <form action={resolveJokerBound.bind(null, j.row, j.col)}>
-                          <button
-                            type="submit"
-                            className="rounded-md border border-black/10 dark:border-white/20 px-2 py-1 text-xs hover:bg-navy/[.04] dark:hover:bg-navy-light/[.08] transition-colors"
-                          >
-                            Résoudre
-                          </button>
-                        </form>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {resolvedJokerCells.length > 0 && (
-                  <>
-                    <p className="text-sm font-medium mt-2">Jokers résolus</p>
-                    <ul className="flex flex-col gap-1.5">
-                      {resolvedJokerCells.map((j) => (
-                        <li
-                          key={`${j.row}-${j.col}`}
-                          className="flex items-center justify-between gap-3 text-sm"
-                        >
-                          <span>{j.reference}</span>
-                          <form action={unresolveJokerBound.bind(null, j.row, j.col)}>
-                            <button
-                              type="submit"
-                              className="rounded-md border border-black/10 dark:border-white/20 px-2 py-1 text-xs hover:bg-navy/[.04] dark:hover:bg-navy-light/[.08] transition-colors"
-                            >
-                              Annuler
-                            </button>
-                          </form>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </section>

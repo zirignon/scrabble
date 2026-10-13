@@ -86,7 +86,9 @@ export interface ResolvedJokerLike {
 // normalement (coefficient de lettre visible), comme une lettre posée
 // ordinaire. Ne touche jamais au score déjà enregistré du coup de référence
 // qui a posé cette case — ReferenceMove.points n'est jamais recalculé par
-// une résolution de joker, voir resolveJokerAction.
+// une résolution de joker, voir validateGameRackAction (src/lib/actions/
+// duplicate.ts), qui résout automatiquement un joker dès que son
+// estimation de lettres restantes (computeRemainingLetters) le permet.
 export function applyResolvedJokers(
   grid: (BoardCell | null)[][],
   resolved: ResolvedJokerLike[]
@@ -101,8 +103,8 @@ export function applyResolvedJokers(
 }
 
 // Formules de tournoi incluant le mécanisme du joker (voir le commentaire
-// sur getBingoRules) : seules celles-ci autorisent la résolution d'un
-// joker posé sur la grille (resolveJokerAction).
+// sur getBingoRules) : seules celles-ci déclenchent la résolution
+// automatique d'un joker posé sur la grille (validateGameRackAction).
 export function isJokerFormula(formula: string | null | undefined): boolean {
   return formula === "JOKER" || formula === "SEPT_SUR_HUIT_JOKER" || formula === "SEPT_ET_HUIT_JOKER";
 }
@@ -255,8 +257,9 @@ export const FRENCH_LETTER_DISTRIBUTION: Record<string, number> = {
 // formulaire), le suivi perd la trace du reliquat à ce point et
 // recommence à zéro au coup suivant plutôt que de se tromper en
 // silence. Comme le logiciel ne simule pas le sac physique, ce compteur
-// reste indicatif — voir resolveJokerAction pour la correction manuelle
-// si l'estimation se trompe.
+// reste indicatif — aucun contrôle manuel n'existe pour corriger une
+// résolution automatique erronée (choix délibéré, voir le commit qui
+// retire resolveJokerAction/unresolveJokerAction).
 export function computeRemainingLetters(
   moves: ReliquatMoveLike[],
   resolvedJokers: ResolvedJokerLike[]
