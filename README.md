@@ -379,7 +379,10 @@ Après `npm run db:seed` :
   sur l'écran débloque le son, comme l'exigent les navigateurs
 - En duplicate, la vue « partie en cours » ne montre que l'essentiel
   pour la salle : la grille de référence (agrandie, carte en relief) et
-  le chronomètre. Le tirage du tour, saisi par l'arbitre (champ
+  le chronomètre. La grille s'affiche dès le début de la partie, vide
+  (cases bonus visibles) tant qu'aucun coup n'a encore été joué — la
+  salle n'a pas besoin d'attendre le premier tirage ou le premier mot
+  pour la voir apparaître. Le tirage du tour, saisi par l'arbitre (champ
   « Tirage » du coup de référence — une lettre blanche en main se note
   avec un point d'interrogation « ? »), apparaît automatiquement en
   colonne verticale à côté de la grille dès qu'il est renseigné — une

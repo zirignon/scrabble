@@ -514,10 +514,10 @@ async function buildCurrent(tournament: {
     };
   }
 
-  const grid =
-    lastGame.referenceMoves.length > 0
-      ? applyResolvedJokers(reconstructBoard(lastGame.referenceMoves), lastGame.resolvedJokers)
-      : null;
+  // Toujours calculée, même sans aucun coup de référence encore enregistré
+  // (grille 15x15 vide) : la salle voit la grille dès l'affichage de la
+  // partie en cours, pas seulement à partir du premier mot joué.
+  const grid = applyResolvedJokers(reconstructBoard(lastGame.referenceMoves), lastGame.resolvedJokers);
 
   // Tirage validé par l'arbitre pour le tour en cours (mot pas encore
   // décidé) : projeté tel quel, avant même le démarrage du chrono. pendingRack
