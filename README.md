@@ -173,7 +173,13 @@ Après `npm run db:seed` :
   - la **formule** détermine les règles de jeu et les primes de
     Scrabble — Partie normale, Partie joker, Partie 7 sur 8 (avec ou
     sans joker), Partie 7 et 8 (avec ou sans joker, prime de 75 pts à
-    8 lettres posées contre 50 pour 7 dans les autres formules) ;
+    8 lettres posées contre 50 pour 7 dans les autres formules). Dans
+    les variantes « joker », les deux jokers (préalablement extraits du
+    sac) et leur remplacement éventuel par la lettre représentée sont
+    gérés par le juge-arbitre à la table, le logiciel ne simulant pas
+    le sac de lettres — rien ne change côté saisie (un joker reste une
+    lettre saisie en minuscule, toujours à 0 point) ni côté calcul du
+    score ;
   - le **rythme** détermine la durée par défaut du chronomètre des
     nouvelles parties — Normal (3 min), Semi-normal (2 min 30),
     Semi-rapide (2 min), Semi-blitz (1 min 30), Blitz (1 min). Le

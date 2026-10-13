@@ -219,6 +219,22 @@ const DEFAULT_BINGO_RULES: BingoRule[] = [{ tileCount: 7, bonus: 50 }];
 // standards (normale, joker, 7 sur 8, 7 sur 8 joker) ne primetent que les
 // tirages de 7 lettres posées (+50) ; la formule 7 et 8 (avec ou sans
 // joker) ajoute une prime de 75 points pour 8 lettres posées.
+//
+// Règle officielle des variantes "joker" (FISF/FFSc), gérée entièrement par
+// le juge-arbitre à la table, hors logiciel (qui ne simule pas le sac de
+// lettres) : les deux jokers sont extraits du sac au préalable ; à chaque
+// coup, l'arbitre pioche 6 lettres (au lieu de 7) systématiquement
+// accompagnées d'un joker. Si la solution retenue utilise ce joker, il est
+// remplacé par la lettre qu'il représentait — à condition qu'elle soit
+// encore présente dans le sac — et revient dans la réserve de jokers pour
+// le coup suivant ; sinon, il reste sur la grille et la partie continue
+// avec le second joker, jusqu'à ce que celui-ci soit lui aussi utilisé (la
+// partie redevient alors un Duplicate classique, tirages de 7 lettres).
+// L'arbitre doit préférer, à score égal, une solution qui préserve le
+// joker. Rien de tout cela ne change le calcul du score : une lettre jouée
+// en joker (saisie en minuscule dans le mot du coup de référence, voir
+// computeMoveScore plus bas) vaut toujours 0 point quelle que soit la
+// formule — seul le seuil de la prime ci-dessous varie avec la formule.
 export function getBingoRules(formula: string | null | undefined): BingoRule[] {
   if (formula === "SEPT_ET_HUIT" || formula === "SEPT_ET_HUIT_JOKER") {
     return [{ tileCount: 7, bonus: 50 }, { tileCount: 8, bonus: 75 }];
