@@ -8,8 +8,13 @@ import {
   computeClassicTeamSwissPhaseStandings,
 } from "@/lib/classic/teamStandings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
-import { computeClassicPoolStandings } from "@/lib/classic/poolStandings";
-import { computeClassicTeamPoolStandings } from "@/lib/classic/teamPoolStandings";
+import { computeClassicGeneralPoolStandings, computeClassicPoolStandings } from "@/lib/classic/poolStandings";
+import { computeClassicEloReport } from "@/lib/classic/elo";
+import { getCurrentKnockoutStageLabel, getLatestRoundNumber } from "@/lib/classic/knockout";
+import {
+  computeClassicTeamGeneralPoolStandings,
+  computeClassicTeamPoolStandings,
+} from "@/lib/classic/teamPoolStandings";
 import { tournamentStatusLabel } from "@/lib/labels";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { PoolBadge, card } from "@/components/public/StatusPill";
@@ -60,6 +65,27 @@ export default async function TournamentStandingsPage({
   const tournament = await prisma.tournament.findUnique({ where: { slug } });
   if (!tournament) notFound();
 
+  // Une fois entré dans un tableau à élimination directe (tournoi au format
+  // KNOCKOUT, ou phase finale optionnelle générée après poules/suisse/
+  // round-robin — voir Tournament.finalPhaseEnabled), le titre "Classement"
+  // seul ne dit plus grand-chose : on le remplace par le nom du tour en
+  // cours (Seizième de finale, Huitième de finale, Quart de finale,
+  // Demi-finale, Finale), comme déjà affiché sur les pages rondes et
+  // l'écran public. Tant que la phase finale n'a pas commencé, le titre
+  // reprend plutôt le numéro de la ronde globale la plus récente —
+  // "Classement après la ronde N" — même variable réutilisée pour la
+  // section combinée poules+suisse plus bas.
+  const [knockoutStageLabel, latestRoundNumber] =
+    tournament.type === "CLASSIC"
+      ? await Promise.all([
+          getCurrentKnockoutStageLabel(tournament.id, tournament.format),
+          getLatestRoundNumber(tournament.id),
+        ])
+      : [null, null];
+  const classementTitle =
+    knockoutStageLabel ??
+    (latestRoundNumber !== null ? `Classement après la ronde ${latestRoundNumber}` : "Classement");
+
   const classicStandings =
     tournament.type === "CLASSIC" ? await computeClassicStandings(tournament.id) : [];
   const duplicateStandingsData =
@@ -69,6 +95,23 @@ export default async function TournamentStandingsPage({
   const duplicateStandings = duplicateStandingsData.rows;
   const standingsCount =
     tournament.type === "CLASSIC" ? classicStandings.length : duplicateStandings.length;
+
+  // Évolution de cote Elo (voir src/lib/classic/elo.ts) : un rapport de fin
+  // de tournoi façon fédération, jamais affiché en cours de route (la cote
+  // "nouvelle" n'a de sens qu'une fois le tournoi terminé — voir
+  // tournamentStatusLabel) et seulement pour les parties individuelles
+  // classiques, hors du périmètre équipes/duplicate.
+  const eloReport =
+    tournament.type === "CLASSIC" &&
+    !tournament.isTeamEvent &&
+    (tournament.status === "COMPLETED" || tournament.status === "ARCHIVED")
+      ? await computeClassicEloReport(tournament.id)
+      : [];
+  // Fusionné directement dans le tableau de classement individuel (quel que
+  // soit le format) plutôt que laissé dans sa propre section "Évolution des
+  // cotes" : une fois le tournoi terminé, le classement et les cotes
+  // décrivent la même issue finale — voir plus bas, par playerId.
+  const eloByPlayer = new Map(eloReport.map((r) => [r.playerId, r]));
 
   const classicTeamStandings =
     tournament.isTeamEvent && tournament.type === "CLASSIC"
@@ -80,8 +123,13 @@ export default async function TournamentStandingsPage({
       : [];
 
   const isPoolFormat = tournament.format === "GROUPS" || tournament.format === "COMBINED";
+  // Même en tournoi par équipes, le classement individuel (performance
+  // personnelle de chaque joueur sur ses échiquiers, indépendamment du
+  // résultat de son équipe) reste calculé et affiché, en plus du classement
+  // par équipes — voir plus bas, sections dupliquées avec le même calcul
+  // que pour un tournoi individuel classique.
   const poolStandings =
-    tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent
+    tournament.type === "CLASSIC" && isPoolFormat
       ? await computeClassicPoolStandings(tournament.id)
       : [];
   const teamPoolStandings =
@@ -93,15 +141,85 @@ export default async function TournamentStandingsPage({
   // suisse) : la ronde à élimination directe optionnelle qui la suit ne
   // produit pas de "classement" à part entière (l'issue se lit directement
   // sur le tableau, comme pour GROUPS+knockout), donc rien de plus à
-  // calculer au-delà de cette phase.
+  // calculer au-delà de cette phase. Avant que la 1re ronde suisse ne soit
+  // générée, ces fonctions retombent déjà sur le classement général de
+  // poules restreint aux qualifiés plutôt qu'un classement vide (voir
+  // computeClassicSwissPhaseStandings/computeClassicTeamSwissPhaseStandings).
   const swissPhaseStandings =
-    tournament.type === "CLASSIC" && tournament.format === "COMBINED" && !tournament.isTeamEvent
+    tournament.type === "CLASSIC" && tournament.format === "COMBINED"
       ? await computeClassicSwissPhaseStandings(tournament.id)
       : [];
   const teamSwissPhaseStandings =
     tournament.type === "CLASSIC" && tournament.format === "COMBINED" && tournament.isTeamEvent
       ? await computeClassicTeamSwissPhaseStandings(tournament.id)
       : [];
+
+  // Une fois la 1re ronde suisse générée, les classements par poule
+  // n'ont plus lieu d'être affichés à côté (voir plus bas) : seul le
+  // classement combiné compte désormais, sous le titre "Classement après
+  // la ronde N" plutôt que "Phase suisse" — N étant la ronde globale la
+  // plus récente DONT LES RÉSULTATS SONT COMPLETS (poules incluses, voir
+  // la numérotation continue des rondes) — latestRoundNumber, déjà calculé
+  // plus haut via getLatestRoundNumber, convient telle quelle ici aussi.
+  const swissPhaseStarted =
+    tournament.type === "CLASSIC" && tournament.format === "COMBINED"
+      ? (await prisma.round.count({
+          where: { tournamentId: tournament.id, isSwissPhase: true },
+        })) > 0
+      : false;
+
+  // Classement général (fusion de toutes les poules), affiché dans 2 cas :
+  // - COMBINED, entre la fin de la phase de poules et le début de la phase
+  //   suisse — c'est ce même classement qui amorce la phase suisse (voir
+  //   generateSwissPhaseRoundActionImpl) ; remplacé par le classement
+  //   combiné ci-dessus une fois la phase suisse commencée (swissPhaseStarted).
+  // - GROUPS, une fois la phase finale à élimination directe lancée (voir
+  //   generateFinalPhaseFromPoolsActionImpl) : remplace alors "Classement
+  //   par poule", qui ne reflète plus la suite du tournoi (voir plus bas),
+  //   sous le titre du tour en cours (classementTitle/knockoutStageLabel).
+  const generalPoolStandings =
+    tournament.type === "CLASSIC" && isPoolFormat
+      ? (tournament.format === "COMBINED" && !swissPhaseStarted) ||
+        (tournament.format === "GROUPS" && knockoutStageLabel !== null)
+        ? await computeClassicGeneralPoolStandings(tournament.id)
+        : []
+      : [];
+  const teamGeneralPoolStandings =
+    tournament.type === "CLASSIC" &&
+    tournament.format === "COMBINED" &&
+    tournament.isTeamEvent &&
+    !swissPhaseStarted
+      ? await computeClassicTeamGeneralPoolStandings(tournament.id)
+      : [];
+
+  // Les 3 sections individuelles ci-dessous (affichées en tournoi par
+  // équipes EN PLUS des sections équipes correspondantes, jamais à leur
+  // place) montrent chacune un classement complet et unique, selon le
+  // format/l'avancement du tournoi — jamais plus d'une à la fois. Une fois
+  // le tournoi terminé (eloReport non vide — jamais en tournoi par équipes,
+  // les cotes Elo ne concernant que le classique individuel), c'est dans
+  // celle qui s'affiche que les cotes sont fusionnées, sous le titre
+  // "CLASSEMENT FINAL" — voir plus bas.
+  const showMainIndividualSection = !(tournament.type === "CLASSIC" && isPoolFormat);
+  const showGroupsFinalSection =
+    tournament.type === "CLASSIC" &&
+    tournament.format === "GROUPS" &&
+    knockoutStageLabel !== null;
+  const showCombinedSwissSection =
+    tournament.type === "CLASSIC" &&
+    tournament.format === "COMBINED" &&
+    swissPhaseStarted;
+  // Hors de ces 3 cas (ex : tournoi par poules terminé avant toute phase
+  // finale), aucun classement individuel unique n'est affiché — la section
+  // "Évolution des cotes" autonome plus bas reste alors le seul endroit où
+  // voir les cotes.
+  const eloMergedIntoStandings =
+    eloReport.length > 0 &&
+    (showMainIndividualSection || showGroupsFinalSection || showCombinedSwissSection);
+  // Ajouté aux titres des 3 sections individuelles ci-dessus en tournoi par
+  // équipes, pour les distinguer de la section "classement par équipes"
+  // affichée juste à côté (même titre de base sinon, voir classementTitle).
+  const individualSuffix = tournament.isTeamEvent ? " (individuel)" : "";
 
   return (
     <div className="mx-auto max-w-4xl w-full px-4 py-10 flex flex-col gap-10">
@@ -121,10 +239,264 @@ export default async function TournamentStandingsPage({
         <h1 className="font-heading text-3xl font-semibold">Classement — {tournament.name}</h1>
       </div>
 
-      {!(tournament.type === "CLASSIC" && isPoolFormat) && (
+      {tournament.type === "CLASSIC" &&
+        isPoolFormat &&
+        tournament.isTeamEvent &&
+        !(tournament.format === "COMBINED" && swissPhaseStarted) && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement</h2>
+            <h2 className={sectionHeading}>Classement par poule (équipes)</h2>
+            <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
+          </div>
+          <div className="flex flex-col gap-6">
+            {teamPoolStandings.map(({ poolId, poolName, standings }) => (
+              <div key={poolId}>
+                <div className="mb-2"><PoolBadge name={poolName} /></div>
+                <div className={`overflow-x-auto ${card}`}>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className={headRow}>
+                      <th className={`${th} pl-4`}>#</th>
+                      <th className={th}>Équipe</th>
+                      <th className={thNum}>J</th>
+                      <th className={thNum}>V</th>
+                      <th className={thNum}>N</th>
+                      <th className={thNum}>D</th>
+                      <th className={thNum}>Pts</th>
+                      <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                        Éch. G/N/P
+                      </th>
+                      <th className={thNum}>Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((r, i) => (
+                      <tr key={r.teamId} className={row}>
+                        <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                        <td className={`${td} font-medium`}>{r.name}</td>
+                        <td className={tdNum}>{r.played}</td>
+                        <td className={tdNum}>{r.wins}</td>
+                        <td className={tdNum}>{r.draws}</td>
+                        <td className={tdNum}>{r.losses}</td>
+                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                        <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                        <td className={tdNum}>{r.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            ))}
+            {teamPoolStandings.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                Aucune poule créée pour le moment.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" &&
+        tournament.format === "COMBINED" &&
+        tournament.isTeamEvent &&
+        !swissPhaseStarted &&
+        teamGeneralPoolStandings.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>Classement général (équipes)</h2>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className={thNum}>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamGeneralPoolStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" &&
+        tournament.format === "COMBINED" &&
+        tournament.isTeamEvent &&
+        swissPhaseStarted && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>
+              {knockoutStageLabel ??
+                (latestRoundNumber !== null
+                  ? `Classement après la ronde ${latestRoundNumber} (équipes)`
+                  : "Classement (équipes)")}
+            </h2>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className={thNum}>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamSwissPhaseStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* showMainIndividualSection (nom trompeur, hérité des 3 sections
+          individuelles plus haut) gouverne tout autant cette section
+          équipes : sans cette garde, elle s'affichait AUSSI en format
+          Poules/Combiné, en double des sections "par poule"/"général"/
+          "combiné" juste au-dessus — et computeClassicTeamStandings,
+          qui l'alimente, exclut la phase finale (isFinalPhase: false),
+          donc elle restait figée aux résultats de la phase de poules une
+          fois la phase suisse commencée plutôt que de les suivre. */}
+      {tournament.isTeamEvent && showMainIndividualSection && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>
+              {knockoutStageLabel ??
+                (latestRoundNumber !== null
+                  ? `Classement par équipes après la ronde ${latestRoundNumber}`
+                  : "Classement par équipes")}
+            </h2>
+            <div className="flex gap-3">
+              <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
+                Exporter en CSV
+              </a>
+              <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+                Exporter en PDF
+              </a>
+            </div>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+          {tournament.type === "CLASSIC" ? (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
+                    Éch. G/N/P
+                  </th>
+                  <th className={thNum}>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classicTeamStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.played}</td>
+                    <td className={tdNum}>{r.wins}</td>
+                    <td className={tdNum}>{r.draws}</td>
+                    <td className={tdNum}>{r.losses}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
+                    <td className={tdNum}>{r.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Équipe</th>
+                  <th className={thNum}>Parties</th>
+                  <th className={thNum}>Score total</th>
+                  <th className={thNum}>Pénalités</th>
+                  <th className={thNum}>Net</th>
+                  <th className={thNum}>Négatif</th>
+                  <th className={thNum}>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {duplicateTeamStandings.map((r, i) => (
+                  <tr key={r.teamId} className={row}>
+                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={tdNum}>{r.gamesPlayed}</td>
+                    <td className={tdNum}>{r.totalScore}</td>
+                    <td className={tdNum}>{r.totalPenalty}</td>
+                    <td className={tdNum}>{r.net}</td>
+                    <td className={tdNum}>{r.negatif ?? "—"}</td>
+                    <td className={`${tdNum} font-semibold`}>
+                      {r.pourcentage != null ? `${r.pourcentage.toFixed(2)} %` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          </div>
+        </section>
+      )}
+
+      {showMainIndividualSection && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>
+              {eloReport.length > 0 ? "CLASSEMENT FINAL" : `${classementTitle}${individualSuffix}`}
+            </h2>
             <div className="flex gap-3">
               <a href={`/api/tournois/${tournament.id}/classement/export`} className={exportLink}>
                 Exporter en CSV
@@ -141,45 +513,64 @@ export default async function TournamentStandingsPage({
                 <tr className={headRow}>
                   <th className={`${th} pl-4`}>#</th>
                   <th className={th}>Joueur</th>
-                  <th className={th}>Âge</th>
+                  <th className={th}>Série</th>
                   <th className={th}>Club</th>
                   <th className={th}>Fédé</th>
-                  <th className={th}>Classement</th>
+                  <th className={th}>Catégorie</th>
                   <th className={thNum}>J</th>
                   <th className={thNum}>V</th>
                   <th className={thNum}>N</th>
                   <th className={thNum}>D</th>
-                  <th className={thNum} title="Forfaits (absences)">Abs.</th>
                   <th className={thNum}>Pts</th>
                   <th className={thNum}>Diff</th>
                   <th className={thNum} title="Sonneborn-Berger">SB</th>
                   <th className={thNum} title="Buchholz">Bchz</th>
                   <th className={thNum} title="Buchholz médian">Bchz méd.</th>
                   <th className={thNum} title="Score cumulé progressif">Cumul</th>
+                  {eloReport.length > 0 && (
+                    <>
+                      <th className={thNum}>Cote initiale</th>
+                      <th className={thNum} title="Coefficient K utilisé pour ce tournoi">K</th>
+                      <th className={thNum}>Évolution</th>
+                      <th className={thNum}>Nouvelle cote</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {classicStandings.map((r, i) => (
-                  <tr key={r.playerId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
-                    <td className={td}>{r.category ?? "—"}</td>
-                    <td className={td}>{r.clubName ?? "—"}</td>
-                    <td className={td}>{r.federation ?? "—"}</td>
-                    <td className={td}>{r.classification ?? "—"}</td>
-                    <td className={tdNum}>{r.played}</td>
-                    <td className={tdNum}>{r.wins}</td>
-                    <td className={tdNum}>{r.draws}</td>
-                    <td className={tdNum}>{r.losses}</td>
-                    <td className={tdNum}>{r.forfeits}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                    <td className={tdNum}>{r.diff}</td>
-                    <td className={tdNum}>{r.sonnebornBerger}</td>
-                    <td className={tdNum}>{r.buchholz}</td>
-                    <td className={tdNum}>{r.buchholzMedian}</td>
-                    <td className={tdNum}>{r.cumulativeScore}</td>
-                  </tr>
-                ))}
+                {classicStandings.map((r, i) => {
+                  const elo = eloByPlayer.get(r.playerId);
+                  return (
+                    <tr key={r.playerId} className={row}>
+                      <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                      <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
+                      <td className={td}>{r.classification ?? "—"}</td>
+                      <td className={td}>{r.clubName ?? "—"}</td>
+                      <td className={td}>{r.federation ?? "—"}</td>
+                      <td className={td}>{r.category ?? "—"}</td>
+                      <td className={tdNum}>{r.played}</td>
+                      <td className={tdNum}>{r.wins}</td>
+                      <td className={tdNum}>{r.draws}</td>
+                      <td className={tdNum}>{r.losses}</td>
+                      <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                      <td className={tdNum}>{r.diff}</td>
+                      <td className={tdNum}>{r.sonnebornBerger}</td>
+                      <td className={tdNum}>{r.buchholz}</td>
+                      <td className={tdNum}>{r.buchholzMedian}</td>
+                      <td className={tdNum}>{r.cumulativeScore}</td>
+                      {eloReport.length > 0 && (
+                        <>
+                          <td className={tdNum}>{elo?.eloAtStart ?? "—"}</td>
+                          <td className={tdNum}>{elo?.coeffAtStart ?? "—"}</td>
+                          <td className={tdNum}>
+                            {elo ? (elo.evolution > 0 ? `+${elo.evolution}` : elo.evolution) : "—"}
+                          </td>
+                          <td className={`${tdNum} font-semibold`}>{elo?.newElo ?? "—"}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
@@ -261,10 +652,13 @@ export default async function TournamentStandingsPage({
         </section>
       )}
 
-      {tournament.type === "CLASSIC" && isPoolFormat && !tournament.isTeamEvent && (
+      {tournament.type === "CLASSIC" &&
+        isPoolFormat &&
+        !(tournament.format === "COMBINED" && swissPhaseStarted) &&
+        !(tournament.format === "GROUPS" && knockoutStageLabel !== null) && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement par poule</h2>
+            <h2 className={sectionHeading}>{`Classement par poule${individualSuffix}`}</h2>
             <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
               Exporter en PDF
             </a>
@@ -283,8 +677,7 @@ export default async function TournamentStandingsPage({
                       <th className={thNum}>V</th>
                       <th className={thNum}>N</th>
                       <th className={thNum}>D</th>
-                      <th className={thNum} title="Forfaits (absences)">Abs.</th>
-                      <th className={thNum}>Pts</th>
+                          <th className={thNum}>Pts</th>
                       <th className={thNum}>Diff</th>
                       <th className={thNum} title="Sonneborn-Berger">SB</th>
                       <th className={thNum} title="Buchholz">Bchz</th>
@@ -301,8 +694,7 @@ export default async function TournamentStandingsPage({
                         <td className={tdNum}>{r.wins}</td>
                         <td className={tdNum}>{r.draws}</td>
                         <td className={tdNum}>{r.losses}</td>
-                        <td className={tdNum}>{r.forfeits}</td>
-                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                          <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
                         <td className={tdNum}>{r.diff}</td>
                         <td className={tdNum}>{r.sonnebornBerger}</td>
                         <td className={tdNum}>{r.buchholz}</td>
@@ -324,10 +716,15 @@ export default async function TournamentStandingsPage({
         </section>
       )}
 
-      {tournament.type === "CLASSIC" && tournament.format === "COMBINED" && !tournament.isTeamEvent && (
+      {showGroupsFinalSection && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement (phase suisse)</h2>
+            <h2 className={sectionHeading}>
+              {eloReport.length > 0 ? "CLASSEMENT FINAL" : `${knockoutStageLabel}${individualSuffix}`}
+            </h2>
+            <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
+              Exporter en PDF
+            </a>
           </div>
           <div className={`overflow-x-auto ${card}`}>
             <table className="w-full text-sm border-collapse">
@@ -339,7 +736,76 @@ export default async function TournamentStandingsPage({
                   <th className={thNum}>V</th>
                   <th className={thNum}>N</th>
                   <th className={thNum}>D</th>
-                  <th className={thNum} title="Forfaits (absences)">Abs.</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum}>Diff</th>
+                  <th className={thNum} title="Sonneborn-Berger">SB</th>
+                  <th className={thNum} title="Buchholz">Bchz</th>
+                  <th className={thNum} title="Buchholz médian">Bchz méd.</th>
+                  <th className={thNum} title="Score cumulé progressif">Cumul</th>
+                  {eloReport.length > 0 && (
+                    <>
+                      <th className={thNum}>Cote initiale</th>
+                      <th className={thNum} title="Coefficient K utilisé pour ce tournoi">K</th>
+                      <th className={thNum}>Évolution</th>
+                      <th className={thNum}>Nouvelle cote</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {generalPoolStandings.map((r, i) => {
+                  const elo = eloByPlayer.get(r.playerId);
+                  return (
+                    <tr key={r.playerId} className={row}>
+                      <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                      <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
+                      <td className={tdNum}>{r.played}</td>
+                      <td className={tdNum}>{r.wins}</td>
+                      <td className={tdNum}>{r.draws}</td>
+                      <td className={tdNum}>{r.losses}</td>
+                      <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                      <td className={tdNum}>{r.diff}</td>
+                      <td className={tdNum}>{r.sonnebornBerger}</td>
+                      <td className={tdNum}>{r.buchholz}</td>
+                      <td className={tdNum}>{r.buchholzMedian}</td>
+                      <td className={tdNum}>{r.cumulativeScore}</td>
+                      {eloReport.length > 0 && (
+                        <>
+                          <td className={tdNum}>{elo?.eloAtStart ?? "—"}</td>
+                          <td className={tdNum}>{elo?.coeffAtStart ?? "—"}</td>
+                          <td className={tdNum}>
+                            {elo ? (elo.evolution > 0 ? `+${elo.evolution}` : elo.evolution) : "—"}
+                          </td>
+                          <td className={`${tdNum} font-semibold`}>{elo?.newElo ?? "—"}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tournament.type === "CLASSIC" &&
+        tournament.format === "COMBINED" &&
+        !swissPhaseStarted &&
+        generalPoolStandings.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={sectionHeading}>{`Classement général${individualSuffix}`}</h2>
+          </div>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
                   <th className={thNum}>Pts</th>
                   <th className={thNum}>Diff</th>
                   <th className={thNum} title="Sonneborn-Berger">SB</th>
@@ -349,7 +815,7 @@ export default async function TournamentStandingsPage({
                 </tr>
               </thead>
               <tbody>
-                {swissPhaseStandings.map((r, i) => (
+                {generalPoolStandings.map((r, i) => (
                   <tr key={r.playerId} className={row}>
                     <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
                     <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
@@ -357,7 +823,6 @@ export default async function TournamentStandingsPage({
                     <td className={tdNum}>{r.wins}</td>
                     <td className={tdNum}>{r.draws}</td>
                     <td className={tdNum}>{r.losses}</td>
-                    <td className={tdNum}>{r.forfeits}</td>
                     <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
                     <td className={tdNum}>{r.diff}</td>
                     <td className={tdNum}>{r.sonnebornBerger}</td>
@@ -369,199 +834,117 @@ export default async function TournamentStandingsPage({
               </tbody>
             </table>
           </div>
-          {swissPhaseStandings.length === 0 && (
-            <p className="text-sm text-black/50 dark:text-white/50">
-              Le classement de la phase suisse sera disponible une fois
-              celle-ci générée depuis les qualifiés de poules.
-            </p>
-          )}
         </section>
       )}
 
-      {tournament.type === "CLASSIC" && isPoolFormat && tournament.isTeamEvent && (
+      {showCombinedSwissSection && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement par poule (équipes)</h2>
-            <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
+            {/* classementTitle reprend automatiquement le nom du tour (Quart
+                de finale, Finale...) une fois la phase finale optionnelle
+                lancée après cette phase suisse — voir
+                Tournament.finalPhaseEnabled — sinon "Classement après la
+                ronde N" comme avant ; "CLASSEMENT FINAL" une fois le
+                tournoi terminé (cotes fusionnées ci-dessous). */}
+            <h2 className={sectionHeading}>
+              {eloReport.length > 0 ? "CLASSEMENT FINAL" : `${classementTitle}${individualSuffix}`}
+            </h2>
+            <a href={`/api/tournois/${tournament.id}/classement/export/pdf`} className={exportLink}>
               Exporter en PDF
             </a>
           </div>
-          <div className="flex flex-col gap-6">
-            {teamPoolStandings.map(({ poolId, poolName, standings }) => (
-              <div key={poolId}>
-                <div className="mb-2"><PoolBadge name={poolName} /></div>
-                <div className={`overflow-x-auto ${card}`}>
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className={headRow}>
-                      <th className={`${th} pl-4`}>#</th>
-                      <th className={th}>Équipe</th>
-                      <th className={thNum}>J</th>
-                      <th className={thNum}>V</th>
-                      <th className={thNum}>N</th>
-                      <th className={thNum}>D</th>
-                      <th className={thNum}>Pts</th>
-                      <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                        Éch. G/N/P
-                      </th>
-                      <th className={thNum}>Diff</th>
+          <div className={`overflow-x-auto ${card}`}>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className={headRow}>
+                  <th className={`${th} pl-4`}>#</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>J</th>
+                  <th className={thNum}>V</th>
+                  <th className={thNum}>N</th>
+                  <th className={thNum}>D</th>
+                  <th className={thNum}>Pts</th>
+                  <th className={thNum}>Diff</th>
+                  <th className={thNum} title="Sonneborn-Berger">SB</th>
+                  <th className={thNum} title="Buchholz">Bchz</th>
+                  <th className={thNum} title="Buchholz médian">Bchz méd.</th>
+                  <th className={thNum} title="Score cumulé progressif">Cumul</th>
+                  {eloReport.length > 0 && (
+                    <>
+                      <th className={thNum}>Cote initiale</th>
+                      <th className={thNum} title="Coefficient K utilisé pour ce tournoi">K</th>
+                      <th className={thNum}>Évolution</th>
+                      <th className={thNum}>Nouvelle cote</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {swissPhaseStandings.map((r, i) => {
+                  const elo = eloByPlayer.get(r.playerId);
+                  return (
+                    <tr key={r.playerId} className={row}>
+                      <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
+                      <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
+                      <td className={tdNum}>{r.played}</td>
+                      <td className={tdNum}>{r.wins}</td>
+                      <td className={tdNum}>{r.draws}</td>
+                      <td className={tdNum}>{r.losses}</td>
+                      <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
+                      <td className={tdNum}>{r.diff}</td>
+                      <td className={tdNum}>{r.sonnebornBerger}</td>
+                      <td className={tdNum}>{r.buchholz}</td>
+                      <td className={tdNum}>{r.buchholzMedian}</td>
+                      <td className={tdNum}>{r.cumulativeScore}</td>
+                      {eloReport.length > 0 && (
+                        <>
+                          <td className={tdNum}>{elo?.eloAtStart ?? "—"}</td>
+                          <td className={tdNum}>{elo?.coeffAtStart ?? "—"}</td>
+                          <td className={tdNum}>
+                            {elo ? (elo.evolution > 0 ? `+${elo.evolution}` : elo.evolution) : "—"}
+                          </td>
+                          <td className={`${tdNum} font-semibold`}>{elo?.newElo ?? "—"}</td>
+                        </>
+                      )}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {standings.map((r, i) => (
-                      <tr key={r.teamId} className={row}>
-                        <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                        <td className={`${td} font-medium`}>{r.name}</td>
-                        <td className={tdNum}>{r.played}</td>
-                        <td className={tdNum}>{r.wins}</td>
-                        <td className={tdNum}>{r.draws}</td>
-                        <td className={tdNum}>{r.losses}</td>
-                        <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                        <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                        <td className={tdNum}>{r.diff}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-            ))}
-            {teamPoolStandings.length === 0 && (
-              <p className="text-sm text-black/50 dark:text-white/50">
-                Aucune poule créée pour le moment.
-              </p>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
-      {tournament.type === "CLASSIC" && tournament.format === "COMBINED" && tournament.isTeamEvent && (
+      {eloReport.length > 0 && !eloMergedIntoStandings && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement (phase suisse — équipes)</h2>
+            <h2 className={sectionHeading}>Évolution des cotes</h2>
           </div>
           <div className={`overflow-x-auto ${card}`}>
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className={headRow}>
                   <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>J</th>
-                  <th className={thNum}>V</th>
-                  <th className={thNum}>N</th>
-                  <th className={thNum}>D</th>
-                  <th className={thNum}>Pts</th>
-                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                    Éch. G/N/P
-                  </th>
-                  <th className={thNum}>Diff</th>
+                  <th className={th}>Joueur</th>
+                  <th className={thNum}>Cote initiale</th>
+                  <th className={thNum} title="Coefficient K utilisé pour ce tournoi">K</th>
+                  <th className={thNum}>Évolution</th>
+                  <th className={thNum}>Nouvelle cote</th>
                 </tr>
               </thead>
               <tbody>
-                {teamSwissPhaseStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
+                {eloReport.map((r, i) => (
+                  <tr key={r.playerId} className={row}>
                     <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.played}</td>
-                    <td className={tdNum}>{r.wins}</td>
-                    <td className={tdNum}>{r.draws}</td>
-                    <td className={tdNum}>{r.losses}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                    <td className={tdNum}>{r.diff}</td>
+                    <td className={`${td} font-medium`}>{r.lastName} {r.firstName}</td>
+                    <td className={tdNum}>{r.eloAtStart}</td>
+                    <td className={tdNum}>{r.coeffAtStart}</td>
+                    <td className={tdNum}>{r.evolution > 0 ? `+${r.evolution}` : r.evolution}</td>
+                    <td className={`${tdNum} font-semibold`}>{r.newElo}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-          {teamSwissPhaseStandings.length === 0 && (
-            <p className="text-sm text-black/50 dark:text-white/50">
-              Le classement de la phase suisse sera disponible une fois
-              celle-ci générée depuis les qualifiés de poules.
-            </p>
-          )}
-        </section>
-      )}
-
-      {tournament.isTeamEvent && (
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={sectionHeading}>Classement par équipes</h2>
-            <div className="flex gap-3">
-              <a href={`/api/tournois/${tournament.id}/classement/equipes/export`} className={exportLink}>
-                Exporter en CSV
-              </a>
-              <a href={`/api/tournois/${tournament.id}/classement/equipes/export/pdf`} className={exportLink}>
-                Exporter en PDF
-              </a>
-            </div>
-          </div>
-          <div className={`overflow-x-auto ${card}`}>
-          {tournament.type === "CLASSIC" ? (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className={headRow}>
-                  <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>J</th>
-                  <th className={thNum}>V</th>
-                  <th className={thNum}>N</th>
-                  <th className={thNum}>D</th>
-                  <th className={thNum}>Pts</th>
-                  <th className={thNum} title="Échiquiers gagnés/nuls/perdus">
-                    Éch. G/N/P
-                  </th>
-                  <th className={thNum}>Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {classicTeamStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.played}</td>
-                    <td className={tdNum}>{r.wins}</td>
-                    <td className={tdNum}>{r.draws}</td>
-                    <td className={tdNum}>{r.losses}</td>
-                    <td className={`${tdNum} font-semibold`}>{r.matchPoints}</td>
-                    <td className={tdNum}>{r.boardsWon}/{r.boardsDrawn}/{r.boardsLost}</td>
-                    <td className={tdNum}>{r.diff}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className={headRow}>
-                  <th className={`${th} pl-4`}>#</th>
-                  <th className={th}>Équipe</th>
-                  <th className={thNum}>Parties</th>
-                  <th className={thNum}>Score total</th>
-                  <th className={thNum}>Pénalités</th>
-                  <th className={thNum}>Net</th>
-                  <th className={thNum}>Négatif</th>
-                  <th className={thNum}>%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {duplicateTeamStandings.map((r, i) => (
-                  <tr key={r.teamId} className={row}>
-                    <td className={`${td} pl-4`}><Rank value={i + 1} /></td>
-                    <td className={`${td} font-medium`}>{r.name}</td>
-                    <td className={tdNum}>{r.gamesPlayed}</td>
-                    <td className={tdNum}>{r.totalScore}</td>
-                    <td className={tdNum}>{r.totalPenalty}</td>
-                    <td className={tdNum}>{r.net}</td>
-                    <td className={tdNum}>{r.negatif ?? "—"}</td>
-                    <td className={`${tdNum} font-semibold`}>
-                      {r.pourcentage != null ? `${r.pourcentage.toFixed(2)} %` : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
           </div>
         </section>
       )}

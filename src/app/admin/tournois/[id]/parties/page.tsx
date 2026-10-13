@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { requireRole, canManageTournament, canRecordResults, STAFF_ROLES } from "@/lib/guards";
 import { addGameAction, saveGameScoresAction } from "@/lib/actions/duplicate";
 import { updateDuplicateSettingsAction } from "@/lib/actions/tournaments";
 import { computeGameTop } from "@/lib/duplicate/board";
@@ -76,11 +76,6 @@ function FormulaSettingsForm({
           {formulaLabel[duplicateFormula ?? "NORMALE"]} · {rythmeLabel[duplicateRythme ?? "NORMAL"]}
         </p>
       )}
-      <p className="text-xs text-black/50 dark:text-white/50">
-        La formule détermine les règles de jeu (tirage, primes de Scrabble)
-        et le rythme la durée par défaut du chronomètre des nouvelles
-        parties.
-      </p>
     </div>
   );
 }
@@ -106,6 +101,14 @@ export default async function GamesPage({
   if (!tournament || tournament.type !== "DUPLICATE") notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Un arbitre explicitement assigné à ce tournoi (TournamentReferee) peut
+  // aussi consulter cette page, pour y saisir les scores — mais pas gérer
+  // le reste (formule/rythme, création de partie...), qui reste réservé à
+  // canManage. Voir le commentaire équivalent dans page.tsx pour le garde
+  // lui-même : sans lui, n'importe quel membre du staff pourrait consulter
+  // les parties d'un tournoi tiers.
+  const canEnterScores = await canRecordResults(session, tournament);
+  if (!canEnterScores) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const addGameBound = addGameAction.bind(null, tournament.id);
 
@@ -204,7 +207,7 @@ export default async function GamesPage({
                   <span title="Calculé automatiquement : somme des tops de chaque coup de référence saisi">
                     {top} <span className="text-black/50 dark:text-white/50">(auto)</span>
                   </span>
-                ) : canManage ? (
+                ) : canEnterScores ? (
                   <input
                     id={`top_${game.id}`}
                     type="number"
@@ -217,6 +220,7 @@ export default async function GamesPage({
                 )}
               </div>
 
+              <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -237,7 +241,7 @@ export default async function GamesPage({
                           {player.lastName} {player.firstName}
                         </td>
                         <td className="py-2 pr-4">
-                          {canManage ? (
+                          {canEnterScores ? (
                             <input
                               type="number"
                               name={`score_${player.id}`}
@@ -249,7 +253,7 @@ export default async function GamesPage({
                           )}
                         </td>
                         <td className="py-2 pr-4">
-                          {canManage ? (
+                          {canEnterScores ? (
                             <input
                               type="number"
                               name={`penalty_${player.id}`}
@@ -269,7 +273,8 @@ export default async function GamesPage({
                   })}
                 </tbody>
               </table>
-              {canManage && (
+              </div>
+              {canEnterScores && (
                 <button
                   type="submit"
                   className="self-start rounded-md bg-emerald-700 text-white px-4 py-2 text-sm font-medium"

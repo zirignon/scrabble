@@ -1,5 +1,10 @@
 // Génération des appariements round-robin (méthode du cercle / "circle method").
-// Si le nombre de joueurs est impair, un joueur "BYE" (null) est ajouté pour chaque ronde.
+// Si le nombre de joueurs est impair, un joueur virtuel X (représenté ici par
+// null) complète l'effectif à un nombre pair — la méthode du cercle le fait
+// tourner à une position différente à chaque ronde, si bien que chaque
+// joueur réel l'affronte (reçoit l'exempt) exactement une fois par cycle
+// complet avant qu'un autre ne recommence. Voir le commentaire équivalent
+// dans generateSwissRound pour la phase suisse.
 
 export type Pairing = { home: string; away: string | null };
 

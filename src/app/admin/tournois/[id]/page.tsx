@@ -8,9 +8,28 @@ import {
   unregisterPlayerAction,
   updateTournamentStatusFormAction,
 } from "@/lib/actions/tournaments";
+import { assignRefereeAction, unassignRefereeAction } from "@/lib/actions/referees";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 import { PlayerSearchSelect } from "@/components/admin/PlayerSearchSelect";
-import { RegistrationStatusPill } from "@/components/public/StatusPill";
+import { RegistrationStatusPill, exportLink, card, cardHover } from "@/components/public/StatusPill";
+
+// Carte de navigation cliquable (grille "Gérer le tournoi" en haut de page) :
+// un href commençant par "#" fait défiler vers une section plus bas sur
+// cette même page (Inscriptions, Affichage), les autres mènent à une
+// sous-page dédiée (Équipes, Poules, Rondes, Réglages, Parties) — regroupées
+// ici avant même le détail des inscriptions, pour qu'elles ne soient plus
+// noyées au milieu de la page sous un long tableau.
+function NavCard({ href, title, detail }: { href: string; title: string; detail: string }) {
+  return (
+    <a
+      href={href}
+      className={`${card} ${cardHover} flex flex-col gap-1 px-4 py-3`}
+    >
+      <p className="font-medium">{title}</p>
+      <p className="text-xs text-black/60 dark:text-white/60">{detail}</p>
+    </a>
+  );
+}
 
 const statusOptions = [
   ["DRAFT", "Brouillon"],
@@ -29,19 +48,33 @@ export default async function ManageTournamentPage({
   const { id } = await params;
   const session = await requireRole(STAFF_ROLES);
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    include: {
-      registrations: {
-        include: { player: { include: { club: true } } },
-        orderBy: { createdAt: "asc" },
+  const [tournament, clubs, referees] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      include: {
+        registrations: {
+          include: { player: { include: { club: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        refereeAssignments: { include: { user: true }, orderBy: { createdAt: "asc" } },
+        _count: { select: { rounds: true, games: true, teams: true, pools: true } },
       },
-      _count: { select: { rounds: true, games: true, teams: true, pools: true } },
-    },
-  });
+    }),
+    prisma.club.findMany({ orderBy: { name: "asc" } }),
+    // Sert au formulaire d'assignation d'arbitre plus bas : tous les
+    // comptes REFEREE existants, pour que l'organisateur en désigne un sur
+    // CE tournoi (TournamentReferee) sans avoir à connaître son ID.
+    prisma.user.findMany({ where: { role: "REFEREE" }, orderBy: { name: "asc" } }),
+  ]);
   if (!tournament) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Un membre du staff qui ne gère pas ce tournoi (pas ADMIN, pas son
+  // organisateur) ne doit même pas pouvoir consulter son tableau de bord —
+  // canManage ne doit pas servir qu'à masquer les boutons d'action, sous
+  // peine de laisser lire les inscriptions/réglages d'un tournoi tiers,
+  // y compris non encore publié (DRAFT).
+  if (!canManage) notFound();
 
   const registerBound = registerPlayerAction.bind(null, tournament.id);
   const statusBound = updateTournamentStatusFormAction.bind(null, tournament.id);
@@ -52,6 +85,8 @@ export default async function ManageTournamentPage({
     ["STANDINGS", "Classement"],
     ["CURRENT", tournament.type === "CLASSIC" ? "Ronde en cours" : "Partie en cours"],
   ] as const;
+  const currentDisplayModeLabel =
+    displayModeOptions.find(([value]) => value === tournament.displayMode)?.[1] ?? "Automatique";
 
   return (
     <div className="flex flex-col gap-8">
@@ -69,7 +104,17 @@ export default async function ManageTournamentPage({
 
       {canManage && (
         <div className="flex items-center gap-3">
-          <form action={statusBound} className="flex items-center gap-2">
+          <form
+            // Clé dérivée du statut actuel : sans ça, React 19 réinitialise
+            // ce <select> non contrôlé à sa valeur D'AVANT la soumission
+            // une fois l'action terminée avec succès (voir le commentaire
+            // équivalent sur SwissSeedingSettingsForm, page réglages) — le
+            // menu réaffichait l'ancien statut juste après "Mettre à jour"
+            // alors qu'il était bien enregistré en base.
+            key={tournament.status}
+            action={statusBound}
+            className="flex items-center gap-2"
+          >
             <label htmlFor="status" className="text-sm font-medium">
               Statut
             </label>
@@ -96,16 +141,90 @@ export default async function ManageTournamentPage({
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-heading text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
+        <h2 className="font-heading text-lg font-semibold">Gérer le tournoi</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {tournament.type === "CLASSIC" && (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/reglages`}
+              title="Réglages"
+              detail="Rondes suisses, revanches, phase finale, 3e place, 2 manches + belle"
+            />
+          )}
+          <NavCard
+            href="#inscriptions"
+            title="Inscriptions"
+            detail={`${tournament.registrations.length} inscrit(s)`}
+          />
+          {tournament.isTeamEvent && (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/equipes`}
+              title="Équipes"
+              detail={`${tournament._count.teams} équipe(s) créée(s)`}
+            />
+          )}
+          {tournament.type === "CLASSIC" &&
+            (tournament.format === "GROUPS" || tournament.format === "COMBINED") && (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/poules`}
+              title="Poules"
+              detail={`${tournament._count.pools} poule(s) créée(s)`}
+            />
+          )}
+          {tournament.type === "CLASSIC" ? (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/rondes`}
+              title="Rondes et résultats"
+              detail={`${tournament._count.rounds} ronde(s) créée(s)`}
+            />
+          ) : (
+            <NavCard
+              href={`/admin/tournois/${tournament.id}/parties`}
+              title="Parties et scores"
+              detail={`${tournament._count.games} partie(s) créée(s)`}
+            />
+          )}
+          {canManage && (
+            <NavCard
+              href="#affichage"
+              title="Affichage grand écran"
+              detail={`Mode actuel : ${currentDisplayModeLabel}`}
+            />
+          )}
+          {canManage && (
+            <NavCard
+              href="#arbitres"
+              title="Arbitres"
+              detail={`${tournament.refereeAssignments.length} arbitre(s) assigné(s)`}
+            />
+          )}
+        </div>
+      </section>
+
+      <section id="inscriptions" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-heading text-lg font-semibold">Inscriptions ({tournament.registrations.length})</h2>
+          {tournament.registrations.length > 0 && (
+            <div className="flex gap-3">
+              <a href={`/api/tournois/${tournament.id}/participants/export`} className={exportLink}>
+                Exporter en CSV
+              </a>
+              <a href={`/api/tournois/${tournament.id}/participants/export/pdf`} className={exportLink}>
+                Exporter en PDF
+              </a>
+            </div>
+          )}
+        </div>
 
         {canManage && (
           <PlayerSearchSelect
             key={tournament.registrations.length}
             tournamentId={tournament.id}
             action={registerBound}
+            clubs={clubs}
           />
         )}
 
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left border-b border-black/10 dark:border-white/10">
@@ -151,65 +270,13 @@ export default async function ManageTournamentPage({
             )}
           </tbody>
         </table>
-      </section>
-
-
-      <section className="flex flex-col gap-3">
-        {tournament.isTeamEvent && (
-          <Link
-            href={`/admin/tournois/${tournament.id}/equipes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les équipes</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.teams} équipe(s) créée(s)
-            </p>
-          </Link>
-        )}
-        {tournament.type === "CLASSIC" &&
-          (tournament.format === "GROUPS" || tournament.format === "COMBINED") && (
-          <Link
-            href={`/admin/tournois/${tournament.id}/poules`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les poules</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.pools} poule(s) créée(s)
-            </p>
-          </Link>
-        )}
-        {tournament.type === "CLASSIC" ? (
-          <Link
-            href={`/admin/tournois/${tournament.id}/rondes`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les rondes et résultats</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.rounds} ronde(s) créée(s)
-            </p>
-          </Link>
-        ) : (
-          <Link
-            href={`/admin/tournois/${tournament.id}/parties`}
-            className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 hover:bg-navy/[.04] hover:border-navy/20 dark:hover:bg-navy-light/[.08] dark:hover:border-navy-light/30 transition-colors"
-          >
-            <p className="font-medium">Gérer les parties et scores</p>
-            <p className="text-xs text-black/60 dark:text-white/60">
-              {tournament._count.games} partie(s) créée(s)
-            </p>
-          </Link>
-        )}
+        </div>
       </section>
 
       {canManage && (
-        <section className="flex flex-col gap-3">
+        <section id="affichage" className="flex flex-col gap-3">
           <div>
             <h2 className="font-heading text-lg font-semibold">Affichage grand écran</h2>
-            <p className="text-sm text-black/60 dark:text-white/60 mt-1">
-              {`Par défaut, l'écran de projection alterne automatiquement toutes les 12 secondes entre le classement et ${
-                tournament.type === "CLASSIC" ? "la ronde" : "la partie"
-              } en cours. Vous pouvez figer l'affichage sur l'une des deux vues, par exemple pendant un temps fort.`}
-            </p>
           </div>
           <div className="flex gap-2">
             {displayModeOptions.map(([value, label]) => (
@@ -232,14 +299,95 @@ export default async function ManageTournamentPage({
       )}
 
       {canManage && (
+        <section id="arbitres" className="flex flex-col gap-3">
+          <div>
+            <h2 className="font-heading text-lg font-semibold">Arbitres</h2>
+            <p className="text-sm text-black/60 dark:text-white/60">
+              Un arbitre assigné ici peut saisir les scores/résultats de ce
+              tournoi, sans accès aux réglages ni à la suppression de
+              données.
+            </p>
+          </div>
+
+          {tournament.refereeAssignments.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {tournament.refereeAssignments.map((assignment) => (
+                <li
+                  key={assignment.id}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span>
+                    {assignment.user.name} ({assignment.user.email})
+                  </span>
+                  <form
+                    action={unassignRefereeAction.bind(
+                      null,
+                      tournament.id,
+                      assignment.userId
+                    )}
+                  >
+                    <button type="submit" className="text-red-600 hover:underline">
+                      Retirer
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {(() => {
+            const assignedUserIds = new Set(
+              tournament.refereeAssignments.map((a) => a.userId)
+            );
+            const availableReferees = referees.filter(
+              (r) => !assignedUserIds.has(r.id)
+            );
+            if (availableReferees.length === 0) {
+              return (
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  {referees.length === 0
+                    ? "Aucun compte arbitre n'existe encore (créez-en un depuis /admin/utilisateurs)."
+                    : "Tous les comptes arbitres sont déjà assignés à ce tournoi."}
+                </p>
+              );
+            }
+            return (
+              <form
+                action={assignRefereeAction.bind(null, tournament.id)}
+                className="flex items-end gap-3"
+              >
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="userId" className="text-xs font-medium">
+                    Assigner un arbitre
+                  </label>
+                  <select
+                    id="userId"
+                    name="userId"
+                    className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+                  >
+                    {availableReferees.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-3 py-2 text-sm font-medium"
+                >
+                  Assigner
+                </button>
+              </form>
+            );
+          })()}
+        </section>
+      )}
+
+      {canManage && (
         <section className="flex flex-col gap-3 rounded-md border border-red-600/30 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-red-600">Zone dangereuse</h2>
-            <p className="text-xs text-black/60 dark:text-white/60 mt-1">
-              Supprime définitivement ce tournoi et toutes ses données
-              (inscriptions, rondes/matchs, équipes, poules, parties). Aucun
-              retour en arrière possible.
-            </p>
           </div>
           <DeleteTournamentButton
             tournamentId={tournament.id}

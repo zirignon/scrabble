@@ -18,6 +18,7 @@ export interface ClassicTeamStandingRow {
 
 export interface TeamStandingsMatchLike {
   roundId: string;
+  roundNumber: number;
   isBye: boolean;
   homeTeamId: string | null;
   awayTeamId: string | null;
@@ -30,14 +31,18 @@ export interface TeamStandingsMatchLike {
 // individuels : une confrontation d'équipes (ronde + paire d'équipes) est
 // regroupée à partir des matchs de ses différents échiquiers. Le résultat
 // du match d'équipes se décide à la majorité d'échiquiers gagnés (3 pts
-// victoire, 1 pt égalité, 0 pt défaite). Départage : différentiel
+// victoire, 2 pts égalité, 1 pt défaite jouée, 0 pt si l'équipe était
+// absente — même barème que le classement individuel, voir applyResult
+// dans standings.ts). Départage : différentiel
 // d'échiquiers (gagnés − perdus) puis différence de points cumulés. Une
 // confrontation n'est comptabilisée que lorsque tous ses échiquiers sont
 // joués (aucun encore SCHEDULED). Factorisé pour être réutilisé aussi bien
 // sur l'ensemble d'un tournoi que sur une poule d'équipes.
 export function computeTeamStandingsFromMatches(
   teams: Array<{ teamId: string; name: string }>,
-  matches: TeamStandingsMatchLike[]
+  matches: TeamStandingsMatchLike[],
+  // Instantané : voir le commentaire équivalent sur computeStandingsFromMatches.
+  uptoRoundNumber?: number
 ): ClassicTeamStandingRow[] {
   const rows = new Map<string, ClassicTeamStandingRow>();
   function ensure(teamId: string, name: string) {
@@ -62,18 +67,50 @@ export function computeTeamStandingsFromMatches(
   }
   for (const team of teams) ensure(team.teamId, team.name);
 
+  // Une ronde ne doit compter dans le classement qu'une fois entièrement
+  // décidée pour toutes les équipes — voir le garde-fou équivalent dans
+  // computeStandingsFromMatches (classement individuel) : sans lui, une
+  // équipe exemptée (échiquiers créés directement "PLAYED" à la génération
+  // de la ronde) saute en avance pendant que les rencontres réelles de la
+  // même ronde restent "SCHEDULED" en attente de saisie.
+  const matchesByRound = new Map<number, TeamStandingsMatchLike[]>();
+  for (const m of matches) {
+    const list = matchesByRound.get(m.roundNumber) ?? [];
+    list.push(m);
+    matchesByRound.set(m.roundNumber, list);
+  }
+  let cutoffRound = Infinity;
+  for (const roundNumber of [...matchesByRound.keys()].sort((a, b) => a - b)) {
+    const hasPendingRealMatch = matchesByRound
+      .get(roundNumber)!
+      .some((m) => !m.isBye && m.status === "SCHEDULED");
+    if (hasPendingRealMatch) {
+      cutoffRound = roundNumber - 1;
+      break;
+    }
+  }
+  if (uptoRoundNumber !== undefined) {
+    cutoffRound = Math.min(cutoffRound, uptoRoundNumber);
+  }
+
   const encounters = new Map<
     string,
     { homeTeamId: string; awayTeamId: string; matches: TeamStandingsMatchLike[] }
   >();
 
   for (const m of matches) {
+    if (m.roundNumber > cutoffRound) continue;
     if (m.isBye) {
       if (m.homeTeamId) {
         const row = ensure(m.homeTeamId, rows.get(m.homeTeamId)?.name ?? "");
         row.played += 1;
         row.wins += 1;
         row.matchPoints += 3;
+        // Score conventionnel de l'équipe exemptée (50-0, voir BYE_HOME_SCORE
+        // dans classic.ts) — voir le commentaire équivalent côté individuel
+        // (computeStandingsFromMatches).
+        row.pointsFor += m.homeScore ?? 0;
+        row.pointsAgainst += m.awayScore ?? 0;
       }
       continue;
     }
@@ -98,6 +135,8 @@ export function computeTeamStandingsFromMatches(
     let boardsDrawn = 0;
     let homePointsFor = 0;
     let awayPointsFor = 0;
+    let homeForfeitBoards = 0;
+    let awayForfeitBoards = 0;
 
     for (const board of boards) {
       if (board.status === "PLAYED" && board.homeScore != null && board.awayScore != null) {
@@ -108,11 +147,19 @@ export function computeTeamStandingsFromMatches(
         else boardsDrawn += 1;
       } else if (board.status === "FORFEIT_HOME") {
         awayBoardsWon += 1;
+        homeForfeitBoards += 1;
       } else if (board.status === "FORFEIT_AWAY") {
         homeBoardsWon += 1;
+        awayForfeitBoards += 1;
       }
       // CANCELLED : échiquier non comptabilisé.
     }
+    // Une équipe n'est considérée absente (forfait) à la confrontation que si
+    // elle est forfait sur TOUS ses échiquiers — distinct d'une défaite
+    // réellement jouée, voir applyResult (standings.ts) pour l'équivalent
+    // individuel.
+    const homeFullyForfeited = boards.length > 0 && homeForfeitBoards === boards.length;
+    const awayFullyForfeited = boards.length > 0 && awayForfeitBoards === boards.length;
 
     home.boardsWon += homeBoardsWon;
     home.boardsLost += awayBoardsWon;
@@ -132,15 +179,17 @@ export function computeTeamStandingsFromMatches(
       home.wins += 1;
       home.matchPoints += 3;
       away.losses += 1;
+      if (!awayFullyForfeited) away.matchPoints += 1;
     } else if (homeBoardsWon < awayBoardsWon) {
       away.wins += 1;
       away.matchPoints += 3;
       home.losses += 1;
+      if (!homeFullyForfeited) home.matchPoints += 1;
     } else {
       home.draws += 1;
       away.draws += 1;
-      home.matchPoints += 1;
-      away.matchPoints += 1;
+      home.matchPoints += 2;
+      away.matchPoints += 2;
     }
   }
 
@@ -159,49 +208,101 @@ export function computeTeamStandingsFromMatches(
 }
 
 export async function computeClassicTeamStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicTeamStandingRow[]> {
   const [teams, matches] = await Promise.all([
     prisma.team.findMany({ where: { tournamentId } }),
     prisma.match.findMany({
+      // Voir le commentaire équivalent dans computeClassicStandings (version
+      // individuelle) : exclut toute phase finale à élimination directe
+      // optionnelle, ce classement représentant la phase principale seule.
       where: {
-        round: { tournamentId },
+        round: { tournamentId, isFinalPhase: false },
         OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
       },
+      include: { round: { select: { number: true } } },
     }),
   ]);
 
   return computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
 }
 
-// Équivalent équipes de computeClassicSwissPhaseStandings : classement de la
-// phase suisse d'un tournoi COMBINED par équipes, restreint aux équipes
-// qualifiées et à leurs matchs de la phase suisse (voir le commentaire
-// équivalent côté individuel).
+// Équivalent équipes de computeClassicSwissPhaseStandings : poursuit le
+// classement général de poules par équipes (voir
+// computeClassicTeamGeneralPoolStandings) en y ajoutant les statistiques de
+// la phase suisse, plutôt que de repartir d'un mini-tournoi isolé à 0
+// partout (voir le commentaire équivalent côté individuel).
 export async function computeClassicTeamSwissPhaseStandings(
-  tournamentId: string
+  tournamentId: string,
+  uptoRoundNumber?: number
 ): Promise<ClassicTeamStandingRow[]> {
-  const matches = await prisma.match.findMany({
+  const allMatches = await prisma.match.findMany({
     where: {
       round: { tournamentId, isSwissPhase: true },
       OR: [{ homeTeamId: { not: null } }, { awayTeamId: { not: null } }],
     },
+    include: { round: { select: { number: true } } },
   });
+  // Instantané : voir le commentaire équivalent sur computeClassicSwissPhaseStandings.
+  const matches =
+    uptoRoundNumber !== undefined
+      ? allMatches.filter((m) => m.round.number <= uptoRoundNumber)
+      : allMatches;
 
   const teamIds = new Set<string>();
   for (const m of matches) {
     if (m.homeTeamId) teamIds.add(m.homeTeamId);
     if (m.awayTeamId) teamIds.add(m.awayTeamId);
   }
-  if (teamIds.size === 0) return [];
+
+  const { computeClassicTeamGeneralPoolStandings } = await import("@/lib/classic/teamPoolStandings");
+
+  if (teamIds.size === 0) {
+    // Voir le commentaire équivalent dans computeClassicSwissPhaseStandings.
+    return computeClassicTeamGeneralPoolStandings(tournamentId, uptoRoundNumber);
+  }
 
   const teams = await prisma.team.findMany({ where: { id: { in: [...teamIds] } } });
 
-  return computeTeamStandingsFromMatches(
+  const swissStandings = computeTeamStandingsFromMatches(
     teams.map((t) => ({ teamId: t.id, name: t.name })),
-    matches
+    matches.map((m) => ({ ...m, roundNumber: m.round.number })),
+    uptoRoundNumber
   );
+
+  const generalPoolStandings = await computeClassicTeamGeneralPoolStandings(tournamentId, uptoRoundNumber);
+  const poolByTeamId = new Map(generalPoolStandings.map((s) => [s.teamId, s]));
+
+  return swissStandings
+    .map((row): ClassicTeamStandingRow => {
+      const poolRow = poolByTeamId.get(row.teamId);
+      if (!poolRow) return row;
+      return {
+        ...row,
+        played: poolRow.played + row.played,
+        wins: poolRow.wins + row.wins,
+        draws: poolRow.draws + row.draws,
+        losses: poolRow.losses + row.losses,
+        matchPoints: poolRow.matchPoints + row.matchPoints,
+        boardsWon: poolRow.boardsWon + row.boardsWon,
+        boardsDrawn: poolRow.boardsDrawn + row.boardsDrawn,
+        boardsLost: poolRow.boardsLost + row.boardsLost,
+        pointsFor: poolRow.pointsFor + row.pointsFor,
+        pointsAgainst: poolRow.pointsAgainst + row.pointsAgainst,
+        diff: poolRow.diff + row.diff,
+      };
+    })
+    .sort((a, b) => {
+      if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+      const aBoardDiff = a.boardsWon - a.boardsLost;
+      const bBoardDiff = b.boardsWon - b.boardsLost;
+      if (bBoardDiff !== aBoardDiff) return bBoardDiff - aBoardDiff;
+      if (b.diff !== a.diff) return b.diff - a.diff;
+      return b.pointsFor - a.pointsFor;
+    });
 }

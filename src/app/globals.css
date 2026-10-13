@@ -58,3 +58,58 @@ h1, h2, h3 {
     outline-color: var(--color-navy-light);
   }
 }
+
+/* Léger flottement des tuiles Scrabble décoratives de la page d'accueil
+   (voir ScrabbleTiles) — chaque tuile garde sa propre rotation via
+   --tile-rotate, l'animation ne touche que translateY pour ne jamais
+   l'annuler. Désactivé pour qui préfère moins de mouvement. */
+@keyframes tile-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--tile-rotate, 0deg));
+  }
+  50% {
+    transform: translateY(-6px) rotate(var(--tile-rotate, 0deg));
+  }
+}
+.tile-float {
+  transform: rotate(var(--tile-rotate, 0deg));
+  animation: tile-float 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile-float {
+    animation: none;
+  }
+}
+
+/* Reflet lumineux balayant les boutons d'action principaux au survol, en
+   plus du lift/scale déjà posé en classes Tailwind sur chaque bouton — un
+   petit supplément d'éclat qui ne dépend d'aucun script. */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: -75%;
+  width: 50%;
+  background: linear-gradient(
+    115deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.btn-shine:hover::after {
+  left: 125%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-shine::after {
+    display: none;
+  }
+}

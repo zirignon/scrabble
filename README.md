@@ -55,6 +55,16 @@ Après `npm run db:seed` :
      deploy`, qui a besoin d'un verrou de session que PgBouncer/le pooler ne
      supporte pas (erreur `P1002` sinon).
    - `SESSION_SECRET` : une valeur aléatoire longue (ex. `openssl rand -base64 32`).
+   - `RESEND_API_KEY` : clé API [Resend](https://resend.com), **obligatoire**
+     — toute connexion d'un compte `ADMIN`/`ORGANIZER`/`REFEREE` envoie un
+     code à usage unique par email (deuxième facteur) avant d'ouvrir la
+     session ; sans cette clé, l'envoi échoue systématiquement et **aucun
+     membre du staff ne peut se connecter** (la réinitialisation de mot de
+     passe en dépend aussi). Par défaut, les emails sont envoyés depuis
+     `onboarding@resend.dev` (domaine de test Resend, sans vérification) —
+     à remplacer par une adresse sur un domaine vérifié dans
+     `src/lib/email.ts` (`FROM_ADDRESS`) pour un envoi fiable à des
+     destinataires autres que le titulaire du compte Resend.
 4. **Compte administrateur** : n'utilisez **pas** `npm run db:seed` en
    production (il crée le compte de démo `admin@scrabble.local` /
    `admin1234`, dont les identifiants sont publics dans ce README). Créez
@@ -311,9 +321,10 @@ Après `npm run db:seed` :
   directe (tableau avec exempts si l'effectif n'est pas une puissance de
   2, tour suivant généré à partir des vainqueurs des confrontations) —
   un match par échiquier, résultat de la confrontation à la majorité
-  d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt défaite ; une
-  égalité aux échiquiers doit être départagée manuellement en
-  élimination directe), départage par différentiel d'échiquiers puis
+  d'échiquiers gagnés (3 pts victoire, 2 pts nul, 1 pt défaite jouée, 0 pt
+  si l'équipe était absente/forfait ; une égalité aux échiquiers doit
+  être départagée manuellement en élimination directe), départage par
+  différentiel d'échiquiers puis
   différence de points cumulés
 - Duplicate : classement par équipes basé sur le pourcentage (cumul des
   scores nets des membres / cumul des tops de référence × 100) et le

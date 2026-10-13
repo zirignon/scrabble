@@ -154,9 +154,9 @@ export async function updateDuplicateSettingsAction(
       duplicateRythme: rythme as (typeof duplicateRythmeValues)[number],
     },
   });
-  await writeAuditLog(session, "TOURNAMENT_STATUS_CHANGED", "TOURNAMENT", tournamentId, {
-    from: tournament.status,
-    to: status,
+  await writeAuditLog(session, "TOURNAMENT_DUPLICATE_SETTINGS_CHANGED", "TOURNAMENT", tournamentId, {
+    formula,
+    rythme,
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);

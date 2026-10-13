@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { assertResourceInTournament } from "@/lib/actions/resourceGuards";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -31,6 +32,7 @@ export async function createTeamAction(tournamentId: string, formData: FormData)
 
 export async function deleteTeamAction(tournamentId: string, teamId: string) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "team", id: teamId });
   await prisma.team.delete({ where: { id: teamId } });
   revalidatePath(`/admin/tournois/${tournamentId}/equipes`);
 }
@@ -41,6 +43,7 @@ export async function addTeamMemberAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "team", id: teamId });
   const playerId = formData.get("playerId");
   if (typeof playerId !== "string" || !playerId) return;
 
@@ -78,6 +81,7 @@ export async function removeTeamMemberAction(
   memberId: string
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "teamMember", id: memberId });
   await prisma.teamMember.delete({ where: { id: memberId } });
   revalidatePath(`/admin/tournois/${tournamentId}/equipes`);
 }
