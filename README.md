@@ -321,9 +321,10 @@ Après `npm run db:seed` :
   directe (tableau avec exempts si l'effectif n'est pas une puissance de
   2, tour suivant généré à partir des vainqueurs des confrontations) —
   un match par échiquier, résultat de la confrontation à la majorité
-  d'échiquiers gagnés (3 pts victoire, 1 pt nul, 0 pt défaite ; une
-  égalité aux échiquiers doit être départagée manuellement en
-  élimination directe), départage par différentiel d'échiquiers puis
+  d'échiquiers gagnés (3 pts victoire, 2 pts nul, 1 pt défaite jouée, 0 pt
+  si l'équipe était absente/forfait ; une égalité aux échiquiers doit
+  être départagée manuellement en élimination directe), départage par
+  différentiel d'échiquiers puis
   différence de points cumulés
 - Duplicate : classement par équipes basé sur le pourcentage (cumul des
   scores nets des membres / cumul des tops de référence × 100) et le
