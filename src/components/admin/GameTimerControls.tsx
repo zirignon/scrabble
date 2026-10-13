@@ -17,12 +17,14 @@ export function GameTimerControls({
   canManage,
   alertSeconds,
   tournamentId,
+  duplicateFormula,
 }: {
   game: Game;
   referenceMoves: ReferenceMove[];
   canManage: boolean;
   alertSeconds: number;
   tournamentId: string;
+  duplicateFormula: string | null;
 }) {
   const runningSince = game.timerRunning && game.timerStartedAt
     ? game.timerStartedAt.toISOString()
@@ -32,9 +34,12 @@ export function GameTimerControls({
   // "+") tant qu'aucun tirage n'a encore été validé pour ce tour : l'arbitre
   // n'a qu'à compléter avec les nouvelles lettres tirées. pendingRack vaut
   // "" (distinct de null) après un rejet : le champ reste alors vierge
-  // plutôt que de resuggérer le même reliquat.
+  // plutôt que de resuggérer le même reliquat. En formule joker, un "?" est
+  // automatiquement suggéré en plus (voir le commentaire sur formatReliquat).
   const rackDefaultValue =
-    game.pendingRack === null ? computeLastReliquat(referenceMoves) ?? "" : game.pendingRack;
+    game.pendingRack === null
+      ? computeLastReliquat(referenceMoves, duplicateFormula) ?? ""
+      : game.pendingRack;
 
   return (
     <div className="flex flex-col gap-2">

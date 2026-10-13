@@ -396,7 +396,11 @@ Après `npm run db:seed` :
   l'arbitre n'a qu'à compléter avec les nouvelles lettres tirées (ex.
   HMQ+AEISNT), et c'est ce tirage complet, reliquat et lettres
   nouvellement tirées bien distingués par le « + », qui est projeté sur
-  l'affichage grand écran une fois validé
+  l'affichage grand écran une fois validé. En formule « joker », un « ? »
+  est toujours ajouté au reliquat suggéré (règlement FISF : un joker
+  accompagne systématiquement le tirage de chaque tour, même quand celui
+  du tour précédent a été joué) — l'arbitre reste libre de le retirer à la
+  main si les deux jokers sont déjà définitivement bloqués sur la grille
 
 ### Exports
 

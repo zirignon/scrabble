@@ -149,15 +149,33 @@ export function getNewlyPlacedLetters<T>(
 // est notée "?" dans le tirage (elle n'a pas de valeur propre tant qu'elle
 // n'est pas posée) ; quand un coup pose une lettre blanche (minuscule dans
 // le mot joué), c'est un "?" du tirage qui est consommé, pas la lettre
-// qu'elle représente. Renvoie null si tout le tirage a été joué (rien à
-// compléter).
-export function formatReliquat(rack: string, playedLetters: PlayedLetter[]): string | null {
+// qu'elle représente.
+//
+// En formule joker (voir le commentaire sur getBingoRules), le règlement
+// FISF accompagne systématiquement le tirage de chaque tour d'un joker,
+// tant qu'il en reste un en jeu — le "?" est donc ajouté automatiquement
+// au reliquat suggéré s'il n'y est pas déjà, même quand le joker du tour
+// précédent a été joué. Comme pour tout reliquat suggéré, l'arbitre reste
+// libre de corriger le champ à la main (ex. si les deux jokers sont déjà
+// définitivement bloqués sur la grille, cas que le logiciel ne peut pas
+// détecter puisqu'il ne simule pas le sac).
+//
+// Renvoie null si tout le tirage a été joué et qu'aucun "?" n'est à
+// suggérer (rien à compléter).
+export function formatReliquat(
+  rack: string,
+  playedLetters: PlayedLetter[],
+  formula?: string | null
+): string | null {
   // Le "+" est un séparateur d'affichage/saisie (voir validateGameRackAction),
   // pas une lettre du tirage — on l'ignore ici par sécurité s'il en reste un.
   const remaining = rack.replace(/\+/g, "").split("");
   for (const played of playedLetters) {
     const idx = remaining.indexOf(played.isBlank ? "?" : played.letter);
     if (idx !== -1) remaining.splice(idx, 1);
+  }
+  if (isJokerFormula(formula) && !remaining.includes("?")) {
+    remaining.push("?");
   }
   if (remaining.length === 0) return null;
   const letters = remaining.filter((c) => c !== "?").sort();
@@ -176,7 +194,10 @@ export interface ReliquatMoveLike extends ReferenceMoveLike {
 // calcul sert à la fois à l'affichage grand écran (tant qu'aucun tirage
 // n'a encore été validé pour le tour suivant) et à la valeur par défaut du
 // champ de saisie de l'arbitre.
-export function computeLastReliquat(moves: ReliquatMoveLike[]): string | null {
+export function computeLastReliquat(
+  moves: ReliquatMoveLike[],
+  formula?: string | null
+): string | null {
   const sorted = [...moves].sort((a, b) => a.turnNumber - b.turnNumber);
   const lastMove = sorted[sorted.length - 1];
   if (!lastMove?.rack) return null;
@@ -190,9 +211,9 @@ export function computeLastReliquat(moves: ReliquatMoveLike[]): string | null {
       lastMove.col,
       lastMove.direction as "ACROSS" | "DOWN"
     );
-    return formatReliquat(lastMove.rack, playedLetters);
+    return formatReliquat(lastMove.rack, playedLetters, formula);
   }
-  return formatReliquat(lastMove.rack, []);
+  return formatReliquat(lastMove.rack, [], formula);
 }
 
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois

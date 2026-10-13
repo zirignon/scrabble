@@ -241,6 +241,7 @@ export default async function GameMovesPage({
               canManage={canManage}
               alertSeconds={alertSeconds}
               tournamentId={tournament.id}
+              duplicateFormula={tournament.duplicateFormula}
             />
 
             {canManage && isJokerFormula(tournament.duplicateFormula) && (

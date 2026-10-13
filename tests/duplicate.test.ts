@@ -3,6 +3,8 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 import {
   applyResolvedJokers,
+  computeLastReliquat,
+  formatReliquat,
   isJokerFormula,
   reconstructBoard,
   type BoardCell,
@@ -25,6 +27,62 @@ test("isJokerFormula : seules les formules joker renvoient true", () => {
 // applyResolvedJokers ne doit toucher que les cases listées, sans muter la
 // grille d'origine (reconstructBoard reste la source de vérité rejouée à
 // chaque rendu) ni changer la lettre affichée (seul isBlank change).
+// Règlement FISF : un joker accompagne systématiquement le tirage de chaque
+// tour en formule joker, tant qu'il en reste un en jeu — le reliquat
+// suggéré doit donc toujours inclure un "?" en formule joker, même quand
+// le joker du tour précédent a été joué (cas vérifié ici : le coup
+// "WEBeR" consomme son joker, mais le reliquat suggéré pour le tour
+// suivant en propose quand même un nouveau). Reproduit l'exemple fourni :
+// tirage "WEBHUR?" (W,E,B,H,U,R + un joker), coup "WEBeR" en H4 (le "e"
+// minuscule représentant le second E, absent du tirage), reliquat attendu
+// "HU?+" (H et U non joués, triés, suivis du joker puis du "+").
+test("formatReliquat : ajoute automatiquement un \"?\" en formule joker même si celui joué a été utilisé", () => {
+  const playedLetters = [
+    { letter: "W", isBlank: false },
+    { letter: "E", isBlank: false },
+    { letter: "B", isBlank: false },
+    { letter: "E", isBlank: true },
+    { letter: "R", isBlank: false },
+  ];
+  assert.equal(formatReliquat("WEBHUR?", playedLetters, "JOKER"), "HU?+");
+  // Hors formule joker, pas de "?" ajouté : comportement inchangé.
+  assert.equal(formatReliquat("WEBHUR?", playedLetters, "NORMALE"), "HU+");
+  assert.equal(formatReliquat("WEBHUR?", playedLetters), "HU+");
+});
+
+test("formatReliquat : n'ajoute pas de second \"?\" si un joker reste déjà non joué", () => {
+  assert.equal(formatReliquat("AB?", [{ letter: "A", isBlank: false }], "SEPT_SUR_HUIT_JOKER"), "B?+");
+});
+
+test("formatReliquat : tirage entièrement joué renvoie quand même \"?+\" en formule joker", () => {
+  assert.equal(
+    formatReliquat("AB", [
+      { letter: "A", isBlank: false },
+      { letter: "B", isBlank: false },
+    ], "JOKER"),
+    "?+"
+  );
+  // Hors formule joker, un tirage entièrement joué renvoie bien null (inchangé).
+  assert.equal(
+    formatReliquat("AB", [
+      { letter: "A", isBlank: false },
+      { letter: "B", isBlank: false },
+    ]),
+    null
+  );
+});
+
+test("computeLastReliquat : propage la formule jusqu'au dernier coup joué", () => {
+  // Tirage "RT?" entièrement joué par "RaT" (R, T réels, "a" minuscule =
+  // joker représentant le A) : rien ne reste, mais en formule joker un "?"
+  // est quand même suggéré pour le tour suivant.
+  const moves = [
+    { turnNumber: 1, row: 8, col: 8, direction: "ACROSS", word: "RaT", isPass: false, rack: "RT?" },
+  ];
+  assert.equal(computeLastReliquat(moves, "JOKER"), "?+");
+  assert.equal(computeLastReliquat(moves), null);
+});
+
 test("applyResolvedJokers : ne lève le statut blanc que des cases résolues, sans muter l'original", () => {
   const moves = [
     { turnNumber: 1, row: 8, col: 8, direction: "ACROSS", word: "RaT", isPass: false },

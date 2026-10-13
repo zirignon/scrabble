@@ -331,6 +331,7 @@ async function buildCurrent(tournament: {
   id: string;
   type: string;
   format: string | null;
+  duplicateFormula: string | null;
   duplicateRythme: string | null;
 }): Promise<DisplayCurrent> {
   if (tournament.type === "CLASSIC") {
@@ -526,7 +527,7 @@ async function buildCurrent(tournament: {
   // depuis le dernier coup), c'est le reliquat du dernier coup qui s'affiche.
   const currentRack =
     lastGame.pendingRack === null
-      ? computeLastReliquat(lastGame.referenceMoves)
+      ? computeLastReliquat(lastGame.referenceMoves, tournament.duplicateFormula)
       : lastGame.pendingRack || null;
 
   return {
