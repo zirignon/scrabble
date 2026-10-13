@@ -582,6 +582,7 @@ model Game {
   results        DuplicateResult[]
   moves          DuplicateMove[]
   referenceMoves ReferenceMove[]
+  resolvedJokers ResolvedJoker[]
 
   @@unique([tournamentId, number])
 }
@@ -608,6 +609,24 @@ model ReferenceMove {
   rack       String?
 
   @@unique([gameId, turnNumber])
+}
+
+// Case de la grille dont le joker a été remplacé par la lettre réelle
+// (règle FISF des formules joker, voir le commentaire sur getBingoRules) :
+// l'affichage de la grille (admin et affichage grand écran) montre alors
+// cette case normalement (coefficient de lettre visible) au lieu du statut
+// "lettre blanche". N'affecte jamais le score déjà enregistré du coup de
+// référence qui a posé cette lettre (ReferenceMove.points, calculé au
+// moment du coup, n'est jamais recalculé par cette résolution).
+model ResolvedJoker {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  row       Int
+  col       Int
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, row, col])
 }
 
 model DuplicateResult {

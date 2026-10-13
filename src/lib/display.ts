@@ -11,6 +11,7 @@ import { computeDuplicateStandings } from "@/lib/duplicate/standings";
 import { computeDuplicateTeamStandings } from "@/lib/duplicate/teamStandings";
 import {
   reconstructBoard,
+  applyResolvedJokers,
   computeLastReliquat,
   getRythmeAlertSeconds,
   type BoardCell,
@@ -501,7 +502,7 @@ async function buildCurrent(tournament: {
   const lastGame = await prisma.game.findFirst({
     where: { tournamentId: tournament.id },
     orderBy: { number: "desc" },
-    include: { referenceMoves: true },
+    include: { referenceMoves: true, resolvedJokers: true },
   });
   if (!lastGame) {
     return {
@@ -513,7 +514,10 @@ async function buildCurrent(tournament: {
     };
   }
 
-  const grid = lastGame.referenceMoves.length > 0 ? reconstructBoard(lastGame.referenceMoves) : null;
+  const grid =
+    lastGame.referenceMoves.length > 0
+      ? applyResolvedJokers(reconstructBoard(lastGame.referenceMoves), lastGame.resolvedJokers)
+      : null;
 
   // Tirage validé par l'arbitre pour le tour en cours (mot pas encore
   // décidé) : projeté tel quel, avant même le démarrage du chrono. pendingRack

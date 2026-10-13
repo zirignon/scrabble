@@ -14,6 +14,8 @@ import {
   getRythmeTimerSeconds,
   parseReference,
   buildPlainBoard,
+  reconstructBoard,
+  isJokerFormula,
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
@@ -718,6 +720,59 @@ export async function deleteReferenceMoveAction(
   await assertReferenceMoveInGame(gameId, moveId);
   await prisma.referenceMove.delete({ where: { id: moveId } });
   await recomputeReferenceMoveScores(gameId);
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
+}
+
+// Marque un joker posé sur la grille comme résolu : le juge-arbitre vient de
+// le remplacer physiquement par la lettre qu'il représentait (règlement
+// FISF des formules joker — voir le commentaire sur getBingoRules), parce
+// que cette lettre est encore disponible dans le sac. N'affecte jamais le
+// score déjà enregistré du coup de référence qui a posé cette case : seule
+// la grille affichée (admin et affichage grand écran, voir applyResolvedJokers)
+// montre désormais cette lettre normalement, au lieu du statut "blanche".
+// Réservé aux formules joker ; sans effet sur une case qui n'est pas (ou
+// plus) un joker non résolu.
+export async function resolveJokerAction(
+  tournamentId: string,
+  gameId: string,
+  row: number,
+  col: number
+) {
+  const tournament = await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  if (!isJokerFormula(tournament.duplicateFormula)) return;
+
+  const game = await prisma.game.findUniqueOrThrow({
+    where: { id: gameId },
+    include: { referenceMoves: true },
+  });
+  const board = reconstructBoard(game.referenceMoves);
+  const cell = board[row - 1]?.[col - 1];
+  if (!cell || !cell.isBlank) return;
+
+  await prisma.resolvedJoker.upsert({
+    where: { gameId_row_col: { gameId, row, col } },
+    update: {},
+    create: { gameId, row, col },
+  });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  notifyTournamentUpdate(tournamentId);
+}
+
+// Annule une résolution de joker saisie par erreur : la case redevient un
+// joker non résolu sur la grille affichée, sans toucher au score.
+export async function unresolveJokerAction(
+  tournamentId: string,
+  gameId: string,
+  row: number,
+  col: number
+) {
+  await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await prisma.resolvedJoker.deleteMany({ where: { gameId, row, col } });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   notifyTournamentUpdate(tournamentId);

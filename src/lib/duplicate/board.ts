@@ -75,6 +75,38 @@ export function reconstructBoard(moves: ReferenceMoveLike[]): (BoardCell | null)
   return grid;
 }
 
+export interface ResolvedJokerLike {
+  row: number;
+  col: number;
+}
+
+// Applique à une grille déjà reconstruite les jokers résolus (règle FISF
+// des formules joker, voir le commentaire sur getBingoRules) : le joker
+// physiquement remplacé par la lettre qu'il représentait s'affiche alors
+// normalement (coefficient de lettre visible), comme une lettre posée
+// ordinaire. Ne touche jamais au score déjà enregistré du coup de référence
+// qui a posé cette case — ReferenceMove.points n'est jamais recalculé par
+// une résolution de joker, voir resolveJokerAction.
+export function applyResolvedJokers(
+  grid: (BoardCell | null)[][],
+  resolved: ResolvedJokerLike[]
+): (BoardCell | null)[][] {
+  if (resolved.length === 0) return grid;
+  const next = grid.map((row) => row.map((cell) => (cell ? { ...cell } : null)));
+  for (const { row, col } of resolved) {
+    const cell = next[row - 1]?.[col - 1];
+    if (cell) cell.isBlank = false;
+  }
+  return next;
+}
+
+// Formules de tournoi incluant le mécanisme du joker (voir le commentaire
+// sur getBingoRules) : seules celles-ci autorisent la résolution d'un
+// joker posé sur la grille (resolveJokerAction).
+export function isJokerFormula(formula: string | null | undefined): boolean {
+  return formula === "JOKER" || formula === "SEPT_SUR_HUIT_JOKER" || formula === "SEPT_ET_HUIT_JOKER";
+}
+
 // Même reconstruction que reconstructBoard, mais sous forme de simples
 // lettres (sans le statut "lettre blanche") — le format attendu par
 // computeMoveScore et par le solveur de mots.
