@@ -59,9 +59,10 @@ export function GameTimerControls({
             />
             <button
               type="submit"
+              title="Démarre aussi le chrono, sauf s'il tournait déjà"
               className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-medium transition-colors"
             >
-              Valider le tirage
+              Valider le tirage ▶
             </button>
           </form>
           <form action={rejectGameRackAction.bind(null, tournamentId, game.id)}>
@@ -92,7 +93,11 @@ export function GameTimerControls({
               <button
                 type="submit"
                 disabled={!game.pendingRack}
-                title={!game.pendingRack ? "Validez d'abord le tirage du tour" : undefined}
+                title={
+                  !game.pendingRack
+                    ? "Validez d'abord le tirage du tour"
+                    : "Déjà démarré automatiquement à la validation du tirage — utile pour reprendre après une pause"
+                }
                 className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
               >
                 ▶ Démarrer

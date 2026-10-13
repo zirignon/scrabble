@@ -86,8 +86,11 @@ export async function setGameTimerDurationAction(
 }
 
 // Valide le tirage du tour en cours (avant que le mot ne soit décidé) :
-// projeté aussitôt tel quel sur l'affichage grand écran, pour que les
-// joueurs le voient avant que l'arbitre ne démarre le chrono.
+// projeté aussitôt tel quel sur l'affichage grand écran, et démarre
+// aussitôt le chrono (sauf s'il tournait déjà, pour ne pas perdre le temps
+// déjà écoulé si l'arbitre revalide par erreur) — l'arbitre n'a plus de
+// bouton "Démarrer" séparé à cliquer, celui-ci restant utile seulement
+// pour reprendre après une pause.
 export async function validateGameRackAction(
   tournamentId: string,
   gameId: string,
@@ -98,9 +101,20 @@ export async function validateGameRackAction(
   const rack = formData.get("rack");
   if (typeof rack !== "string" || !rack.trim()) return;
 
+  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+
   await prisma.game.update({
     where: { id: gameId },
-    data: { pendingRack: rack.toUpperCase() },
+    data: {
+      pendingRack: rack.toUpperCase(),
+      ...(game.timerRunning
+        ? {}
+        : {
+            timerRunning: true,
+            timerStartedAt: new Date(),
+            timerRemainingSeconds: game.timerRemainingSeconds ?? game.timerDurationSeconds,
+          }),
+    },
   });
 
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);

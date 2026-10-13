@@ -303,13 +303,15 @@ Après `npm run db:seed` :
   score décroissant ; l'arbitre choisit une solution pour préremplir
   automatiquement la référence et le mot avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
-  les joueurs sur le même tirage), démarré/mis en pause par l'arbitre.
-  Avant de démarrer, l'arbitre doit valider le tirage du tour (page de
-  détail coup par coup, sous la grille de référence) : il est aussitôt
-  projeté tel quel sur
-  l'affichage grand écran, pour que la salle le voie avant que le temps
-  ne commence à courir — le bouton « Démarrer » reste désactivé tant
-  qu'aucun tirage n'est validé. Le tirage validé préremplit aussi le
+  les joueurs sur le même tirage), démarré automatiquement par l'arbitre
+  dès la validation du tirage du tour (page de détail coup par coup, sous
+  la grille de référence) : le tirage est aussitôt projeté tel quel sur
+  l'affichage grand écran et le chrono démarre dans le même geste — sauf
+  s'il tournait déjà (une revalidation par erreur ne fait alors pas
+  perdre le temps déjà écoulé). Le bouton « Démarrer » séparé reste
+  disponible, désactivé tant qu'aucun tirage n'est validé, surtout utile
+  pour reprendre après une pause plutôt que pour le premier démarrage.
+  Le tirage validé préremplit aussi le
   champ « Tirage » du formulaire de coup de référence ; dès que celui-ci
   est enregistré, le tirage validé est effacé (le reliquat prend le
   relais sur l'affichage) jusqu'à la validation du suivant, et le chrono
