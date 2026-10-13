@@ -336,18 +336,42 @@ export default async function GameMovesPage({
                             net {info.net}
                           </span>
                         );
+                        const pmReference =
+                          pm?.row && pm?.col && pm?.direction
+                            ? formatReference(pm.row, pm.col, pm.direction)
+                            : null;
                         return (
                           <td key={player.id} className="py-1 px-2 text-center">
                             {canEnterScores ? (
                               <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex gap-0.5">
+                                  <input
+                                    form={formId}
+                                    type="text"
+                                    name={`reference_${player.id}`}
+                                    defaultValue={pmReference ?? ""}
+                                    title="Référence du mot proposé par ce joueur (ex. H4) : laisser vide pour saisir le score à la main"
+                                    placeholder="Réf."
+                                    className="w-12 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-xs uppercase focus:outline-none"
+                                  />
+                                  <input
+                                    form={formId}
+                                    type="text"
+                                    name={`word_${player.id}`}
+                                    defaultValue={pm?.word ?? ""}
+                                    title="Mot proposé par ce joueur : vérifié automatiquement (dictionnaire, grille, tirage) et le score est calculé tout seul"
+                                    placeholder="Mot"
+                                    className="w-16 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-xs focus:outline-none"
+                                  />
+                                </div>
                                 <input
                                   form={formId}
                                   type="number"
                                   name={`score_${player.id}`}
-                                  defaultValue={pm?.points ?? ""}
+                                  defaultValue={pm?.word ? "" : pm?.points ?? ""}
                                   max={move.points}
-                                  title={`Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser.`}
-                                  placeholder="—"
+                                  title={`Score saisi à la main, utilisé seulement si le mot ci-dessus est vide. Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser.`}
+                                  placeholder={pm?.word ? String(pm.points) : "—"}
                                   className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 text-center bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                                 />
                                 <select
@@ -368,7 +392,10 @@ export default async function GameMovesPage({
                               </div>
                             ) : (
                               <div className="flex flex-col items-center gap-0.5">
-                                <span>{pm?.points ?? "—"}</span>
+                                <span>
+                                  {pm?.word && pmReference ? `${pmReference} ${pm.word} — ` : ""}
+                                  {pm?.points ?? "—"}
+                                </span>
                                 {penaltyBadge}
                                 {soloBadge}
                                 {netLine}

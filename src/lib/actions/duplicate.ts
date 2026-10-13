@@ -20,7 +20,7 @@ import {
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
-import { findWordSolutions, type SolverSolution } from "@/lib/duplicate/solver";
+import { findWordSolutions, validatePlayerWord, type SolverSolution } from "@/lib/duplicate/solver";
 import { parseClock } from "@/lib/timer";
 import {
   assertMoveInGame,
@@ -511,20 +511,45 @@ export async function deleteMoveAction(
 // touchée (permet de compléter le tour au fur et à mesure sans écraser ce
 // qui est déjà saisi). Le "top" de chaque coup est celui du coup de
 // référence de ce tour, pas ressaisi joueur par joueur.
+//
+// Deux façons de saisir le score d'un joueur, par ligne :
+// - mot + référence (word_/reference_) : le logiciel vérifie ce coup —
+//   dictionnaire, cases déjà posées sur la grille AVANT ce tour, tirage
+//   annoncé pour ce tour (voir validatePlayerWord) — et calcule le score
+//   lui-même. Un joueur peut proposer une solution différente du coup de
+//   référence officiel, tant qu'elle est valide.
+// - score (score_) seul, sans mot : saisie manuelle directe, inchangée,
+//   pour les cas où le mot du joueur n'est pas à enregistrer.
+// Si les deux sont fournis pour un même joueur, le mot fait foi (le champ
+// score manuel est ignoré pour cette ligne).
 export async function saveTurnScoresAction(
   tournamentId: string,
   gameId: string,
   turnNumber: number,
   formData: FormData
 ) {
-  await assertCanRecordResults(tournamentId);
+  const tournament = await assertCanRecordResults(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
-  const [referenceMove, registrations] = await Promise.all([
+  const [referenceMove, allReferenceMoves, registrations] = await Promise.all([
     prisma.referenceMove.findUnique({ where: { gameId_turnNumber: { gameId, turnNumber } } }),
+    prisma.referenceMove.findMany({ where: { gameId } }),
     prisma.registration.findMany({ where: { tournamentId }, select: { playerId: true } }),
   ]);
   const top = referenceMove?.points ?? null;
+
+  const usesWordEntry = registrations.some(({ playerId }) => {
+    const word = formData.get(`word_${playerId}`);
+    const reference = formData.get(`reference_${playerId}`);
+    return typeof word === "string" && word.trim() && typeof reference === "string" && reference.trim();
+  });
+  const dictionary = usesWordEntry
+    ? new Set((await prisma.dictionaryWord.findMany({ select: { word: true } })).map((w) => w.word))
+    : null;
+  const boardBeforeTurn = usesWordEntry
+    ? buildPlainBoard(allReferenceMoves.filter((m) => m.turnNumber < turnNumber))
+    : null;
+  const bingoRules = getBingoRules(tournament.duplicateFormula);
 
   // Le top d'un coup est le meilleur score possible pour le tirage de ce
   // tour : aucun score de joueur ne peut donc légitimement le dépasser.
@@ -534,13 +559,54 @@ export async function saveTurnScoresAction(
     playerId: string;
     points: number;
     penaltyType: (typeof movePenaltyValues)[number] | null;
+    word: string | null;
+    row: number | null;
+    col: number | null;
+    direction: string | null;
+    isPass: boolean;
   }[] = [];
 
   for (const { playerId } of registrations) {
-    const scoreRaw = formData.get(`score_${playerId}`);
-    if (scoreRaw === null || scoreRaw === "") continue;
-    const rawPoints = Number(scoreRaw);
-    if (Number.isNaN(rawPoints)) continue;
+    const wordRaw = formData.get(`word_${playerId}`);
+    const referenceRaw = formData.get(`reference_${playerId}`);
+    const hasWordEntry =
+      typeof wordRaw === "string" && wordRaw.trim() && typeof referenceRaw === "string" && referenceRaw.trim();
+
+    let rawPoints: number;
+    let word: string | null = null;
+    let row: number | null = null;
+    let col: number | null = null;
+    let direction: string | null = null;
+
+    if (hasWordEntry) {
+      const position = parseReference(referenceRaw as string);
+      if (!position) {
+        throw new Error(`Référence invalide ("${referenceRaw}") pour ce joueur.`);
+      }
+      const validation = validatePlayerWord(
+        boardBeforeTurn!,
+        referenceMove?.rack ?? "",
+        position.row,
+        position.col,
+        position.direction,
+        (wordRaw as string).trim(),
+        dictionary!,
+        bingoRules
+      );
+      if (!validation.valid) {
+        throw new Error(`Coup invalide pour ce joueur (${wordRaw} ${referenceRaw}) : ${validation.reason}`);
+      }
+      rawPoints = validation.score!;
+      word = (wordRaw as string).trim();
+      row = position.row;
+      col = position.col;
+      direction = position.direction;
+    } else {
+      const scoreRaw = formData.get(`score_${playerId}`);
+      if (scoreRaw === null || scoreRaw === "") continue;
+      rawPoints = Number(scoreRaw);
+      if (Number.isNaN(rawPoints)) continue;
+    }
 
     if (top !== null && rawPoints > top) {
       throw new Error(
@@ -565,14 +631,14 @@ export async function saveTurnScoresAction(
 
     const points = penaltyType === "ZERO" ? 0 : rawPoints;
 
-    entries.push({ playerId, points, penaltyType });
+    entries.push({ playerId, points, penaltyType, word, row, col, direction, isPass: false });
   }
 
-  for (const { playerId, points, penaltyType } of entries) {
+  for (const { playerId, points, penaltyType, word, row, col, direction, isPass } of entries) {
     await prisma.duplicateMove.upsert({
       where: { gameId_playerId_turnNumber: { gameId, playerId, turnNumber } },
-      update: { points, top, penaltyType },
-      create: { gameId, playerId, turnNumber, points, top, penaltyType },
+      update: { points, top, penaltyType, word, row, col, direction, isPass },
+      create: { gameId, playerId, turnNumber, points, top, penaltyType, word, row, col, direction, isPass },
     });
 
     await recomputeGameScore(gameId, playerId);

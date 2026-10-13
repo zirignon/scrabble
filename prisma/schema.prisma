@@ -654,6 +654,16 @@ model DuplicateMove {
   turnNumber      Int
   rack            String?
   word            String?
+  // Position du mot proposé par le joueur, saisie en plus de rack/word pour
+  // vérifier automatiquement ce coup (dictionnaire + grille + tirage) au
+  // lieu de ne saisir que le score à la main — voir validatePlayerWord et
+  // saveTurnScoresAction. Distincte du coup de référence (ReferenceMove),
+  // puisqu'un joueur peut légitimement proposer une autre solution valide
+  // pour le même tirage. Nullable : reste optionnel, le score peut encore
+  // être saisi directement à la main sans mot/position.
+  row             Int?
+  col             Int?
+  direction       String?
   points          Int      @default(0)
   top             Int?
   isPass          Boolean  @default(false)

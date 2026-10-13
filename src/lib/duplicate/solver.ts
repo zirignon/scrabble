@@ -250,3 +250,128 @@ export function findWordSolutions(
   results.sort((a, b) => b.score - a.score);
   return limit === undefined ? results : results.slice(0, limit);
 }
+
+export interface PlayerMoveValidation {
+  valid: boolean;
+  score: number | null;
+  reason: string | null;
+}
+
+// Vérifie un coup explicite proposé par un joueur (mot + position), par
+// opposition à findWordSolutions qui explore toutes les possibilités : ici
+// le placement est déjà choisi (saisi par l'arbitre à partir de ce que le
+// joueur a annoncé), il reste à confirmer qu'il est légal sur la grille
+// AVANT ce tour avec le tirage annoncé pour ce tour-là, et à en calculer le
+// score — un joueur peut parfaitement proposer une solution différente du
+// coup de référence officiel, tant qu'elle est valide. Renvoie une raison
+// lisible par l'arbitre en cas d'échec (mot hors grille, lettre en
+// conflit, ne touche pas la grille existante, tirage insuffisant, mot ou
+// mot croisé absent du dictionnaire) plutôt qu'un simple booléen.
+export function validatePlayerWord(
+  board: (string | null)[][],
+  rack: string,
+  row: number,
+  col: number,
+  direction: "ACROSS" | "DOWN",
+  word: string,
+  dictionary: Set<string>,
+  bingoRules: BingoRule[]
+): PlayerMoveValidation {
+  const len = word.length;
+  if (len === 0) return { valid: false, score: null, reason: "Mot vide." };
+  if (row < 1 || row > BOARD_SIZE || col < 1 || col > BOARD_SIZE) {
+    return { valid: false, score: null, reason: "Référence hors grille." };
+  }
+  const maxLen = direction === "ACROSS" ? BOARD_SIZE - col + 1 : BOARD_SIZE - row + 1;
+  if (len > maxLen) {
+    return { valid: false, score: null, reason: "Le mot dépasse la grille." };
+  }
+
+  const openPositions: number[] = [];
+  for (let i = 0; i < len; i++) {
+    const r = direction === "DOWN" ? row - 1 + i : row - 1;
+    const c = direction === "ACROSS" ? col - 1 + i : col - 1;
+    const existing = board[r][c];
+    if (existing) {
+      if (existing !== word[i].toUpperCase()) {
+        return {
+          valid: false,
+          score: null,
+          reason: `La case ${formatReference(r + 1, c + 1, "ACROSS")} contient déjà la lettre "${existing}".`,
+        };
+      }
+    } else {
+      openPositions.push(i);
+    }
+  }
+  if (openPositions.length === 0) {
+    return { valid: false, score: null, reason: "Ce mot ne pose aucune lettre nouvelle." };
+  }
+
+  const boardIsEmpty = board.every((r) => r.every((cell) => cell === null));
+  const centerR = Math.floor(BOARD_SIZE / 2);
+  const centerC = Math.floor(BOARD_SIZE / 2);
+  let touchesOk = openPositions.length < len;
+  if (!touchesOk) {
+    if (boardIsEmpty) {
+      touchesOk =
+        direction === "ACROSS"
+          ? row - 1 === centerR && col - 1 <= centerC && centerC <= col - 1 + len - 1
+          : col - 1 === centerC && row - 1 <= centerR && centerR <= row - 1 + len - 1;
+    } else {
+      for (const i of openPositions) {
+        const r = direction === "DOWN" ? row - 1 + i : row - 1;
+        const c = direction === "ACROSS" ? col - 1 + i : col - 1;
+        const neighbors =
+          direction === "ACROSS"
+            ? [
+                [r - 1, c],
+                [r + 1, c],
+              ]
+            : [
+                [r, c - 1],
+                [r, c + 1],
+              ];
+        for (const [nr, nc] of neighbors) {
+          if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc]) {
+            touchesOk = true;
+            break;
+          }
+        }
+        if (touchesOk) break;
+      }
+    }
+  }
+  if (!touchesOk) {
+    return {
+      valid: false,
+      score: null,
+      reason: boardIsEmpty
+        ? "Le premier mot de la grille doit passer par la case centrale (H8)."
+        : "Le mot doit toucher une lettre déjà posée sur la grille.",
+    };
+  }
+
+  const counts = rackCounts(rack);
+  for (const i of openPositions) {
+    const ch = word[i];
+    const isBlank = ch === ch.toLowerCase() && ch !== ch.toUpperCase();
+    const key = isBlank ? "?" : ch.toUpperCase();
+    const have = counts.get(key) ?? 0;
+    if (have <= 0) {
+      return {
+        valid: false,
+        score: null,
+        reason: `Le tirage ne contient pas assez de ${isBlank ? "jokers" : `"${ch.toUpperCase()}"`} pour ce mot.`,
+      };
+    }
+    counts.set(key, have - 1);
+  }
+
+  const score = validateAndScore(board, word, row, col, direction, openPositions, dictionary, bingoRules);
+  if (score === null) {
+    return { valid: false, score: null, reason: "Mot ou mot croisé introuvable dans le dictionnaire." };
+  }
+
+  return { valid: true, score, reason: null };
+}
