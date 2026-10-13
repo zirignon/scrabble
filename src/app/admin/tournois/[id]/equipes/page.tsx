@@ -34,6 +34,9 @@ export default async function TeamsPage({
   if (!tournament || !tournament.isTeamEvent) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter les équipes d'un tournoi tiers.
+  if (!canManage) notFound();
   const assignedPlayerIds = new Set(
     tournament.teams.flatMap((t) => t.members.map((m) => m.playerId))
   );

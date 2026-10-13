@@ -134,6 +134,9 @@ export default async function PoolsPage({
   if (!tournament || (tournament.format !== "GROUPS" && tournament.format !== "COMBINED")) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter les poules d'un tournoi tiers.
+  if (!canManage) notFound();
   const createPoolBound = createPoolAction.bind(null, tournament.id);
 
   if (tournament.isTeamEvent) {

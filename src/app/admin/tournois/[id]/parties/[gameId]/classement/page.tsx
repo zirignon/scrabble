@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole, STAFF_ROLES } from "@/lib/guards";
+import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
 import { computeGameClassementSheet } from "@/lib/duplicate/gameSheet";
 
 export default async function GameClassementPage({
@@ -10,10 +10,15 @@ export default async function GameClassementPage({
   params: Promise<{ id: string; gameId: string }>;
 }) {
   const { id, gameId } = await params;
-  await requireRole(STAFF_ROLES);
+  const session = await requireRole(STAFF_ROLES);
 
   const tournament = await prisma.tournament.findUnique({ where: { id } });
   if (!tournament || tournament.type !== "DUPLICATE") notFound();
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter la fiche de classement d'une
+  // partie tierce, admin uniquement (la fiche publique reste par ailleurs
+  // accessible à tous sans ce contrôle, voir /tournois/[slug]/classement).
+  if (!canManageTournament(session, tournament.organizerId)) notFound();
 
   const game = await prisma.game.findUnique({ where: { id: gameId } });
   if (!game || game.tournamentId !== tournament.id) notFound();

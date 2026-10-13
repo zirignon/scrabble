@@ -564,6 +564,9 @@ export default async function RoundsPage({
   if (!tournament || tournament.type !== "CLASSIC") notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter les rondes d'un tournoi tiers.
+  if (!canManage) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const generateBound = generateRoundRobinAction.bind(null, tournament.id);
   const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);

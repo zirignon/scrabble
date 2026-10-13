@@ -101,6 +101,9 @@ export default async function GamesPage({
   if (!tournament || tournament.type !== "DUPLICATE") notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter les parties d'un tournoi tiers.
+  if (!canManage) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const addGameBound = addGameAction.bind(null, tournament.id);
 

@@ -63,6 +63,12 @@ export default async function ManageTournamentPage({
   if (!tournament) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Un membre du staff qui ne gère pas ce tournoi (pas ADMIN, pas son
+  // organisateur) ne doit même pas pouvoir consulter son tableau de bord —
+  // canManage ne doit pas servir qu'à masquer les boutons d'action, sous
+  // peine de laisser lire les inscriptions/réglages d'un tournoi tiers,
+  // y compris non encore publié (DRAFT).
+  if (!canManage) notFound();
 
   const registerBound = registerPlayerAction.bind(null, tournament.id);
   const statusBound = updateTournamentStatusFormAction.bind(null, tournament.id);

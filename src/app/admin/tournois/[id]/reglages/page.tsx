@@ -366,6 +366,9 @@ export default async function TournamentSettingsPage({
   if (!tournament || tournament.type !== "CLASSIC") notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter les réglages d'un tournoi tiers.
+  if (!canManage) notFound();
   const mainPhaseRounds = tournament.rounds.filter((r) => !r.isFinalPhase);
   const swissPhaseRounds = tournament.rounds.filter((r) => r.isSwissPhase);
 

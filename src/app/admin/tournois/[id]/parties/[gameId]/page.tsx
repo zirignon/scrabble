@@ -83,6 +83,9 @@ export default async function GameMovesPage({
   if (!game || game.tournamentId !== tournament.id) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
+  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // quel membre du staff pourrait consulter la saisie d'une partie tierce.
+  if (!canManage) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
   const board = reconstructBoard(game.referenceMoves);
