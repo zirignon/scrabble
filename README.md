@@ -55,6 +55,16 @@ Après `npm run db:seed` :
      deploy`, qui a besoin d'un verrou de session que PgBouncer/le pooler ne
      supporte pas (erreur `P1002` sinon).
    - `SESSION_SECRET` : une valeur aléatoire longue (ex. `openssl rand -base64 32`).
+   - `RESEND_API_KEY` : clé API [Resend](https://resend.com), **obligatoire**
+     — toute connexion d'un compte `ADMIN`/`ORGANIZER`/`REFEREE` envoie un
+     code à usage unique par email (deuxième facteur) avant d'ouvrir la
+     session ; sans cette clé, l'envoi échoue systématiquement et **aucun
+     membre du staff ne peut se connecter** (la réinitialisation de mot de
+     passe en dépend aussi). Par défaut, les emails sont envoyés depuis
+     `onboarding@resend.dev` (domaine de test Resend, sans vérification) —
+     à remplacer par une adresse sur un domaine vérifié dans
+     `src/lib/email.ts` (`FROM_ADDRESS`) pour un envoi fiable à des
+     destinataires autres que le titulaire du compte Resend.
 4. **Compte administrateur** : n'utilisez **pas** `npm run db:seed` en
    production (il crée le compte de démo `admin@scrabble.local` /
    `admin1234`, dont les identifiants sont publics dans ce README). Créez
