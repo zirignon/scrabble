@@ -160,6 +160,23 @@ export function getNewlyPlacedLetters<T>(
 // définitivement bloqués sur la grille, cas que le logiciel ne peut pas
 // détecter puisqu'il ne simule pas le sac).
 //
+// Lettres réellement non jouées d'un tirage (multiset brut, sans tri ni
+// suggestion automatique de joker) : le "+" est un séparateur
+// d'affichage/saisie (voir validateGameRackAction), pas une lettre du
+// tirage — on l'ignore ici par sécurité s'il en reste un. Partagée par
+// formatReliquat (reliquat affiché/suggéré à l'arbitre) et
+// computeRemainingLetters (suivi du sac, voir plus bas) : les deux
+// dérivent cette même notion de "ce qui n'a pas été joué ce tour-là",
+// indépendamment de la façon dont l'arbitre a saisi le "+".
+function remainingRackLetters(rack: string, playedLetters: PlayedLetter[]): string[] {
+  const remaining = rack.replace(/\+/g, "").split("");
+  for (const played of playedLetters) {
+    const idx = remaining.indexOf(played.isBlank ? "?" : played.letter);
+    if (idx !== -1) remaining.splice(idx, 1);
+  }
+  return remaining;
+}
+
 // Renvoie null si tout le tirage a été joué et qu'aucun "?" n'est à
 // suggérer (rien à compléter).
 export function formatReliquat(
@@ -167,13 +184,7 @@ export function formatReliquat(
   playedLetters: PlayedLetter[],
   formula?: string | null
 ): string | null {
-  // Le "+" est un séparateur d'affichage/saisie (voir validateGameRackAction),
-  // pas une lettre du tirage — on l'ignore ici par sécurité s'il en reste un.
-  const remaining = rack.replace(/\+/g, "").split("");
-  for (const played of playedLetters) {
-    const idx = remaining.indexOf(played.isBlank ? "?" : played.letter);
-    if (idx !== -1) remaining.splice(idx, 1);
-  }
+  const remaining = remainingRackLetters(rack, playedLetters);
   if (isJokerFormula(formula) && !remaining.includes("?")) {
     remaining.push("?");
   }
@@ -214,6 +225,87 @@ export function computeLastReliquat(
     return formatReliquat(lastMove.rack, playedLetters, formula);
   }
   return formatReliquat(lastMove.rack, [], formula);
+}
+
+// Distribution officielle des 102 jetons du Scrabble francophone (ODS) :
+// 100 lettres + 2 jokers. Sert uniquement au suivi du sac d'une partie
+// joker (voir computeRemainingLetters) — les jokers eux-mêmes ne sont pas
+// comptés ici, puisqu'ils sont suivis séparément (ReferenceMove/
+// ResolvedJoker), pas comme des lettres ordinaires piochées.
+export const FRENCH_LETTER_DISTRIBUTION: Record<string, number> = {
+  A: 9, B: 2, C: 2, D: 3, E: 15, F: 2, G: 2, H: 2, I: 8, J: 1, K: 1,
+  L: 5, M: 3, N: 6, O: 6, P: 2, Q: 1, R: 6, S: 6, T: 6, U: 6, V: 2,
+  W: 1, X: 1, Y: 1, Z: 1,
+};
+
+// Estime, pour une partie joker donnée, combien d'exemplaires de chaque
+// lettre restent dans le sac — à partir des seules données déjà
+// enregistrées (ReferenceMove.rack et ResolvedJoker), sans dépendre du
+// format de saisie "reliquat+nouvelles" de l'arbitre : les lettres
+// nouvellement tirées à chaque tour sont déduites en comparant le tirage
+// complet annoncé à ce tour-là au reliquat réellement non joué du tour
+// précédent (recalculé nous-mêmes via remainingRackLetters, pas celui
+// suggéré par formatReliquat qui peut inclure un "?" ajouté
+// automatiquement). Un joker résolu (ResolvedJoker) consomme en plus un
+// exemplaire de la lettre qu'il représente, puisque son remplacement
+// physique tire une tuile supplémentaire du sac, hors tirage normal.
+//
+// Reste une estimation : si l'arbitre ne renseigne pas le tirage d'un
+// coup (rack null, ne devrait pas arriver pour un coup validé via le
+// formulaire), le suivi perd la trace du reliquat à ce point et
+// recommence à zéro au coup suivant plutôt que de se tromper en
+// silence. Comme le logiciel ne simule pas le sac physique, ce compteur
+// reste indicatif — voir resolveJokerAction pour la correction manuelle
+// si l'estimation se trompe.
+export function computeRemainingLetters(
+  moves: ReliquatMoveLike[],
+  resolvedJokers: ResolvedJokerLike[]
+): Record<string, number> {
+  const remaining: Record<string, number> = { ...FRENCH_LETTER_DISTRIBUTION };
+  const sorted = [...moves].sort((a, b) => a.turnNumber - b.turnNumber);
+
+  let previousReliquat: string[] = [];
+  for (const move of sorted) {
+    if (!move.rack) {
+      previousReliquat = [];
+      continue;
+    }
+    const fullRack = move.rack.replace(/\+/g, "").split("");
+
+    // Lettres nouvellement tirées ce tour-ci = tirage complet moins le
+    // reliquat (réel) du tour précédent, retiré une occurrence à la fois.
+    const newlyDrawn = [...fullRack];
+    for (const carried of previousReliquat) {
+      const idx = newlyDrawn.indexOf(carried);
+      if (idx !== -1) newlyDrawn.splice(idx, 1);
+    }
+    for (const letter of newlyDrawn) {
+      if (letter === "?") continue;
+      if (letter in remaining) remaining[letter] -= 1;
+    }
+
+    const playedLetters =
+      !move.isPass && move.word
+        ? getNewlyPlacedLetters(
+            reconstructBoard(sorted.filter((m) => m.turnNumber < move.turnNumber)),
+            move.word,
+            move.row,
+            move.col,
+            move.direction as "ACROSS" | "DOWN"
+          )
+        : [];
+    previousReliquat = remainingRackLetters(move.rack, playedLetters);
+  }
+
+  if (resolvedJokers.length > 0) {
+    const board = reconstructBoard(moves);
+    for (const { row, col } of resolvedJokers) {
+      const letter = board[row - 1]?.[col - 1]?.letter;
+      if (letter && letter in remaining) remaining[letter] -= 1;
+    }
+  }
+
+  return remaining;
 }
 
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois

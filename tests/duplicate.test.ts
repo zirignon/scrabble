@@ -4,10 +4,12 @@ import { PrismaClient } from "@prisma/client";
 import {
   applyResolvedJokers,
   computeLastReliquat,
+  computeRemainingLetters,
   formatReliquat,
   isJokerFormula,
   reconstructBoard,
   BOARD_SIZE,
+  FRENCH_LETTER_DISTRIBUTION,
   type BoardCell,
 } from "../src/lib/duplicate/board";
 
@@ -82,6 +84,70 @@ test("computeLastReliquat : propage la formule jusqu'au dernier coup joué", () 
   ];
   assert.equal(computeLastReliquat(moves, "JOKER"), "?+");
   assert.equal(computeLastReliquat(moves), null);
+});
+
+// computeRemainingLetters sert à décider, dans validateGameRackAction, si
+// un joker peut être résolu automatiquement (règlement FISF) : il ne doit
+// décompter qu'une seule fois chaque lettre réellement tirée, jamais le
+// reliquat reporté d'un tour à l'autre.
+test("computeRemainingLetters : décompte les lettres nouvellement tirées, sans doublon sur le reliquat reporté", () => {
+  const moves = [
+    // Tirage "AB" : seul le A est joué, le B reste en reliquat.
+    { turnNumber: 1, row: 1, col: 1, direction: "ACROSS", word: "A", isPass: false, rack: "AB" },
+    // Tirage complet annoncé au tour 2 = reliquat "B" + nouvelles "CD" ;
+    // le B ne doit pas être décompté une seconde fois ici.
+    { turnNumber: 2, row: 3, col: 1, direction: "ACROSS", word: "BCD", isPass: false, rack: "BCD" },
+  ];
+  const remaining = computeRemainingLetters(moves, []);
+  assert.equal(remaining.A, FRENCH_LETTER_DISTRIBUTION.A - 1);
+  assert.equal(remaining.B, FRENCH_LETTER_DISTRIBUTION.B - 1, "le B ne doit être décompté qu'une fois");
+  assert.equal(remaining.C, FRENCH_LETTER_DISTRIBUTION.C - 1);
+  assert.equal(remaining.D, FRENCH_LETTER_DISTRIBUTION.D - 1);
+  assert.equal(remaining.E, FRENCH_LETTER_DISTRIBUTION.E, "une lettre jamais tirée reste à son compte plein");
+});
+
+test("computeRemainingLetters : un joker résolu consomme en plus un exemplaire de la lettre représentée", () => {
+  const moves = [
+    { turnNumber: 1, row: 8, col: 8, direction: "ACROSS", word: "RaT", isPass: false, rack: "RT?" },
+  ];
+  // Le tirage "RT?" ne contient aucun "A" réel : seule la résolution du
+  // joker (ci-dessous) doit décompter un A.
+  const remainingBefore = computeRemainingLetters(moves, []);
+  assert.equal(remainingBefore.A, FRENCH_LETTER_DISTRIBUTION.A);
+
+  const remainingAfter = computeRemainingLetters(moves, [{ row: 8, col: 9 }]);
+  assert.equal(remainingAfter.A, FRENCH_LETTER_DISTRIBUTION.A - 1);
+  assert.equal(remainingAfter.R, FRENCH_LETTER_DISTRIBUTION.R - 1);
+  assert.equal(remainingAfter.T, FRENCH_LETTER_DISTRIBUTION.T - 1);
+});
+
+test("computeRemainingLetters : une lettre entièrement tirée tombe à 0 (jamais sous 0 via la résolution d'un joker inexistant)", () => {
+  // Un seul coup qui épuise d'un coup les 15 "E" de la distribution (cas
+  // artificiel, pour vérifier que le compteur peut atteindre 0 et que
+  // c'est bien ce que la résolution automatique consulte pour décider).
+  const moves = [
+    {
+      turnNumber: 1,
+      row: 5,
+      col: 1,
+      direction: "ACROSS",
+      word: "EEEEEEEEEEEEEEE",
+      isPass: false,
+      rack: "EEEEEEEEEEEEEEE",
+    },
+  ];
+  const remaining = computeRemainingLetters(moves, []);
+  assert.equal(remaining.E, 0, "les 15 E de la distribution sont épuisés");
+});
+
+test("computeRemainingLetters : un tirage sans rack enregistré ne fait pas planter le suivi", () => {
+  const moves = [
+    { turnNumber: 1, row: 1, col: 1, direction: "ACROSS", word: "A", isPass: false, rack: null },
+    { turnNumber: 2, row: 3, col: 1, direction: "ACROSS", word: "B", isPass: false, rack: "B" },
+  ];
+  assert.doesNotThrow(() => computeRemainingLetters(moves, []));
+  const remaining = computeRemainingLetters(moves, []);
+  assert.equal(remaining.B, FRENCH_LETTER_DISTRIBUTION.B - 1);
 });
 
 test("applyResolvedJokers : ne lève le statut blanc que des cases résolues, sans muter l'original", () => {
@@ -217,13 +283,13 @@ test(
 );
 
 // Règlement FISF : un joker joué est remplacé par la lettre qu'il
-// représentait dès le tirage du tour suivant. Reproduit ici (hors
-// requireRole, voir la note sur le test précédent) exactement la boucle
-// de résolution automatique de validateGameRackAction : tout joker non
-// résolu doit être résolu quand l'arbitre valide le tirage suivant, sans
-// action manuelle sur "Résoudre".
+// représentait dès le tirage du tour suivant, SI cette lettre est encore
+// dans le sac. Reproduit ici (hors requireRole, voir la note sur le test
+// précédent) exactement la boucle de résolution automatique *gated* de
+// validateGameRackAction (src/lib/actions/duplicate.ts), qui consulte
+// computeRemainingLetters avant de résoudre chaque joker non résolu.
 test(
-  "validation du tirage suivant : résout automatiquement tout joker non résolu",
+  "validation du tirage suivant : résout un joker si sa lettre est disponible, pas si elle est épuisée",
   async (t) => {
     const dbAvailable = await prisma.$queryRaw`SELECT 1`
       .then(() => true)
@@ -254,6 +320,8 @@ test(
     const game = await prisma.game.create({
       data: { tournamentId: tournament.id, number: 1 },
     });
+    // Coup 1 : "KAT" (K, A, T réels, aucun joker) — épuise le seul K de la
+    // distribution (FRENCH_LETTER_DISTRIBUTION.K === 1).
     await prisma.referenceMove.create({
       data: {
         gameId: game.id,
@@ -261,15 +329,41 @@ test(
         row: 8,
         col: 8,
         direction: "ACROSS",
-        word: "RaT",
+        word: "KAT",
+        rack: "KAT",
         points: 4,
+      },
+    });
+    // Coup 2 : un joker isolé représentant K (lettre déjà épuisée).
+    await prisma.referenceMove.create({
+      data: {
+        gameId: game.id,
+        turnNumber: 2,
+        row: 10,
+        col: 5,
+        direction: "ACROSS",
+        word: "k",
+        rack: "?",
+        points: 0,
+      },
+    });
+    // Coup 3 : un joker isolé représentant A (abondant, 9 dans la
+    // distribution, un seul tiré jusqu'ici).
+    await prisma.referenceMove.create({
+      data: {
+        gameId: game.id,
+        turnNumber: 3,
+        row: 12,
+        col: 3,
+        direction: "ACROSS",
+        word: "a",
+        rack: "?",
+        points: 0,
       },
     });
 
     try {
-      // Reproduit la boucle de validateGameRackAction (src/lib/actions/
-      // duplicate.ts) : balaie la grille reconstruite, résout tout "?"
-      // non déjà listé dans ResolvedJoker.
+      // Reproduit la boucle *gated* de validateGameRackAction.
       const moves = await prisma.referenceMove.findMany({ where: { gameId: game.id } });
       const board = reconstructBoard(moves);
       const alreadyResolved = new Set(
@@ -277,43 +371,47 @@ test(
           (r) => `${r.row}-${r.col}`
         )
       );
-      const toResolve: { gameId: string; row: number; col: number }[] = [];
+      const unresolvedCells: { row: number; col: number; letter: string }[] = [];
       for (let r = 0; r < BOARD_SIZE; r++) {
         for (let c = 0; c < BOARD_SIZE; c++) {
-          if (board[r][c]?.isBlank && !alreadyResolved.has(`${r + 1}-${c + 1}`)) {
-            toResolve.push({ gameId: game.id, row: r + 1, col: c + 1 });
+          const cell = board[r][c];
+          if (cell?.isBlank && !alreadyResolved.has(`${r + 1}-${c + 1}`)) {
+            unresolvedCells.push({ row: r + 1, col: c + 1, letter: cell.letter });
           }
         }
       }
-      assert.equal(toResolve.length, 1, "un seul joker non résolu à ce stade (le A de RaT)");
+      assert.equal(unresolvedCells.length, 2, "les jokers K et A, tous deux non résolus");
+
+      const remaining = computeRemainingLetters(moves, []);
+      assert.equal(remaining.K, 0, "le seul K de la distribution a déjà été tiré au coup 1");
+      assert.ok(remaining.A > 0, "il reste des A dans la distribution");
+
+      const toResolve: { gameId: string; row: number; col: number }[] = [];
+      for (const cell of unresolvedCells) {
+        if ((remaining[cell.letter] ?? 0) > 0) {
+          toResolve.push({ gameId: game.id, row: cell.row, col: cell.col });
+          remaining[cell.letter] -= 1;
+        }
+      }
+      assert.equal(toResolve.length, 1, "seul le joker A doit être résolu, pas le K épuisé");
+      assert.deepEqual(
+        { row: toResolve[0].row, col: toResolve[0].col },
+        { row: 12, col: 3 }
+      );
       await prisma.resolvedJoker.createMany({ data: toResolve, skipDuplicates: true });
 
       const resolvedRows = await prisma.resolvedJoker.findMany({ where: { gameId: game.id } });
       assert.equal(resolvedRows.length, 1);
-      assert.deepEqual(
-        { row: resolvedRows[0].row, col: resolvedRows[0].col },
-        { row: 8, col: 9 }
-      );
 
-      const movesAfter = await prisma.referenceMove.findMany({ where: { gameId: game.id } });
+      const movesAfter = await prisma.referenceMove.findMany({
+        where: { gameId: game.id },
+        orderBy: { turnNumber: "asc" },
+      });
       assert.equal(
         movesAfter[0].points,
         4,
         "le score du coup déjà enregistré ne doit jamais changer"
       );
-
-      // Rejouer la même boucle (validation d'un 3e tirage) ne doit rien
-      // créer de plus (déjà résolu, idempotent).
-      const alreadyResolved2 = new Set(resolvedRows.map((r) => `${r.row}-${r.col}`));
-      const toResolve2 = [];
-      for (let r = 0; r < BOARD_SIZE; r++) {
-        for (let c = 0; c < BOARD_SIZE; c++) {
-          if (board[r][c]?.isBlank && !alreadyResolved2.has(`${r + 1}-${c + 1}`)) {
-            toResolve2.push({ gameId: game.id, row: r + 1, col: c + 1 });
-          }
-        }
-      }
-      assert.equal(toResolve2.length, 0);
     } finally {
       await prisma.resolvedJoker.deleteMany({ where: { gameId: game.id } });
       await prisma.referenceMove.deleteMany({ where: { gameId: game.id } });

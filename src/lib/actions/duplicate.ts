@@ -16,6 +16,7 @@ import {
   buildPlainBoard,
   reconstructBoard,
   isJokerFormula,
+  computeRemainingLetters,
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
@@ -95,11 +96,15 @@ export async function setGameTimerDurationAction(
 // En formule joker (règlement FISF, voir le commentaire sur getBingoRules) :
 // valider le tirage du tour suivant est le moment où un joker joué au tour
 // précédent est remplacé par la lettre qu'il représentait, si elle est
-// encore dans le sac. Le logiciel ne pouvant pas vérifier cette condition
-// (il ne simule pas le sac), il résout automatiquement tout joker encore
-// non résolu à ce moment-là ; l'arbitre corrige via "Annuler" (section
-// "Jokers sur la grille") le cas où la lettre n'était plus disponible et
-// que le joker doit rester bloqué sur la grille.
+// encore dans le sac. Le logiciel ne simule pas le sac physique, mais
+// estime combien d'exemplaires de chaque lettre y restent encore à partir
+// des tirages déjà enregistrés (computeRemainingLetters) : un joker n'est
+// résolu automatiquement que si cette estimation montre qu'il en reste au
+// moins un, sinon il reste bloqué sur la grille sans action de l'arbitre
+// (conforme au règlement, sans avoir à cliquer "Annuler" dans le cas
+// courant). L'estimation restant indicative (l'arbitre seul suit le sac
+// réel), "Résoudre"/"Annuler" (section "Jokers sur la grille") permettent
+// de corriger si elle se trompe.
 export async function validateGameRackAction(
   tournamentId: string,
   gameId: string,
@@ -118,16 +123,30 @@ export async function validateGameRackAction(
   if (isJokerFormula(tournament.duplicateFormula)) {
     const board = reconstructBoard(game.referenceMoves);
     const alreadyResolved = new Set(game.resolvedJokers.map((r) => `${r.row}-${r.col}`));
-    const toResolve: { gameId: string; row: number; col: number }[] = [];
+    const unresolvedCells: { row: number; col: number; letter: string }[] = [];
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
-        if (board[r][c]?.isBlank && !alreadyResolved.has(`${r + 1}-${c + 1}`)) {
-          toResolve.push({ gameId, row: r + 1, col: c + 1 });
+        const cell = board[r][c];
+        if (cell?.isBlank && !alreadyResolved.has(`${r + 1}-${c + 1}`)) {
+          unresolvedCells.push({ row: r + 1, col: c + 1, letter: cell.letter });
         }
       }
     }
-    if (toResolve.length > 0) {
-      await prisma.resolvedJoker.createMany({ data: toResolve, skipDuplicates: true });
+    if (unresolvedCells.length > 0) {
+      const remaining = computeRemainingLetters(game.referenceMoves, game.resolvedJokers);
+      const toResolve: { gameId: string; row: number; col: number }[] = [];
+      for (const cell of unresolvedCells) {
+        if ((remaining[cell.letter] ?? 0) > 0) {
+          toResolve.push({ gameId, row: cell.row, col: cell.col });
+          // Décrémente aussitôt : si deux jokers non résolus représentent
+          // la même lettre et qu'il n'en reste qu'un exemplaire estimé,
+          // un seul des deux doit être résolu dans cette même validation.
+          remaining[cell.letter] -= 1;
+        }
+      }
+      if (toResolve.length > 0) {
+        await prisma.resolvedJoker.createMany({ data: toResolve, skipDuplicates: true });
+      }
     }
   }
 

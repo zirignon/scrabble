@@ -16,6 +16,7 @@ import {
   reconstructBoard,
   applyResolvedJokers,
   isJokerFormula,
+  computeRemainingLetters,
   formatReference,
   getFreeAvertissementCount,
   getRythmeAlertSeconds,
@@ -104,11 +105,22 @@ export default async function GameMovesPage({
   // à l'arbitre de les résoudre une fois la lettre remplacée dans le sac
   // (règlement FISF, voir le commentaire sur getBingoRules) — uniquement
   // pertinent dans les formules joker, voir isJokerFormula.
+  const remainingLetters = isJokerFormula(tournament.duplicateFormula)
+    ? computeRemainingLetters(game.referenceMoves, game.resolvedJokers)
+    : {};
   const unresolvedJokers = isJokerFormula(tournament.duplicateFormula)
     ? board.flatMap((rowCells, r) =>
         rowCells.flatMap((cell, c) =>
           cell?.isBlank
-            ? [{ row: r + 1, col: c + 1, letter: cell.letter, reference: formatReference(r + 1, c + 1, "ACROSS") }]
+            ? [
+                {
+                  row: r + 1,
+                  col: c + 1,
+                  letter: cell.letter,
+                  reference: formatReference(r + 1, c + 1, "ACROSS"),
+                  remaining: remainingLetters[cell.letter] ?? 0,
+                },
+              ]
             : []
         )
       )
@@ -260,6 +272,9 @@ export default async function GameMovesPage({
                       >
                         <span>
                           {j.reference} — lettre {j.letter}
+                          {j.remaining <= 0 && (
+                            <span className="text-brick"> (lettre épuisée, estimation)</span>
+                          )}
                         </span>
                         <form action={resolveJokerBound.bind(null, j.row, j.col)}>
                           <button
