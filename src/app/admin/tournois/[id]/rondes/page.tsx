@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { requireRole, canManageTournament, canRecordResults, STAFF_ROLES } from "@/lib/guards";
 import {
   addManualRoundAction,
   addMatchAction,
@@ -564,9 +564,15 @@ export default async function RoundsPage({
   if (!tournament || tournament.type !== "CLASSIC") notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
-  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
-  // quel membre du staff pourrait consulter les rondes d'un tournoi tiers.
-  if (!canManage) notFound();
+  // Un arbitre explicitement assigné à ce tournoi (TournamentReferee) peut
+  // aussi consulter cette page, pour y saisir les scores — mais pas gérer
+  // le reste (génération des rondes, ajout manuel de match...), qui reste
+  // réservé à canManage ci-dessus, utilisé seul pour ces actions-là plus
+  // bas sur cette page. Voir le commentaire équivalent dans page.tsx pour
+  // le garde lui-même : sans lui, n'importe quel membre du staff pourrait
+  // consulter les rondes d'un tournoi tiers.
+  const canEnterScores = await canRecordResults(session, tournament);
+  if (!canEnterScores) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const generateBound = generateRoundRobinAction.bind(null, tournament.id);
   const generateTeamBound = generateTeamRoundRobinAction.bind(null, tournament.id);
@@ -682,12 +688,14 @@ export default async function RoundsPage({
               Exporter les rondes en PDF
             </a>
           )}
-          <Link
-            href={`/admin/tournois/${tournament.id}/reglages`}
-            className="text-sm text-emerald-700 dark:text-emerald-400 underline"
-          >
-            Réglages →
-          </Link>
+          {canManage && (
+            <Link
+              href={`/admin/tournois/${tournament.id}/reglages`}
+              className="text-sm text-emerald-700 dark:text-emerald-400 underline"
+            >
+              Réglages →
+            </Link>
+          )}
         </div>
       </div>
 
@@ -922,7 +930,7 @@ export default async function RoundsPage({
               <KnockoutConfrontationsTable
                 confrontations={mainConfrontations}
                 legLabels={legLabels}
-                canManage={canManage}
+                canManage={canEnterScores}
                 tournamentId={tournament.id}
               />
               {thirdPlaceConfrontation && (
@@ -936,7 +944,7 @@ export default async function RoundsPage({
                   <KnockoutConfrontationsTable
                     confrontations={[thirdPlaceConfrontation]}
                     legLabels={legLabels}
-                    canManage={canManage}
+                    canManage={canEnterScores}
                     tournamentId={tournament.id}
                   />
                 </div>
@@ -981,7 +989,7 @@ export default async function RoundsPage({
                   <h3 className="font-medium text-sm">{pool.name}</h3>
                   <MatchTable
                     matches={matches}
-                    canManage={canManage}
+                    canManage={canEnterScores}
                     tournamentId={tournament.id}
                   />
                 </div>
@@ -1016,7 +1024,7 @@ export default async function RoundsPage({
               </div>
               <MatchTable
                 matches={mainMatches}
-                canManage={canManage}
+                canManage={canEnterScores}
                 tournamentId={tournament.id}
               />
               {thirdPlaceMatches.length > 0 && (
@@ -1026,7 +1034,7 @@ export default async function RoundsPage({
                   </h3>
                   <MatchTable
                     matches={thirdPlaceMatches}
-                    canManage={canManage}
+                    canManage={canEnterScores}
                     tournamentId={tournament.id}
                   />
                 </div>
@@ -1140,7 +1148,7 @@ export default async function RoundsPage({
                       </p>
                       <MatchTable
                         matches={matches}
-                        canManage={canManage}
+                        canManage={canEnterScores}
                         tournamentId={tournament.id}
                       />
                     </div>
@@ -1227,7 +1235,7 @@ export default async function RoundsPage({
                 </h3>
                 <MatchTable
                   matches={matches}
-                  canManage={canManage}
+                  canManage={canEnterScores}
                   tournamentId={tournament.id}
                 />
               </div>
@@ -1248,7 +1256,7 @@ export default async function RoundsPage({
                 </h3>
                 <MatchTable
                   matches={thirdPlaceEncounter.matches}
-                  canManage={canManage}
+                  canManage={canEnterScores}
                   tournamentId={tournament.id}
                 />
               </div>

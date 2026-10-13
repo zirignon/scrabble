@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { requireRole, canManageTournament, canRecordResults, STAFF_ROLES } from "@/lib/guards";
 import {
   addReferenceMoveAction,
   deleteReferenceMoveAction,
@@ -83,9 +83,15 @@ export default async function GameMovesPage({
   if (!game || game.tournamentId !== tournament.id) notFound();
 
   const canManage = canManageTournament(session, tournament.organizerId);
-  // Voir le commentaire équivalent dans page.tsx : sans ce garde, n'importe
+  // Un arbitre explicitement assigné à ce tournoi (TournamentReferee) peut
+  // aussi consulter cette page, pour y saisir les scores de la feuille de
+  // partie (plus bas) — mais pas gérer la grille de référence ni le
+  // chrono (ReferenceMoveNavigator/GameTimerControls ci-dessous), qui
+  // restent gérés via canManage uniquement, inchangé. Voir le commentaire
+  // équivalent dans page.tsx pour le garde lui-même : sans lui, n'importe
   // quel membre du staff pourrait consulter la saisie d'une partie tierce.
-  if (!canManage) notFound();
+  const canEnterScores = await canRecordResults(session, tournament);
+  if (!canEnterScores) notFound();
   const players = tournament.registrations.map((r) => r.player);
   const resultByPlayer = new Map(game.results.map((r) => [r.playerId, r]));
   const board = reconstructBoard(game.referenceMoves);
@@ -234,7 +240,7 @@ export default async function GameMovesPage({
                       {label}
                     </th>
                   ))}
-                  {canManage && <th className="py-2 pr-2"></th>}
+                  {canEnterScores && <th className="py-2 pr-2"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -297,7 +303,7 @@ export default async function GameMovesPage({
                             Solo{info.soloBonus > 0 ? " +10" : ""}
                           </span>
                         );
-                        const soloConfirmForm = canManage && soloEligible && info.isSolo && (
+                        const soloConfirmForm = canEnterScores && soloEligible && info.isSolo && (
                           <form
                             action={toggleSoloConfirmationAction.bind(
                               null,
@@ -326,7 +332,7 @@ export default async function GameMovesPage({
                         );
                         return (
                           <td key={player.id} className="py-1 px-2 text-center">
-                            {canManage ? (
+                            {canEnterScores ? (
                               <div className="flex flex-col items-center gap-0.5">
                                 <input
                                   form={formId}
@@ -365,7 +371,7 @@ export default async function GameMovesPage({
                           </td>
                         );
                       })}
-                      {canManage && (
+                      {canEnterScores && (
                         <td className="py-1.5 pr-2">
                           <form
                             id={formId}
@@ -386,7 +392,7 @@ export default async function GameMovesPage({
                 {game.referenceMoves.length === 0 && (
                   <tr>
                     <td
-                      colSpan={2 + anonymizedPlayers.length + (canManage ? 1 : 0)}
+                      colSpan={2 + anonymizedPlayers.length + (canEnterScores ? 1 : 0)}
                       className="py-2 text-black/50 dark:text-white/50"
                     >
                       Aucun coup de référence saisi pour l&apos;instant.
@@ -409,7 +415,7 @@ export default async function GameMovesPage({
                         </td>
                       );
                     })}
-                    {canManage && <td></td>}
+                    {canEnterScores && <td></td>}
                   </tr>
                 </tfoot>
               )}

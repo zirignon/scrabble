@@ -8,6 +8,7 @@ import {
   unregisterPlayerAction,
   updateTournamentStatusFormAction,
 } from "@/lib/actions/tournaments";
+import { assignRefereeAction, unassignRefereeAction } from "@/lib/actions/referees";
 import { DeleteTournamentButton } from "@/components/admin/DeleteTournamentButton";
 import { PlayerSearchSelect } from "@/components/admin/PlayerSearchSelect";
 import { RegistrationStatusPill, exportLink, card, cardHover } from "@/components/public/StatusPill";
@@ -47,7 +48,7 @@ export default async function ManageTournamentPage({
   const { id } = await params;
   const session = await requireRole(STAFF_ROLES);
 
-  const [tournament, clubs] = await Promise.all([
+  const [tournament, clubs, referees] = await Promise.all([
     prisma.tournament.findUnique({
       where: { id },
       include: {
@@ -55,10 +56,15 @@ export default async function ManageTournamentPage({
           include: { player: { include: { club: true } } },
           orderBy: { createdAt: "asc" },
         },
+        refereeAssignments: { include: { user: true }, orderBy: { createdAt: "asc" } },
         _count: { select: { rounds: true, games: true, teams: true, pools: true } },
       },
     }),
     prisma.club.findMany({ orderBy: { name: "asc" } }),
+    // Sert au formulaire d'assignation d'arbitre plus bas : tous les
+    // comptes REFEREE existants, pour que l'organisateur en désigne un sur
+    // CE tournoi (TournamentReferee) sans avoir à connaître son ID.
+    prisma.user.findMany({ where: { role: "REFEREE" }, orderBy: { name: "asc" } }),
   ]);
   if (!tournament) notFound();
 
@@ -184,6 +190,13 @@ export default async function ManageTournamentPage({
               detail={`Mode actuel : ${currentDisplayModeLabel}`}
             />
           )}
+          {canManage && (
+            <NavCard
+              href="#arbitres"
+              title="Arbitres"
+              detail={`${tournament.refereeAssignments.length} arbitre(s) assigné(s)`}
+            />
+          )}
         </div>
       </section>
 
@@ -282,6 +295,92 @@ export default async function ManageTournamentPage({
               </form>
             ))}
           </div>
+        </section>
+      )}
+
+      {canManage && (
+        <section id="arbitres" className="flex flex-col gap-3">
+          <div>
+            <h2 className="font-heading text-lg font-semibold">Arbitres</h2>
+            <p className="text-sm text-black/60 dark:text-white/60">
+              Un arbitre assigné ici peut saisir les scores/résultats de ce
+              tournoi, sans accès aux réglages ni à la suppression de
+              données.
+            </p>
+          </div>
+
+          {tournament.refereeAssignments.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {tournament.refereeAssignments.map((assignment) => (
+                <li
+                  key={assignment.id}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span>
+                    {assignment.user.name} ({assignment.user.email})
+                  </span>
+                  <form
+                    action={unassignRefereeAction.bind(
+                      null,
+                      tournament.id,
+                      assignment.userId
+                    )}
+                  >
+                    <button type="submit" className="text-red-600 hover:underline">
+                      Retirer
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {(() => {
+            const assignedUserIds = new Set(
+              tournament.refereeAssignments.map((a) => a.userId)
+            );
+            const availableReferees = referees.filter(
+              (r) => !assignedUserIds.has(r.id)
+            );
+            if (availableReferees.length === 0) {
+              return (
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  {referees.length === 0
+                    ? "Aucun compte arbitre n'existe encore (créez-en un depuis /admin/utilisateurs)."
+                    : "Tous les comptes arbitres sont déjà assignés à ce tournoi."}
+                </p>
+              );
+            }
+            return (
+              <form
+                action={assignRefereeAction.bind(null, tournament.id)}
+                className="flex items-end gap-3"
+              >
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="userId" className="text-xs font-medium">
+                    Assigner un arbitre
+                  </label>
+                  <select
+                    id="userId"
+                    name="userId"
+                    className="rounded-md border border-black/10 dark:border-white/20 px-3 py-2 bg-transparent text-sm"
+                  >
+                    {availableReferees.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-700 text-white px-3 py-2 text-sm font-medium"
+                >
+                  Assigner
+                </button>
+              </form>
+            );
+          })()}
         </section>
       )}
 
