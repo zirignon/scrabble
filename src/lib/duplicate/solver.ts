@@ -112,13 +112,16 @@ function validateAndScore(
 // longueur compatibles avec les lettres déjà en place, vérifie que le
 // tirage permet de composer les lettres manquantes, valide les mots
 // secondaires formés par les croisements, puis calcule le score. Renvoie
-// les meilleures solutions triées par points décroissants.
+// toutes les solutions triées par points décroissants (pas seulement les
+// meilleures) ; `limit`, si fourni, plafonne le nombre renvoyé — la
+// recherche elle-même explore toujours l'intégralité des placements
+// possibles, limit ne fait que tronquer le résultat final.
 export function findWordSolutions(
   board: (string | null)[][],
   rack: string,
   dictionary: Set<string>,
   bingoRules: BingoRule[],
-  limit = 30
+  limit?: number
 ): SolverSolution[] {
   const counts = rackCounts(rack);
   const rackSize = rack.length;
@@ -245,5 +248,5 @@ export function findWordSolutions(
   }
 
   results.sort((a, b) => b.score - a.score);
-  return results.slice(0, limit);
+  return limit === undefined ? results : results.slice(0, limit);
 }

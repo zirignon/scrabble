@@ -305,9 +305,10 @@ Après `npm run db:seed` :
 - Recherche automatique de solutions pour la grille de référence : à
   partir du tirage saisi, de la grille actuelle et du dictionnaire
   importé, le bouton « Solutions » du formulaire de coup de référence
-  propose tous les mots jouables (mot, référence, points), triés par
-  score décroissant ; l'arbitre choisit une solution pour préremplir
-  automatiquement la référence et le mot avant de valider le coup
+  propose la totalité des mots jouables trouvés (mot, référence,
+  points), sans plafond, triés par score décroissant ; l'arbitre
+  choisit une solution pour préremplir automatiquement la référence et
+  le mot avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré automatiquement par l'arbitre
   dès la validation du tirage du tour (page de détail coup par coup, sous

@@ -815,5 +815,5 @@ export async function findReferenceMoveSolutionsAction(
   const dictionary = new Set(dictionaryWords.map((w) => w.word));
   const bingoRules = getBingoRules(game.tournament.duplicateFormula);
 
-  return findWordSolutions(board, rack, dictionary, bingoRules, 30);
+  return findWordSolutions(board, rack, dictionary, bingoRules);
 }
