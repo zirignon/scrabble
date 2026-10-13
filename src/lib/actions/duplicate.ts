@@ -91,17 +91,45 @@ export async function setGameTimerDurationAction(
 // déjà écoulé si l'arbitre revalide par erreur) — l'arbitre n'a plus de
 // bouton "Démarrer" séparé à cliquer, celui-ci restant utile seulement
 // pour reprendre après une pause.
+//
+// En formule joker (règlement FISF, voir le commentaire sur getBingoRules) :
+// valider le tirage du tour suivant est le moment où un joker joué au tour
+// précédent est remplacé par la lettre qu'il représentait, si elle est
+// encore dans le sac. Le logiciel ne pouvant pas vérifier cette condition
+// (il ne simule pas le sac), il résout automatiquement tout joker encore
+// non résolu à ce moment-là ; l'arbitre corrige via "Annuler" (section
+// "Jokers sur la grille") le cas où la lettre n'était plus disponible et
+// que le joker doit rester bloqué sur la grille.
 export async function validateGameRackAction(
   tournamentId: string,
   gameId: string,
   formData: FormData
 ) {
-  await assertCanManage(tournamentId);
+  const tournament = await assertCanManage(tournamentId);
   await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const rack = formData.get("rack");
   if (typeof rack !== "string" || !rack.trim()) return;
 
-  const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
+  const game = await prisma.game.findUniqueOrThrow({
+    where: { id: gameId },
+    include: { referenceMoves: true, resolvedJokers: true },
+  });
+
+  if (isJokerFormula(tournament.duplicateFormula)) {
+    const board = reconstructBoard(game.referenceMoves);
+    const alreadyResolved = new Set(game.resolvedJokers.map((r) => `${r.row}-${r.col}`));
+    const toResolve: { gameId: string; row: number; col: number }[] = [];
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        if (board[r][c]?.isBlank && !alreadyResolved.has(`${r + 1}-${c + 1}`)) {
+          toResolve.push({ gameId, row: r + 1, col: c + 1 });
+        }
+      }
+    }
+    if (toResolve.length > 0) {
+      await prisma.resolvedJoker.createMany({ data: toResolve, skipDuplicates: true });
+    }
+  }
 
   await prisma.game.update({
     where: { id: gameId },

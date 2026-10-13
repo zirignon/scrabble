@@ -257,16 +257,21 @@ Après `npm run db:seed` :
   fait via un sélecteur « Coup » à côté de la grille (un seul coup
   affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
   tous les coups joués, pour ne pas surcharger l'espace
-- Résolution du joker (formules « joker » uniquement) : quand
-  l'arbitre remplace physiquement, au tirage suivant, un joker posé sur
-  la grille par la lettre qu'il représentait (règlement FISF — la
-  lettre doit encore être présente dans le sac), un bouton « Résoudre »
-  à côté de chaque joker non résolu permet de le signaler au logiciel.
-  La grille affiche alors cette case normalement (coefficient de
-  lettre visible), sur la page d'arbitrage comme sur l'affichage grand
-  écran. Le score déjà enregistré du coup qui a posé cette lettre n'est
-  jamais recalculé — seul l'affichage change. Une résolution se
-  corrige via le bouton « Annuler » si elle a été saisie par erreur
+- Résolution du joker (formules « joker » uniquement) : le règlement
+  FISF remplace physiquement, au tirage suivant, un joker posé sur la
+  grille par la lettre qu'il représentait (si elle est encore présente
+  dans le sac). Dès que l'arbitre valide le tirage du tour suivant, le
+  logiciel résout automatiquement tout joker encore non résolu — la
+  grille affiche alors cette case normalement (coefficient de lettre
+  visible), sur la page d'arbitrage comme sur l'affichage grand écran.
+  Le score déjà enregistré du coup qui a posé cette lettre n'est jamais
+  recalculé — seul l'affichage change. Comme le logiciel ne simule pas
+  le sac, il ne peut pas savoir si la lettre était vraiment encore
+  disponible : si ce n'était pas le cas et que le joker doit rester
+  bloqué sur la grille, l'arbitre annule la résolution automatique via
+  le bouton « Annuler » (section « Jokers sur la grille », page de
+  détail de la partie). Un bouton « Résoudre » reste aussi disponible
+  pour marquer un joker résolu plus tôt si besoin
 - Classement cumulé (rang, licence, nom, prénoms séparés, classification,
   catégorie, club, nationalité, cumul net, négatif et pourcentage cumulés
   par rapport au cumul des tops, puis une colonne par partie jouée) et une

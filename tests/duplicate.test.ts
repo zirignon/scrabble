@@ -7,6 +7,7 @@ import {
   formatReliquat,
   isJokerFormula,
   reconstructBoard,
+  BOARD_SIZE,
   type BoardCell,
 } from "../src/lib/duplicate/board";
 
@@ -204,6 +205,115 @@ test(
         create: { gameId: game.id, row: 8, col: 9 },
       });
       assert.equal(await prisma.resolvedJoker.count({ where: { gameId: game.id } }), 1);
+    } finally {
+      await prisma.resolvedJoker.deleteMany({ where: { gameId: game.id } });
+      await prisma.referenceMove.deleteMany({ where: { gameId: game.id } });
+      await prisma.game.deleteMany({ where: { id: game.id } });
+      await prisma.tournament.deleteMany({ where: { id: tournament.id } });
+      await prisma.user.deleteMany({ where: { id: organizer.id } });
+      await prisma.$disconnect();
+    }
+  }
+);
+
+// Règlement FISF : un joker joué est remplacé par la lettre qu'il
+// représentait dès le tirage du tour suivant. Reproduit ici (hors
+// requireRole, voir la note sur le test précédent) exactement la boucle
+// de résolution automatique de validateGameRackAction : tout joker non
+// résolu doit être résolu quand l'arbitre valide le tirage suivant, sans
+// action manuelle sur "Résoudre".
+test(
+  "validation du tirage suivant : résout automatiquement tout joker non résolu",
+  async (t) => {
+    const dbAvailable = await prisma.$queryRaw`SELECT 1`
+      .then(() => true)
+      .catch(() => false);
+    if (!dbAvailable) {
+      t.skip("base de données indisponible (attendu en CI)");
+      return;
+    }
+
+    const organizer = await prisma.user.create({
+      data: {
+        email: `dup-org2-${Date.now()}@test.local`,
+        name: "Organisateur",
+        role: "ORGANIZER",
+        passwordHash: "x",
+      },
+    });
+    const tournament = await prisma.tournament.create({
+      data: {
+        name: "Partie joker auto-résolution test",
+        slug: `partie-joker-auto-resolution-test-${Date.now()}`,
+        type: "DUPLICATE",
+        duplicateFormula: "JOKER",
+        organizerId: organizer.id,
+        startDate: new Date(),
+      },
+    });
+    const game = await prisma.game.create({
+      data: { tournamentId: tournament.id, number: 1 },
+    });
+    await prisma.referenceMove.create({
+      data: {
+        gameId: game.id,
+        turnNumber: 1,
+        row: 8,
+        col: 8,
+        direction: "ACROSS",
+        word: "RaT",
+        points: 4,
+      },
+    });
+
+    try {
+      // Reproduit la boucle de validateGameRackAction (src/lib/actions/
+      // duplicate.ts) : balaie la grille reconstruite, résout tout "?"
+      // non déjà listé dans ResolvedJoker.
+      const moves = await prisma.referenceMove.findMany({ where: { gameId: game.id } });
+      const board = reconstructBoard(moves);
+      const alreadyResolved = new Set(
+        (await prisma.resolvedJoker.findMany({ where: { gameId: game.id } })).map(
+          (r) => `${r.row}-${r.col}`
+        )
+      );
+      const toResolve: { gameId: string; row: number; col: number }[] = [];
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (board[r][c]?.isBlank && !alreadyResolved.has(`${r + 1}-${c + 1}`)) {
+            toResolve.push({ gameId: game.id, row: r + 1, col: c + 1 });
+          }
+        }
+      }
+      assert.equal(toResolve.length, 1, "un seul joker non résolu à ce stade (le A de RaT)");
+      await prisma.resolvedJoker.createMany({ data: toResolve, skipDuplicates: true });
+
+      const resolvedRows = await prisma.resolvedJoker.findMany({ where: { gameId: game.id } });
+      assert.equal(resolvedRows.length, 1);
+      assert.deepEqual(
+        { row: resolvedRows[0].row, col: resolvedRows[0].col },
+        { row: 8, col: 9 }
+      );
+
+      const movesAfter = await prisma.referenceMove.findMany({ where: { gameId: game.id } });
+      assert.equal(
+        movesAfter[0].points,
+        4,
+        "le score du coup déjà enregistré ne doit jamais changer"
+      );
+
+      // Rejouer la même boucle (validation d'un 3e tirage) ne doit rien
+      // créer de plus (déjà résolu, idempotent).
+      const alreadyResolved2 = new Set(resolvedRows.map((r) => `${r.row}-${r.col}`));
+      const toResolve2 = [];
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (board[r][c]?.isBlank && !alreadyResolved2.has(`${r + 1}-${c + 1}`)) {
+            toResolve2.push({ gameId: game.id, row: r + 1, col: c + 1 });
+          }
+        }
+      }
+      assert.equal(toResolve2.length, 0);
     } finally {
       await prisma.resolvedJoker.deleteMany({ where: { gameId: game.id } });
       await prisma.referenceMove.deleteMany({ where: { gameId: game.id } });
