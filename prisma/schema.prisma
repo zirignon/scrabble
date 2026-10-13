@@ -146,6 +146,7 @@ model User {
   auditLogs             AuditLog[]
   twoFactorChallenges   TwoFactorChallenge[]
   passwordResetTokens   PasswordResetToken[]
+  refereeAssignments    TournamentReferee[]
 }
 
 // Code à usage unique envoyé par email pour la double authentification,
@@ -353,6 +354,26 @@ model Tournament {
   games         Game[]
   teams         Team[]
   pools         Pool[]
+  refereeAssignments TournamentReferee[]
+}
+
+// Arbitre (compte REFEREE) explicitement désigné par l'organisateur pour
+// assister sur CE tournoi précis — un REFEREE non assigné ne peut gérer
+// que les tournois qu'il a lui-même créés (voir canManageTournament dans
+// guards.ts), ce qui ne couvre pas le cas courant d'un arbitre invité à
+// officier sur le tournoi d'un tiers. Voir canRecordResults (guards.ts)
+// pour l'étendue de ce qu'un arbitre assigné peut faire : uniquement la
+// saisie des scores/résultats, jamais la configuration ou la suppression
+// de données, réservées à ADMIN/l'organisateur.
+model TournamentReferee {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
 }
 
 model Registration {
