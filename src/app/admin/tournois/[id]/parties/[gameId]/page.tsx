@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, canRecordResults, STAFF_ROLES } from "@/lib/guards";
 import {
   addReferenceMoveAction,
+  checkPlayerWordAction,
   deleteReferenceMoveAction,
   findReferenceMoveSolutionsAction,
   saveTurnScoresAction,
@@ -26,6 +27,7 @@ import { anonymizePlayersForGame } from "@/lib/duplicate/anonymize";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
 import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
 import { GameTimerControls } from "@/components/admin/GameTimerControls";
+import { PlayerWordChecker } from "@/components/admin/PlayerWordChecker";
 
 // Étiquette + info d'affichage pour un coup : la marque de pénalité (indique
 // si l'avertissement est encore gratuit ou s'il coûte 5 points comme la
@@ -104,6 +106,7 @@ export default async function GameMovesPage({
   const updateReferenceMoveBound = updateReferenceMoveAction.bind(null, tournament.id, game.id);
   const deleteReferenceMoveBound = deleteReferenceMoveAction.bind(null, tournament.id, game.id);
   const findSolutionsBound = findReferenceMoveSolutionsAction.bind(null, tournament.id, game.id);
+  const checkPlayerWordBound = checkPlayerWordAction.bind(null, tournament.id, game.id);
   const navigatorMoves = game.referenceMoves.map((move) => ({
     id: move.id,
     turnNumber: move.turnNumber,
@@ -344,26 +347,13 @@ export default async function GameMovesPage({
                           <td key={player.id} className="py-1 px-2 text-center">
                             {canEnterScores ? (
                               <div className="flex flex-col items-center gap-0.5">
-                                <div className="flex gap-0.5">
-                                  <input
-                                    form={formId}
-                                    type="text"
-                                    name={`reference_${player.id}`}
-                                    defaultValue={pmReference ?? ""}
-                                    title="Référence du mot proposé par ce joueur (ex. H4) : laisser vide pour saisir le score à la main"
-                                    placeholder="Réf."
-                                    className="w-12 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-xs uppercase focus:outline-none"
-                                  />
-                                  <input
-                                    form={formId}
-                                    type="text"
-                                    name={`word_${player.id}`}
-                                    defaultValue={pm?.word ?? ""}
-                                    title="Mot proposé par ce joueur : vérifié automatiquement (dictionnaire, grille, tirage) et le score est calculé tout seul"
-                                    placeholder="Mot"
-                                    className="w-16 rounded border border-black/10 dark:border-white/20 px-1 py-0.5 text-center bg-transparent text-xs focus:outline-none"
-                                  />
-                                </div>
+                                <PlayerWordChecker
+                                  playerId={player.id}
+                                  formId={formId}
+                                  initialWord={pm?.word ?? ""}
+                                  initialReference={pmReference ?? ""}
+                                  checkWord={checkPlayerWordBound.bind(null, move.turnNumber)}
+                                />
                                 <input
                                   form={formId}
                                   type="number"

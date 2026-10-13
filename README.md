@@ -207,21 +207,22 @@ Après `npm run db:seed` :
   ne puisse pas favoriser un joueur qu'il reconnaîtrait ; les vrais
   noms restent affichés partout ailleurs (fiche de classement,
   classement public...)
-- Vérification automatique du mot et du coup de chaque joueur : dans la
-  feuille de partie, deux champs « Référence » et « Mot » (en plus du
-  score saisi à la main) permettent d'enregistrer la solution proposée
-  par un joueur — pas forcément identique au coup de référence officiel,
-  tant qu'elle est valide. Le logiciel vérifie le placement sur la
-  grille telle qu'elle était avant ce tour, que le mot et les mots
-  croisés existent dans le dictionnaire importé, et que le tirage
-  annoncé permet bien de composer les lettres manquantes ; il calcule
-  alors le score automatiquement, avec exactement le même calcul que le
-  coup de référence (bonus de lettre/mot, prime de Scrabble selon la
-  formule). Un coup invalide (mot inconnu, lettre en conflit avec la
-  grille, tirage insuffisant...) est refusé avec le motif précis, sans
-  rien enregistrer — l'arbitre peut toujours se rabattre sur la saisie
-  manuelle du score (champ laissé vide) si le mot du joueur n'est pas à
-  enregistrer
+- Correcteur du mot annoncé par un joueur : dans la feuille de partie, un
+  champ « Mot » (en plus du score saisi à la main) permet de taper le
+  mot qu'un joueur affirme avoir joué, puis de le vérifier d'un clic —
+  pas besoin de connaître sa référence à l'avance. Le logiciel renvoie
+  tous les placements valides de ce mot sur la grille telle qu'elle
+  était avant ce tour, avec le tirage annoncé pour ce tour-là (même
+  principe que le bouton « Solutions » du coup de référence, mais
+  restreint à un seul mot) : une liste de références avec leur score,
+  dans laquelle l'arbitre choisit le bon placement. Si la liste est
+  vide, le mot est soit absent du dictionnaire importé, soit injouable
+  avec ce tirage sur cette grille (le logiciel précise lequel). Le
+  score du placement choisi est calculé avec exactement le même calcul
+  que le coup de référence (bonus de lettre/mot, prime de Scrabble
+  selon la formule), revérifié à l'enregistrement. L'arbitre peut
+  toujours se rabattre sur la saisie manuelle du score (champ laissé
+  vide) si le mot du joueur n'est pas à enregistrer
 - Pénalités d'arbitrage sur un coup, en saisie coup par coup, conformes
   au règlement FISF du duplicate (janvier 2023) : avertissement (aucun
   effet chiffré direct pour les premiers de la partie — 5 gratuits en

@@ -883,3 +883,53 @@ export async function findReferenceMoveSolutionsAction(
 
   return findWordSolutions(board, rack, dictionary, bingoRules);
 }
+
+export interface PlayerWordCheckResult {
+  inDictionary: boolean;
+  placements: SolverSolution[];
+}
+
+// Vérifie un mot annoncé par un joueur ("comme un correcteur") : au lieu
+// d'explorer tout le dictionnaire (findReferenceMoveSolutionsAction) ou de
+// valider un placement déjà choisi (validatePlayerWord, utilisé par
+// saveTurnScoresAction au moment d'enregistrer), on part d'UN mot précis et
+// on cherche tous ses placements valides sur la grille telle qu'elle était
+// AVANT ce tour, avec le tirage annoncé pour ce tour-là — réutilise
+// findWordSolutions avec le dictionnaire complet (pour que les mots
+// croisés formés restent correctement validés), filtré ensuite au seul mot
+// recherché. Renvoie aussi si le mot existe dans le dictionnaire, pour
+// distinguer "mot inconnu" de "mot valide mais injouable ici" quand la
+// liste de placements est vide.
+export async function checkPlayerWordAction(
+  tournamentId: string,
+  gameId: string,
+  turnNumber: number,
+  word: string
+): Promise<PlayerWordCheckResult> {
+  await assertCanRecordResults(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  const trimmed = word.trim();
+  if (!trimmed) return { inDictionary: false, placements: [] };
+
+  const dictionaryCount = await prisma.dictionaryWord.count();
+  if (dictionaryCount === 0) return { inDictionary: false, placements: [] };
+
+  const [game, referenceMove, dictionaryWords] = await Promise.all([
+    prisma.game.findUniqueOrThrow({
+      where: { id: gameId },
+      include: { tournament: true, referenceMoves: true },
+    }),
+    prisma.referenceMove.findUnique({ where: { gameId_turnNumber: { gameId, turnNumber } } }),
+    prisma.dictionaryWord.findMany({ select: { word: true } }),
+  ]);
+
+  const dictionary = new Set(dictionaryWords.map((w) => w.word));
+  const inDictionary = dictionary.has(trimmed.toUpperCase());
+
+  const board = buildPlainBoard(game.referenceMoves.filter((m) => m.turnNumber < turnNumber));
+  const bingoRules = getBingoRules(game.tournament.duplicateFormula);
+  const allSolutions = findWordSolutions(board, referenceMove?.rack ?? "", dictionary, bingoRules);
+  const placements = allSolutions.filter((s) => s.word.toUpperCase() === trimmed.toUpperCase());
+
+  return { inDictionary, placements };
+}
