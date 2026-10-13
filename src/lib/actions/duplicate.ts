@@ -19,6 +19,11 @@ import {
 } from "@/lib/duplicate/board";
 import { findWordSolutions, type SolverSolution } from "@/lib/duplicate/solver";
 import { parseClock } from "@/lib/timer";
+import {
+  assertMoveInGame,
+  assertReferenceMoveInGame,
+  assertResourceInTournament,
+} from "@/lib/actions/resourceGuards";
 
 const movePenaltyValues = ["AVERTISSEMENT", "PENALITE", "ZERO"] as const;
 
@@ -39,6 +44,7 @@ export async function setGameTimerDurationAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const raw = formData.get("duration");
   if (typeof raw !== "string") return;
   // Accepte "mm:ss" (ex. "2:30") ou, pour compatibilité, un simple nombre
@@ -70,6 +76,7 @@ export async function validateGameRackAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const rack = formData.get("rack");
   if (typeof rack !== "string" || !rack.trim()) return;
 
@@ -90,6 +97,7 @@ export async function validateGameRackAction(
 // tirage avant de pouvoir redémarrer.
 export async function rejectGameRackAction(tournamentId: string, gameId: string) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
 
   // pendingRack passe à "" (chaîne vide, distincte de null) : le rejet
@@ -117,6 +125,7 @@ export async function rejectGameRackAction(tournamentId: string, gameId: string)
 // tirage sur l'affichage grand écran.
 export async function startGameTimerAction(tournamentId: string, gameId: string) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
   if (!game.pendingRack) return;
   if (!game.timerRunning) {
@@ -137,6 +146,7 @@ export async function startGameTimerAction(tournamentId: string, gameId: string)
 
 export async function pauseGameTimerAction(tournamentId: string, gameId: string) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
   if (game.timerRunning && game.timerStartedAt) {
     const elapsed = Math.floor((Date.now() - game.timerStartedAt.getTime()) / 1000);
@@ -157,6 +167,7 @@ export async function pauseGameTimerAction(tournamentId: string, gameId: string)
 
 export async function resetGameTimerAction(tournamentId: string, gameId: string) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const game = await prisma.game.findUniqueOrThrow({ where: { id: gameId } });
   await prisma.game.update({
     where: { id: gameId },
@@ -198,6 +209,7 @@ export async function saveGameScoresAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
   // Le champ "top" n'est présent dans le formulaire qu'en mode simple (sans
   // coup de référence saisi) : dès qu'il y a des coups de référence, le top
@@ -313,6 +325,7 @@ export async function addMoveAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const parsed = moveSchema.safeParse({
     rack: formData.get("rack") || undefined,
     word: formData.get("word") || undefined,
@@ -361,6 +374,8 @@ export async function updateMoveAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await assertMoveInGame(gameId, moveId);
   const parsed = moveSchema.safeParse({
     rack: formData.get("rack") || undefined,
     word: formData.get("word") || undefined,
@@ -401,6 +416,8 @@ export async function deleteMoveAction(
   moveId: string
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await assertMoveInGame(gameId, moveId);
   const move = await prisma.duplicateMove.delete({ where: { id: moveId } });
   await recomputeGameScore(gameId, move.playerId);
 
@@ -422,6 +439,7 @@ export async function saveTurnScoresAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
   const [referenceMove, registrations] = await Promise.all([
     prisma.referenceMove.findUnique({ where: { gameId_turnNumber: { gameId, turnNumber } } }),
@@ -499,6 +517,7 @@ export async function toggleSoloConfirmationAction(
   turnNumber: number
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
 
   const allMoves = await prisma.duplicateMove.findMany({
     where: { gameId },
@@ -612,6 +631,7 @@ export async function addReferenceMoveAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   const data = parseReferenceMove(formData);
   if (!data) return;
 
@@ -660,6 +680,8 @@ export async function updateReferenceMoveAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await assertReferenceMoveInGame(gameId, moveId);
   const data = parseReferenceMove(formData);
   if (!data) return;
 
@@ -676,6 +698,8 @@ export async function deleteReferenceMoveAction(
   moveId: string
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await assertReferenceMoveInGame(gameId, moveId);
   await prisma.referenceMove.delete({ where: { id: moveId } });
   await recomputeReferenceMoveScores(gameId);
 
@@ -694,6 +718,7 @@ export async function findReferenceMoveSolutionsAction(
   rack: string
 ): Promise<SolverSolution[]> {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
   if (!rack.trim()) return [];
 
   const dictionaryCount = await prisma.dictionaryWord.count();

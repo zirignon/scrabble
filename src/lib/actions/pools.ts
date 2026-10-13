@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, canManageTournament, STAFF_ROLES } from "@/lib/guards";
+import { assertResourceInTournament } from "@/lib/actions/resourceGuards";
 
 async function assertCanManage(tournamentId: string) {
   const session = await requireRole(STAFF_ROLES);
@@ -33,6 +34,7 @@ export async function createPoolAction(tournamentId: string, formData: FormData)
 
 export async function deletePoolAction(tournamentId: string, poolId: string) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "pool", id: poolId });
   await prisma.pool.delete({ where: { id: poolId } });
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);
 }
@@ -43,6 +45,7 @@ export async function addPoolMemberAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "pool", id: poolId });
   const playerId = formData.get("playerId");
   if (typeof playerId !== "string" || !playerId) return;
 
@@ -63,6 +66,7 @@ export async function removePoolMemberAction(
   memberId: string
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "poolMember", id: memberId });
   await prisma.poolMember.delete({ where: { id: memberId } });
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);
 }
@@ -73,8 +77,10 @@ export async function assignTeamToPoolAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "pool", id: poolId });
   const teamId = formData.get("teamId");
   if (typeof teamId !== "string" || !teamId) return;
+  await assertResourceInTournament(tournamentId, { kind: "team", id: teamId });
 
   await prisma.team.update({ where: { id: teamId }, data: { poolId } });
 
@@ -86,6 +92,7 @@ export async function removeTeamFromPoolAction(
   teamId: string
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "team", id: teamId });
   await prisma.team.update({ where: { id: teamId }, data: { poolId: null } });
   revalidatePath(`/admin/tournois/${tournamentId}/poules`);
 }

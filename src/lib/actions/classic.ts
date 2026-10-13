@@ -31,6 +31,7 @@ import {
 import type { Pairing } from "@/lib/classic/pairing";
 import { notifyTournamentUpdate } from "@/lib/displayEvents";
 import { classicEloDelta, classicEloResult, expectedScore, nextClassicCoefficient } from "@/lib/classic/elo";
+import { assertResourceInTournament } from "@/lib/actions/resourceGuards";
 
 // Score conventionnel attribué à un exempt (bye) : l'exempté "bat" le
 // joueur/l'équipe virtuel(le) X 50 à 0, plutôt que de laisser le match sans
@@ -2302,6 +2303,7 @@ export async function addMatchAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "round", id: roundId });
   const parsed = addMatchSchema.safeParse({
     homePlayerId: formData.get("homePlayerId"),
     awayPlayerId: formData.get("awayPlayerId"),
@@ -2453,6 +2455,7 @@ export async function recordMatchResultAction(
   formData: FormData
 ) {
   await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "match", id: matchId });
   const parsed = resultSchema.safeParse({
     homeScore: formData.get("homeScore") || undefined,
     awayScore: formData.get("awayScore") || undefined,
