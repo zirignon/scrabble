@@ -247,14 +247,6 @@ export default async function GameMovesPage({
             {canManage && isJokerFormula(tournament.duplicateFormula) && (
               <div className="rounded-md border border-black/10 dark:border-white/20 px-4 py-3 flex flex-col gap-2">
                 <p className="text-sm font-medium">Jokers sur la grille</p>
-                <p className="text-xs text-black/50 dark:text-white/50">
-                  Un joker joué est automatiquement résolu (affiché normalement sur la
-                  grille) dès que vous validez le tirage du tour suivant — le score déjà
-                  enregistré du coup n&apos;est jamais modifié. Si la lettre n&apos;était en
-                  fait plus disponible dans le sac et que le joker doit rester bloqué,
-                  annulez la résolution ci-dessous. Le bouton « Résoudre » reste
-                  disponible pour marquer un joker résolu plus tôt si besoin.
-                </p>
                 {unresolvedJokers.length === 0 ? (
                   <p className="text-sm text-black/50 dark:text-white/50">
                     Aucun joker non résolu sur la grille.
