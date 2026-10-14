@@ -6,6 +6,7 @@ import {
   computeLastReliquat,
   computeRemainingLetters,
   formatReliquat,
+  isGameOver,
   isJokerFormula,
   reconstructBoard,
   BOARD_SIZE,
@@ -148,6 +149,99 @@ test("computeRemainingLetters : un tirage sans rack enregistré ne fait pas plan
   assert.doesNotThrow(() => computeRemainingLetters(moves, []));
   const remaining = computeRemainingLetters(moves, []);
   assert.equal(remaining.B, FRENCH_LETTER_DISTRIBUTION.B - 1);
+});
+
+// isGameOver : la partie se termine lorsqu'il n'y a plus aucune voyelle ou
+// plus aucune consonne disponible pour les tirages à venir, reliquat en
+// main compris (pas seulement le sac) — voir le commentaire sur
+// isGameOver. Les 45 voyelles de la distribution (A9 E15 I8 O6 U6 Y1)
+// sont épuisées ici en 3 coups de 15 lettres chacun (la limite de la
+// grille), sans dictionnaire ni recoupement à respecter puisque
+// computeRemainingLetters ne regarde que rack/word, pas la validité.
+test("isGameOver : une partie qui débute n'est jamais terminée", () => {
+  assert.equal(isGameOver([], []), false);
+});
+
+test("isGameOver : les voyelles épuisées dans le sac mais pas dans le reliquat ne terminent pas la partie", () => {
+  const moves = [
+    {
+      turnNumber: 1,
+      row: 1,
+      col: 1,
+      direction: "ACROSS",
+      word: "AAAAAAAAAEEEEEE",
+      isPass: false,
+      rack: "AAAAAAAAAEEEEEE",
+    },
+    {
+      turnNumber: 2,
+      row: 2,
+      col: 1,
+      direction: "ACROSS",
+      word: "EEEEEEEEEIIIIII",
+      isPass: false,
+      rack: "EEEEEEEEEIIIIII",
+    },
+    // Dernier coup : tire les 15 dernières voyelles (I I O×6 U×6 Y) mais
+    // n'en joue que 14, laissant le Y en reliquat (non joué).
+    {
+      turnNumber: 3,
+      row: 3,
+      col: 1,
+      direction: "ACROSS",
+      word: "IIOOOOOOUUUUUU",
+      isPass: false,
+      rack: "IIOOOOOOUUUUUUY",
+    },
+  ];
+  const remaining = computeRemainingLetters(moves, []);
+  assert.equal(
+    Object.entries(remaining)
+      .filter(([letter]) => "AEIOUY".includes(letter))
+      .reduce((sum, [, count]) => sum + Math.max(0, count), 0),
+    0,
+    "le sac ne doit plus contenir aucune voyelle"
+  );
+  assert.equal(
+    isGameOver(moves, []),
+    false,
+    "le Y restant dans le reliquat (non joué) doit encore compter comme disponible"
+  );
+});
+
+test("isGameOver : voyelles épuisées sac + reliquat termine la partie", () => {
+  const moves = [
+    {
+      turnNumber: 1,
+      row: 1,
+      col: 1,
+      direction: "ACROSS",
+      word: "AAAAAAAAAEEEEEE",
+      isPass: false,
+      rack: "AAAAAAAAAEEEEEE",
+    },
+    {
+      turnNumber: 2,
+      row: 2,
+      col: 1,
+      direction: "ACROSS",
+      word: "EEEEEEEEEIIIIII",
+      isPass: false,
+      rack: "EEEEEEEEEIIIIII",
+    },
+    // Cette fois les 15 lettres tirées sont aussi les 15 lettres jouées :
+    // plus aucune voyelle nulle part, ni dans le sac ni en reliquat.
+    {
+      turnNumber: 3,
+      row: 3,
+      col: 1,
+      direction: "ACROSS",
+      word: "IIOOOOOOUUUUUUY",
+      isPass: false,
+      rack: "IIOOOOOOUUUUUUY",
+    },
+  ];
+  assert.equal(isGameOver(moves, []), true);
 });
 
 test("applyResolvedJokers : ne lève le statut blanc que des cases résolues, sans muter l'original", () => {

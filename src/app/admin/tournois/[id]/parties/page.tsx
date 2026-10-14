@@ -177,8 +177,8 @@ export default async function GamesPage({
             <h2 className="font-heading text-lg font-semibold">
               Partie {game.number}
               {game.playedAt && (
-                <span className="text-xs text-black/50 dark:text-white/50 ml-2">
-                  {new Date(game.playedAt).toLocaleDateString("fr-FR")}
+                <span className="ml-2 rounded px-1.5 py-0.5 text-xs font-medium bg-moss/15 text-moss dark:bg-moss-light/20 dark:text-moss-light">
+                  Terminée le {new Date(game.playedAt).toLocaleDateString("fr-FR")}
                 </span>
               )}
               <Link

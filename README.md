@@ -348,6 +348,20 @@ Après `npm run db:seed` :
   repart de zéro, en attendant la validation d'un nouveau tirage. La
   durée du chronomètre se règle au format minutes:secondes (ex.
   « 2:30 » pour deux minutes trente), ou en simple nombre de minutes
+- Fin de partie : une partie duplicate se termine lorsqu'il ne reste plus
+  aucune voyelle ou plus aucune consonne disponible pour les tirages à
+  venir — en comptant à la fois le sac et le reliquat actuellement en
+  main. Le logiciel l'estime automatiquement à partir des tirages déjà
+  enregistrés (comme pour le suivi du sac en formule joker) : une fois
+  le sac épuisé, un bandeau l'indique sur la page de détail de la partie
+  et aucun nouveau tirage ne peut plus être validé (champ et bouton
+  désactivés, refusés aussi côté serveur). Le bouton « Terminer la
+  partie » marque alors la partie comme terminée (affichée dans la
+  liste des parties avec sa date), ou peut être utilisé à tout moment
+  pour clôturer une partie plus tôt (abandon, arrêt anticipé...) ; la
+  saisie des scores déjà joués reste possible après clôture pour
+  corriger une erreur, et « Rouvrir la partie » annule la clôture si
+  elle a été faite par erreur
 
 ### Tournois par équipes
 

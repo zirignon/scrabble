@@ -311,6 +311,36 @@ export function computeRemainingLetters(
   return remaining;
 }
 
+// Lettres considérées comme voyelles pour la règle de fin de partie
+// ci-dessous (le Y francophone compte comme voyelle au Scrabble). Les
+// jokers ("?") ne sont ni l'un ni l'autre et ne sont jamais comptés ici.
+export const FRENCH_VOWELS = new Set(["A", "E", "I", "O", "U", "Y"]);
+
+// Fin de partie (règlement duplicate) : la partie se termine lorsqu'il ne
+// reste plus aucune voyelle ou plus aucune consonne disponible pour les
+// tirages à venir — en comptant à la fois le sac (computeRemainingLetters)
+// ET le reliquat actuellement en main (dernier tirage non entièrement
+// joué, non formaté pour l'affichage donc sans "?" de joker suggéré) : un
+// reliquat tout en consonnes, par exemple, ne permet plus de jouer tant
+// que le sac n'a plus de voyelle non plus.
+export function isGameOver(moves: ReliquatMoveLike[], resolvedJokers: ResolvedJokerLike[]): boolean {
+  const remaining = computeRemainingLetters(moves, resolvedJokers);
+  const reliquat = (computeLastReliquat(moves) ?? "").replace(/\+$/, "");
+  for (const letter of reliquat) {
+    if (letter === "?") continue;
+    if (letter in remaining) remaining[letter] += 1;
+  }
+
+  let vowels = 0;
+  let consonants = 0;
+  for (const [letter, count] of Object.entries(remaining)) {
+    if (count <= 0) continue;
+    if (FRENCH_VOWELS.has(letter)) vowels += count;
+    else consonants += count;
+  }
+  return vowels === 0 || consonants === 0;
+}
+
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois
 // pour l'affichage et pour le calcul automatique des scores.
 type BonusCell = "TW" | "DW" | "TL" | "DL" | null;

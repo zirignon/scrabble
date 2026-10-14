@@ -18,6 +18,7 @@ export function GameTimerControls({
   alertSeconds,
   tournamentId,
   duplicateFormula,
+  locked,
 }: {
   game: Game;
   referenceMoves: ReferenceMove[];
@@ -25,6 +26,10 @@ export function GameTimerControls({
   alertSeconds: number;
   tournamentId: string;
   duplicateFormula: string | null;
+  // Partie terminée (clôturée ou sac épuisé, voir isGameOver) : un nouveau
+  // tirage n'est plus accepté — validateGameRackAction le refuse de toute
+  // façon côté serveur, ce flag évite juste à l'arbitre d'essayer pour rien.
+  locked?: boolean;
 }) {
   const runningSince = game.timerRunning && game.timerStartedAt
     ? game.timerStartedAt.toISOString()
@@ -55,12 +60,14 @@ export function GameTimerControls({
               name="rack"
               defaultValue={rackDefaultValue}
               placeholder="Ex. AEHMNRS"
-              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+              disabled={locked}
+              className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase disabled:opacity-40"
             />
             <button
               type="submit"
-              title="Démarre aussi le chrono, sauf s'il tournait déjà"
-              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-medium transition-colors"
+              disabled={locked}
+              title={locked ? "Partie terminée : aucun nouveau tirage n'est accepté" : "Démarre aussi le chrono, sauf s'il tournait déjà"}
+              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
             >
               Valider le tirage ▶
             </button>

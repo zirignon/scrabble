@@ -6,7 +6,9 @@ import {
   addReferenceMoveAction,
   checkPlayerWordAction,
   deleteReferenceMoveAction,
+  endGameAction,
   findReferenceMoveSolutionsAction,
+  reopenGameAction,
   saveTurnScoresAction,
   toggleSoloConfirmationAction,
   updateReferenceMoveAction,
@@ -20,6 +22,7 @@ import {
   computeAvertissementCosts,
   computeSoloWinners,
   computeGameTop,
+  isGameOver,
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
@@ -131,6 +134,12 @@ export default async function GameMovesPage({
   const soloEligible = players.length > SOLO_BONUS_MIN_PLAYERS;
   const alertSeconds = getRythmeAlertSeconds(tournament.duplicateRythme);
   const top = computeGameTop(game.referenceMoves, game.top);
+  // Sac épuisé (plus de voyelles ou plus de consonnes, reliquat en main
+  // compris, voir isGameOver) : un nouveau tirage est alors refusé par
+  // validateGameRackAction, indépendamment de cet affichage.
+  const bagExhausted = isGameOver(game.referenceMoves, game.resolvedJokers);
+  const endGameBound = endGameAction.bind(null, tournament.id, game.id);
+  const reopenGameBound = reopenGameAction.bind(null, tournament.id, game.id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -161,6 +170,51 @@ export default async function GameMovesPage({
               </span>
             )}
           </p>
+        )}
+
+        {game.playedAt ? (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-moss/30 bg-moss/10 dark:bg-moss-light/10 px-3 py-2 text-sm">
+            <span className="text-moss dark:text-moss-light font-medium">
+              Partie terminée le {new Date(game.playedAt).toLocaleDateString("fr-FR")}
+            </span>
+            {canManage && (
+              <form action={reopenGameBound}>
+                <button type="submit" className="text-xs underline text-black/60 dark:text-white/60">
+                  Rouvrir la partie
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+          bagExhausted && (
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-brick/30 bg-brick/10 px-3 py-2 text-sm">
+              <span className="text-brick font-medium">
+                Le sac est épuisé (plus de voyelles ou plus de consonnes disponibles) : la
+                partie peut se terminer, aucun nouveau tirage n&apos;est accepté.
+              </span>
+              {canManage && (
+                <form action={endGameBound}>
+                  <button
+                    type="submit"
+                    className="rounded bg-brick hover:bg-brick/90 text-white px-3 py-1 text-xs font-medium transition-colors"
+                  >
+                    Terminer la partie
+                  </button>
+                </form>
+              )}
+            </div>
+          )
+        )}
+        {!game.playedAt && !bagExhausted && canManage && (
+          <form action={endGameBound} className="mt-3">
+            <button
+              type="submit"
+              className="text-xs underline text-black/50 dark:text-white/50"
+              title="Clôture la partie avant l'épuisement du sac (abandon, arrêt anticipé...)"
+            >
+              Terminer la partie maintenant
+            </button>
+          </form>
         )}
       </div>
 
@@ -225,6 +279,7 @@ export default async function GameMovesPage({
               alertSeconds={alertSeconds}
               tournamentId={tournament.id}
               duplicateFormula={tournament.duplicateFormula}
+              locked={Boolean(game.playedAt) || bagExhausted}
             />
           </div>
         </div>

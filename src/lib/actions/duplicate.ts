@@ -17,6 +17,7 @@ import {
   reconstructBoard,
   isJokerFormula,
   computeRemainingLetters,
+  isGameOver,
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
@@ -119,6 +120,21 @@ export async function validateGameRackAction(
     where: { id: gameId },
     include: { referenceMoves: true, resolvedJokers: true },
   });
+
+  if (game.playedAt) {
+    throw new Error("Cette partie est déjà terminée : aucun nouveau tirage n'est possible.");
+  }
+  // Règlement duplicate : la partie se termine lorsqu'il ne reste plus
+  // assez de voyelles ou de consonnes (sac + reliquat en main) pour
+  // composer un nouveau tirage — voir le commentaire sur isGameOver. Le
+  // dernier tirage déjà validé et son coup restent saisissables (l'arbitre
+  // doit finir de scorer le tour en cours), seul un NOUVEAU tirage est
+  // bloqué.
+  if (isGameOver(game.referenceMoves, game.resolvedJokers)) {
+    throw new Error(
+      "Le sac est épuisé (plus de voyelles ou plus de consonnes disponibles) : la partie est terminée, aucun nouveau tirage n'est possible. Utilisez \"Terminer la partie\" pour la clôturer."
+    );
+  }
 
   if (isJokerFormula(tournament.duplicateFormula)) {
     const board = reconstructBoard(game.referenceMoves);
@@ -278,6 +294,34 @@ export async function addGameAction(tournamentId: string) {
     },
   });
 
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
+}
+
+// Clôture une partie (marque Game.playedAt) : l'arbitre décide quand une
+// partie est terminée (généralement une fois le sac épuisé — voir
+// isGameOver et le refus d'un nouveau tirage dans validateGameRackAction —
+// mais aussi en cas d'abandon ou d'arrêt anticipé). Une fois terminée,
+// aucun nouveau tirage ne peut plus être validé pour cette partie ; la
+// saisie des scores déjà joués reste possible pour corriger une erreur.
+export async function endGameAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await prisma.game.update({ where: { id: gameId }, data: { playedAt: new Date() } });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
+  revalidatePath(`/admin/tournois/${tournamentId}/parties`);
+  notifyTournamentUpdate(tournamentId);
+}
+
+// Annule la clôture d'une partie saisie par erreur : redonne la main pour
+// valider de nouveaux tirages.
+export async function reopenGameAction(tournamentId: string, gameId: string) {
+  await assertCanManage(tournamentId);
+  await assertResourceInTournament(tournamentId, { kind: "game", id: gameId });
+  await prisma.game.update({ where: { id: gameId }, data: { playedAt: null } });
+
+  revalidatePath(`/admin/tournois/${tournamentId}/parties/${gameId}`);
   revalidatePath(`/admin/tournois/${tournamentId}/parties`);
   notifyTournamentUpdate(tournamentId);
 }
