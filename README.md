@@ -204,7 +204,11 @@ Après `npm run db:seed` :
   gauche) reste épinglée à l'écran pendant qu'on fait défiler cette
   feuille de scores, même sur une partie avec beaucoup de coups et de
   joueurs (feuille large et longue) : l'arbitre garde la grille sous les
-  yeux sans avoir à remonter la page. Les joueurs y sont affichés sous
+  yeux sans avoir à remonter la page. Dans le champ score saisi à la
+  main, les flèches ← / → font passer directement au champ score du
+  joueur précédent/suivant sur le même tour (contenu sélectionné, prêt à
+  retaper) : l'arbitre peut saisir toute une ligne de scores au clavier
+  sans revenir à la souris. Les joueurs y sont affichés sous
   une étiquette anonymisée (« Joueur 1 », « Joueur 2 »...) basée sur le
   classement général cumulé avant cette partie — le 1er du classement
   devient « Joueur 1 », le 2e « Joueur 2 », etc. — pour que l'arbitre

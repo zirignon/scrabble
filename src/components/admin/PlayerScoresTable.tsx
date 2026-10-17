@@ -1,3 +1,6 @@
+"use client";
+
+import type { KeyboardEvent } from "react";
 import {
   checkPlayerWordAction,
   saveTurnScoresAction,
@@ -35,6 +38,36 @@ function moveDisplayInfo(
       ? Math.max(0, pm.points - penaltyDeduction) + soloBonus
       : null;
   return { badgeLabel, isFreeAvertissement, isSolo, soloConfirmed, soloBonus, net };
+}
+
+// Identifiant DOM du champ "score" d'un joueur à un tour donné, pour la
+// navigation au clavier ci-dessous (document.getElementById plutôt qu'un
+// état React : simple, et cohérent avec le reste de la feuille de partie,
+// qui relie déjà ses champs à leur formulaire via l'attribut form={formId}
+// plutôt que par imbrication).
+function scoreInputId(turnNumber: number, playerId: string) {
+  return `score-${turnNumber}-${playerId}`;
+}
+
+// ← / → fait passer du champ score d'un joueur à celui du joueur suivant
+// ou précédent, sur le même tour — l'arbitre peut alors saisir toute une
+// ligne de scores au clavier sans revenir à la souris. Remplace la
+// navigation normale du curseur à l'intérieur du champ (un score tient sur
+// 1 à 3 chiffres, rarement besoin d'y déplacer le curseur), et sélectionne
+// le contenu du champ ciblé pour pouvoir le retaper directement.
+function handleScoreArrowNav(
+  e: KeyboardEvent<HTMLInputElement>,
+  turnNumber: number,
+  neighborPlayerId: string | undefined
+) {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if (!neighborPlayerId) return;
+  e.preventDefault();
+  const target = document.getElementById(scoreInputId(turnNumber, neighborPlayerId));
+  if (target instanceof HTMLInputElement) {
+    target.focus();
+    target.select();
+  }
 }
 
 // Feuille de partie (score de chaque joueur à chaque coup). Rendu à part de
@@ -103,7 +136,9 @@ export function PlayerScoresTable({
                   {move.isPass ? "Passe" : move.word ?? "—"}{" "}
                   <span className="text-black/50 dark:text-white/50">({move.points} pts)</span>
                 </td>
-                {anonymizedPlayers.map(({ player }) => {
+                {anonymizedPlayers.map(({ player }, playerIndex) => {
+                  const prevPlayerId = anonymizedPlayers[playerIndex - 1]?.player.id;
+                  const nextPlayerId = anonymizedPlayers[playerIndex + 1]?.player.id;
                   const pm = moveByTurnAndPlayer.get(`${move.turnNumber}:${player.id}`);
                   const costsFive = avertissementCostMap.get(`${move.turnNumber}:${player.id}`) ?? false;
                   const isSolo = soloWinners.get(move.turnNumber) === player.id;
@@ -184,13 +219,21 @@ export function PlayerScoresTable({
                             checkWord={checkPlayerWordBound.bind(null, move.turnNumber)}
                           />
                           <input
+                            id={scoreInputId(move.turnNumber, player.id)}
                             form={formId}
                             type="number"
                             name={`score_${player.id}`}
                             defaultValue={pm?.word ? "" : pm?.points ?? ""}
                             max={move.points}
-                            title={`Score saisi à la main, utilisé seulement si le mot ci-dessus est vide. Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser.`}
+                            title={`Score saisi à la main, utilisé seulement si le mot ci-dessus est vide. Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser. ← → pour passer au joueur précédent/suivant.`}
                             placeholder={pm?.word ? String(pm.points) : "—"}
+                            onKeyDown={(e) =>
+                              handleScoreArrowNav(
+                                e,
+                                move.turnNumber,
+                                e.key === "ArrowLeft" ? prevPlayerId : nextPlayerId
+                              )
+                            }
                             className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 text-center bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                           />
                           <select
