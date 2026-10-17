@@ -63,12 +63,12 @@ export function ArbitrationGridPanel({
   return (
     <div className="flex flex-wrap items-start gap-6">
       <div className="w-full sm:w-auto shrink-0 flex flex-col gap-3">
-        <div className="overflow-auto">
-          <ScrabbleGrid grid={preview?.grid ?? board} previewCells={preview?.previewCells} cellSize={26} />
-        </div>
         <div>
           <p className="text-xs text-black/50 dark:text-white/50 mb-1">Tirage en cours</p>
           <RackTiles rack={rackDisplay} />
+        </div>
+        <div className="overflow-auto">
+          <ScrabbleGrid grid={preview?.grid ?? board} previewCells={preview?.previewCells} cellSize={26} />
         </div>
         <p className="text-xs text-black/50 dark:text-white/50">{bagStatusText}</p>
       </div>
