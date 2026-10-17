@@ -65,7 +65,7 @@ export default async function GameClassementPage({
             <th className="py-2 pr-4">Prénom</th>
             <th className="py-2 pr-4">N° licence</th>
             <th className="py-2 pr-4">Catégorie</th>
-            <th className="py-2 pr-4">Classification</th>
+            <th className="py-2 pr-4">Série</th>
             <th className="py-2 pr-4">Club</th>
             <th className="py-2 pr-4">Fédération</th>
             <th className="py-2 pr-4">Nat.</th>

@@ -30,7 +30,7 @@ export async function GET(
       "Prénom",
       "N° licence",
       "Catégorie",
-      "Classification",
+      "Série",
       "Club",
       "Fédération",
       "Nat",
