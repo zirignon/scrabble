@@ -208,7 +208,12 @@ Après `npm run db:seed` :
   main, les flèches ← / → font passer directement au champ score du
   joueur précédent/suivant sur le même tour (contenu sélectionné, prêt à
   retaper) : l'arbitre peut saisir toute une ligne de scores au clavier
-  sans revenir à la souris. Les joueurs y sont affichés sous
+  sans revenir à la souris. La touche Entrée donne directement le top du
+  coup (le score du mot retenu comme référence) au joueur du champ actif
+  — cas le plus fréquent, un joueur qui a trouvé le même mot — puis
+  avance au joueur suivant, pour enchaîner rapidement plusieurs joueurs
+  au top à la suite sans retaper le score à chaque fois. Les joueurs y
+  sont affichés sous
   une étiquette anonymisée (« Joueur 1 », « Joueur 2 »...) basée sur le
   classement général cumulé avant cette partie — le 1er du classement
   devient « Joueur 1 », le 2e « Joueur 2 », etc. — pour que l'arbitre

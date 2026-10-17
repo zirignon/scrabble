@@ -49,25 +49,44 @@ function scoreInputId(turnNumber: number, playerId: string) {
   return `score-${turnNumber}-${playerId}`;
 }
 
+function focusScoreInput(turnNumber: number, playerId: string) {
+  const target = document.getElementById(scoreInputId(turnNumber, playerId));
+  if (target instanceof HTMLInputElement) {
+    target.focus();
+    target.select();
+  }
+}
+
 // ← / → fait passer du champ score d'un joueur à celui du joueur suivant
 // ou précédent, sur le même tour — l'arbitre peut alors saisir toute une
 // ligne de scores au clavier sans revenir à la souris. Remplace la
 // navigation normale du curseur à l'intérieur du champ (un score tient sur
 // 1 à 3 chiffres, rarement besoin d'y déplacer le curseur), et sélectionne
 // le contenu du champ ciblé pour pouvoir le retaper directement.
-function handleScoreArrowNav(
+//
+// Entrée donne directement au joueur le top du coup (move.points) — cas
+// le plus courant, un joueur qui a trouvé le même mot que le coup de
+// référence — sans avoir à retaper le score à la main, puis avance au
+// champ du joueur suivant pour enchaîner plusieurs joueurs au top à la
+// suite, comme avec ← / →.
+function handleScoreKeyDown(
   e: KeyboardEvent<HTMLInputElement>,
   turnNumber: number,
-  neighborPlayerId: string | undefined
+  topPoints: number,
+  prevPlayerId: string | undefined,
+  nextPlayerId: string | undefined
 ) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    e.currentTarget.value = String(topPoints);
+    if (nextPlayerId) focusScoreInput(turnNumber, nextPlayerId);
+    return;
+  }
   if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const neighborPlayerId = e.key === "ArrowLeft" ? prevPlayerId : nextPlayerId;
   if (!neighborPlayerId) return;
   e.preventDefault();
-  const target = document.getElementById(scoreInputId(turnNumber, neighborPlayerId));
-  if (target instanceof HTMLInputElement) {
-    target.focus();
-    target.select();
-  }
+  focusScoreInput(turnNumber, neighborPlayerId);
 }
 
 // Feuille de partie (score de chaque joueur à chaque coup). Rendu à part de
@@ -225,14 +244,10 @@ export function PlayerScoresTable({
                             name={`score_${player.id}`}
                             defaultValue={pm?.word ? "" : pm?.points ?? ""}
                             max={move.points}
-                            title={`Score saisi à la main, utilisé seulement si le mot ci-dessus est vide. Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser. ← → pour passer au joueur précédent/suivant.`}
+                            title={`Score saisi à la main, utilisé seulement si le mot ci-dessus est vide. Le top de ce coup est ${move.points} points : aucun score ne peut le dépasser. ← → pour passer au joueur précédent/suivant, Entrée pour donner le top.`}
                             placeholder={pm?.word ? String(pm.points) : "—"}
                             onKeyDown={(e) =>
-                              handleScoreArrowNav(
-                                e,
-                                move.turnNumber,
-                                e.key === "ArrowLeft" ? prevPlayerId : nextPlayerId
-                              )
+                              handleScoreKeyDown(e, move.turnNumber, move.points, prevPlayerId, nextPlayerId)
                             }
                             className="w-14 rounded border-2 border-gold/40 dark:border-gold-light/40 px-1 py-0.5 text-center bg-gold/10 dark:bg-gold-light/10 font-semibold text-navy dark:text-gold-light text-sm focus:border-gold dark:focus:border-gold-light focus:bg-gold/20 dark:focus:bg-gold-light/20 focus:outline-none"
                           />
