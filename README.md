@@ -200,7 +200,11 @@ Après `npm run db:seed` :
   tour de la grille de référence, une colonne par joueur) permet de
   saisir le score de chaque joueur à chaque tour, chaque ligne se
   validant indépendamment — le score de la partie est alors recalculé
-  automatiquement à partir des coups. Les joueurs y sont affichés sous
+  automatiquement à partir des coups. La grille de référence (colonne de
+  gauche) reste épinglée à l'écran pendant qu'on fait défiler cette
+  feuille de scores, même sur une partie avec beaucoup de coups et de
+  joueurs (feuille large et longue) : l'arbitre garde la grille sous les
+  yeux sans avoir à remonter la page. Les joueurs y sont affichés sous
   une étiquette anonymisée (« Joueur 1 », « Joueur 2 »...) basée sur le
   classement général cumulé avant cette partie — le 1er du classement
   devient « Joueur 1 », le 2e « Joueur 2 », etc. — pour que l'arbitre

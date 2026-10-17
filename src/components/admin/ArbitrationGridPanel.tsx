@@ -6,20 +6,26 @@ import { RackTiles } from "@/components/admin/RackTiles";
 import { GameTimerControls } from "@/components/admin/GameTimerControls";
 import { ReferenceMoveSolverForm } from "@/components/admin/ReferenceMoveSolverForm";
 import { ReferenceMoveHistory, type NavigatorMove } from "@/components/admin/ReferenceMoveHistory";
+import { PlayerScoresTable } from "@/components/admin/PlayerScoresTable";
 import { previewSolutionOnBoard, type BoardCell } from "@/lib/duplicate/board";
 import type { SolverSolution } from "@/lib/duplicate/solver";
-import type { Game, ReferenceMove } from "@prisma/client";
+import type { DuplicateMove, DuplicateResult, Game, Player, ReferenceMove } from "@prisma/client";
 
-// Zone "Grille de référence" de la page d'arbitrage : grille + tirage en
-// cours + statut du sac à gauche, contrôles du tour + saisie du coup de
-// référence + historique à droite. Rassemblés dans un seul composant
-// client (plutôt que répartis entre la page serveur et plusieurs
-// composants indépendants) pour que l'aperçu d'une solution survolée dans
-// ReferenceMoveSolverForm puisse s'afficher directement sur LA grille de
-// référence elle-même, pas sur une mini grille séparée : c'est un état
-// purement local au navigateur de l'arbitre (jamais enregistré ni
-// diffusé sur l'affichage grand écran, qui ne lit que les coups de
-// référence réellement validés en base).
+// Zone "Grille de référence" + feuille de partie de la page d'arbitrage :
+// grille + tirage en cours + statut du sac à gauche, contrôles du tour +
+// saisie du coup de référence + historique + scores des joueurs à droite.
+// Rassemblés dans un seul composant client (plutôt que répartis entre la
+// page serveur et plusieurs composants indépendants) pour deux raisons :
+// 1. l'aperçu d'une solution survolée dans ReferenceMoveSolverForm peut
+//    s'afficher directement sur LA grille de référence elle-même, pas sur
+//    une mini grille séparée — état purement local au navigateur de
+//    l'arbitre, jamais enregistré ni diffusé sur l'affichage grand écran ;
+// 2. la grille (colonne de gauche) reste épinglée à l'écran (position
+//    sticky) pendant que l'arbitre fait défiler la feuille de scores à
+//    droite, même sur une partie à de nombreux coups — l'épinglage CSS ne
+//    fonctionne que si la grille et tout le contenu à faire défiler (y
+//    compris la feuille de scores, auparavant une section à part plus bas
+//    sur la page) partagent un même conteneur parent.
 export function ArbitrationGridPanel({
   board,
   rackDisplay,
@@ -27,6 +33,7 @@ export function ArbitrationGridPanel({
   game,
   referenceMoves,
   canManage,
+  canEnterScores,
   alertSeconds,
   tournamentId,
   duplicateFormula,
@@ -38,6 +45,12 @@ export function ArbitrationGridPanel({
   historyMoves,
   updateReferenceMoveAction,
   deleteReferenceMoveAction,
+  anonymizedPlayers,
+  moveByTurnAndPlayer,
+  avertissementCostMap,
+  soloWinners,
+  soloEligible,
+  resultByPlayer,
 }: {
   board: (BoardCell | null)[][];
   rackDisplay: string;
@@ -45,6 +58,7 @@ export function ArbitrationGridPanel({
   game: Game;
   referenceMoves: ReferenceMove[];
   canManage: boolean;
+  canEnterScores: boolean;
   alertSeconds: number;
   tournamentId: string;
   duplicateFormula: string | null;
@@ -56,6 +70,12 @@ export function ArbitrationGridPanel({
   historyMoves: NavigatorMove[];
   updateReferenceMoveAction: (moveId: string, formData: FormData) => Promise<void>;
   deleteReferenceMoveAction: (moveId: string) => Promise<void>;
+  anonymizedPlayers: { player: Player; label: string }[];
+  moveByTurnAndPlayer: Map<string, DuplicateMove>;
+  avertissementCostMap: Map<string, boolean>;
+  soloWinners: Map<number, string>;
+  soloEligible: boolean;
+  resultByPlayer: Map<string, DuplicateResult>;
 }) {
   const [previewed, setPreviewed] = useState<SolverSolution | null>(null);
   const preview = previewed ? previewSolutionOnBoard(board, previewed) : null;
@@ -75,7 +95,11 @@ export function ArbitrationGridPanel({
 
   return (
     <div className="flex flex-wrap items-start gap-6">
-      <div className="w-full sm:w-auto shrink-0 flex flex-col gap-3">
+      {/* sm:sticky + un top sous la barre de navigation du site (elle-même
+          sticky top-0) : la grille reste visible à l'écran même quand la
+          feuille de scores, à droite, est bien plus longue qu'elle et
+          qu'on la fait défiler. */}
+      <div className="w-full sm:w-auto shrink-0 flex flex-col gap-3 sm:sticky sm:top-20 sm:max-h-[calc(100vh-5.5rem)] sm:overflow-y-auto">
         <div>
           <p className="text-xs text-black/50 dark:text-white/50 mb-1">Tirage en cours</p>
           <RackTiles rack={rackDisplay} />
@@ -136,6 +160,22 @@ export function ArbitrationGridPanel({
         {!canManage && (
           <ReferenceMoveHistory moves={historyMoves} canManage={false} />
         )}
+
+        <div className="flex flex-col gap-3">
+          <h2 className="font-heading text-lg font-semibold">Scores des joueurs</h2>
+          <PlayerScoresTable
+            tournamentId={tournamentId}
+            gameId={game.id}
+            anonymizedPlayers={anonymizedPlayers}
+            referenceMoves={referenceMoves}
+            moveByTurnAndPlayer={moveByTurnAndPlayer}
+            avertissementCostMap={avertissementCostMap}
+            soloWinners={soloWinners}
+            soloEligible={soloEligible}
+            canEnterScores={canEnterScores}
+            resultByPlayer={resultByPlayer}
+          />
+        </div>
       </div>
     </div>
   );
