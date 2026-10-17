@@ -10,16 +10,21 @@ export interface NavigatorMove {
   isPass: boolean;
 }
 
-// Historique complet des coups de référence, toujours affiché (plus de
-// sélecteur masquant tous les tours sauf un) : table purement en lecture,
-// une ligne par coup. La modification d'un coup existant ne se fait plus
-// ici (un formulaire par ligne occupait trop de place) — "Modifier"
-// charge ce coup dans le panneau "Solutions" déjà affiché sur la page
-// (voir ArbitrationGridPanel/ReferenceMoveSolverForm), seule zone
-// d'édition de la page. Colonnes en whitespace-nowrap : un tirage ou un
-// mot long ne doit jamais faire passer une ligne sur deux lignes (ce qui
-// gonflait la hauteur du tableau) — le conteneur défile horizontalement
-// si besoin à la place.
+// Historique des coups de référence : table purement en lecture, une
+// ligne par coup. La modification d'un coup existant ne se fait pas ici
+// (un formulaire par ligne occupait trop de place) — "Modifier" charge
+// ce coup dans le panneau "Solutions" déjà affiché sur la page (voir
+// ArbitrationGridPanel/ReferenceMoveSolverForm), seule zone d'édition de
+// la page. Colonnes en whitespace-nowrap : un tirage ou un mot long ne
+// doit jamais faire passer une ligne sur deux lignes (ce qui gonflait la
+// hauteur du tableau) — le conteneur défile horizontalement si besoin à
+// la place. Pour l'arbitre (canManage), ce tableau n'est révélé qu'à la
+// demande (bouton "Modifier" du panneau Solutions, voir
+// ArbitrationGridPanel) plutôt qu'affiché en permanence : hauteur
+// plafonnée avec défilement vertical, pour qu'une partie avec beaucoup de
+// coups n'allonge jamais la page. Pour un arbitre assigné en lecture
+// seule (!canManage), reste affiché en permanence (pas de panneau
+// Solutions pour lui, donc pas d'autre endroit où consulter l'historique).
 export function ReferenceMoveHistory({
   moves,
   canManage,
@@ -32,11 +37,11 @@ export function ReferenceMoveHistory({
   onEdit?: (move: NavigatorMove) => void;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="max-h-72 overflow-auto rounded border border-black/10 dark:border-white/20">
       <table className="w-full text-sm border-collapse">
-        <thead>
+        <thead className="sticky top-0 bg-white dark:bg-navy">
           <tr className="text-left border-b border-black/10 dark:border-white/10">
-            <th className="py-2 pr-4">Coup</th>
+            <th className="py-2 pl-2 pr-4">Coup</th>
             <th className="py-2 pr-4">Référence</th>
             <th className="py-2 pr-4">Tirage</th>
             <th className="py-2 pr-4">Mot</th>
@@ -53,7 +58,7 @@ export function ReferenceMoveHistory({
                 editingMoveId === move.id ? "bg-gold/10 dark:bg-gold-light/10" : ""
               }`}
             >
-              <td className="py-1.5 pr-4 whitespace-nowrap">{move.turnNumber}</td>
+              <td className="py-1.5 pl-2 pr-4 whitespace-nowrap">{move.turnNumber}</td>
               <td className="py-1.5 pr-4 whitespace-nowrap">{move.reference}</td>
               <td className="py-1.5 pr-4 whitespace-nowrap">{move.rack || "—"}</td>
               <td className="py-1.5 pr-4 whitespace-nowrap">{move.isPass ? "Passe" : move.word || "—"}</td>
@@ -78,7 +83,7 @@ export function ReferenceMoveHistory({
           ))}
           {moves.length === 0 && (
             <tr>
-              <td colSpan={canManage ? 7 : 6} className="py-2 text-black/50 dark:text-white/50">
+              <td colSpan={canManage ? 7 : 6} className="py-2 pl-2 text-black/50 dark:text-white/50">
                 Aucun coup de référence saisi.
               </td>
             </tr>

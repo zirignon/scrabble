@@ -276,16 +276,21 @@ Après `npm run db:seed` :
   (sac + reliquat, consonnes/voyelles, et jokers restants en jeu pour
   les formules joker) ; à droite les contrôles du tour (tirage, chrono),
   le formulaire de saisie du coup de référence avec sa liste de
-  solutions, puis l'historique complet des coups déjà saisis, toujours
-  affiché sous forme de tableau compact (une ligne par coup, texte sans
-  retour à la ligne, défilement horizontal si besoin), plutôt qu'un
-  sélecteur ne montrant qu'un seul coup à la fois. Modifier un coup
-  existant (« Modifier » sur sa ligne) ne déploie pas de formulaire dans
-  le tableau (qui alourdirait la page) : il charge ce coup dans le
-  panneau de solutions déjà affiché à droite — seule zone d'édition de
-  la page — avec le tirage de ce coup préempli, la solution actuelle
-  rappelée pour référence, et un bouton « Annuler » ou « Supprimer » en
-  plus de l'enregistrement
+  solutions. L'historique des coups déjà saisis n'est pas affiché en
+  permanence (une partie avec beaucoup de coups alourdirait sans cesse
+  la page) : un bouton « Modifier un coup déjà saisi », juste sous
+  « + Coup de référence », le révèle à la demande sous forme de tableau
+  compact (une ligne par coup, texte sans retour à la ligne) à hauteur
+  plafonnée avec défilement vertical, quel que soit le nombre de coups
+  déjà joués. Cliquer « Modifier » sur une ligne ne déploie pas de
+  formulaire dans le tableau (qui alourdirait la page) : il charge ce
+  coup dans le panneau de solutions déjà affiché à droite — seule zone
+  d'édition de la page, qui masque alors l'historique — avec le tirage
+  de ce coup préempli, la solution actuelle rappelée pour référence, et
+  un bouton « Annuler » ou « Supprimer » en plus de l'enregistrement.
+  Pour un arbitre assigné en lecture seule (sans accès au panneau de
+  solutions), l'historique reste affiché en permanence, seul endroit où
+  il peut le consulter
 - Résolution du joker (formules « joker » uniquement) : le règlement
   FISF remplace physiquement, au tirage suivant, un joker posé sur la
   grille par la lettre qu'il représentait, si elle est encore présente

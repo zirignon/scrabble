@@ -65,6 +65,13 @@ export function ArbitrationGridPanel({
   // seule zone d'édition de la page, jamais un formulaire dans le tableau
   // d'historique lui-même.
   const [editingMove, setEditingMove] = useState<NavigatorMove | null>(null);
+  // L'historique complet n'est plus affiché en permanence (trop de coups
+  // au fil d'une partie alourdissait la page) : un bouton "Modifier"
+  // sous "+ Coup de référence" le révèle à la demande (hauteur limitée,
+  // défilement au-delà), le temps de choisir quel coup corriger ; il se
+  // masque à nouveau dès qu'un coup est choisi ou que l'édition est
+  // annulée.
+  const [showHistory, setShowHistory] = useState(false);
 
   return (
     <div className="flex flex-wrap items-start gap-6">
@@ -102,19 +109,33 @@ export function ArbitrationGridPanel({
             deleteAction={deleteReferenceMoveAction}
             findSolutions={findSolutionsAction}
             onPreviewChange={setPreviewed}
-            onCancelEdit={() => setEditingMove(null)}
+            onCancelEdit={() => {
+              setEditingMove(null);
+              setShowHistory(false);
+            }}
             editingMove={editingMove}
             turnNumber={editingMove ? editingMove.turnNumber : turnNumber}
             initialRack={editingMove ? editingMove.rack : pendingRack ?? ""}
+            historyVisible={showHistory}
+            onToggleHistory={() => setShowHistory((v) => !v)}
           />
         )}
 
-        <ReferenceMoveHistory
-          moves={historyMoves}
-          canManage={canManage}
-          editingMoveId={editingMove?.id ?? null}
-          onEdit={setEditingMove}
-        />
+        {canManage && showHistory && !editingMove && (
+          <ReferenceMoveHistory
+            moves={historyMoves}
+            canManage={canManage}
+            editingMoveId={null}
+            onEdit={(move) => {
+              setEditingMove(move);
+              setShowHistory(false);
+            }}
+          />
+        )}
+
+        {!canManage && (
+          <ReferenceMoveHistory moves={historyMoves} canManage={false} />
+        )}
       </div>
     </div>
   );

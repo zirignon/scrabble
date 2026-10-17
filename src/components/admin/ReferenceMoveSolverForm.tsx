@@ -37,6 +37,8 @@ export function ReferenceMoveSolverForm({
   editingMove,
   turnNumber,
   initialRack = "",
+  historyVisible,
+  onToggleHistory,
 }: {
   addAction: (formData: FormData) => Promise<void>;
   updateAction?: (moveId: string, formData: FormData) => Promise<void>;
@@ -47,6 +49,12 @@ export function ReferenceMoveSolverForm({
   editingMove?: NavigatorMove | null;
   turnNumber: number;
   initialRack?: string;
+  // Bouton "Modifier" sous le bouton d'enregistrement, qui révèle/masque
+  // l'historique des coups déjà saisis (voir ArbitrationGridPanel) — pas
+  // affiché en continu, pour ne pas allonger la page avec une partie qui
+  // compte déjà beaucoup de coups.
+  historyVisible?: boolean;
+  onToggleHistory?: () => void;
 }) {
   const [rack, setRack] = useState(initialRack);
   const [solutions, setSolutions] = useState<SolverSolution[] | null>(null);
@@ -253,6 +261,15 @@ export function ReferenceMoveSolverForm({
         >
           {editingMove ? "Enregistrer la modification" : "+ Coup de référence"}
         </button>
+        {!editingMove && onToggleHistory && (
+          <button
+            type="button"
+            onClick={onToggleHistory}
+            className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-xs"
+          >
+            {historyVisible ? "Masquer les coups déjà saisis" : "Modifier un coup déjà saisi"}
+          </button>
+        )}
         {editingMove && (
           <div className="flex gap-2">
             <button
