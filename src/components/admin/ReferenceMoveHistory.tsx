@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 export interface NavigatorMove {
   id: string;
   turnNumber: number;
@@ -13,24 +11,26 @@ export interface NavigatorMove {
 }
 
 // Historique complet des coups de référence, toujours affiché (plus de
-// sélecteur masquant tous les tours sauf un) : chaque ligne existante se
-// transforme en formulaire d'édition sur demande ("Modifier"), avec
-// suppression possible depuis ce même formulaire. L'ajout du prochain coup
-// se fait séparément (voir ReferenceMoveSolverForm, affiché à côté sur la
-// page d'arbitrage), ce composant ne gère que les coups déjà saisis.
+// sélecteur masquant tous les tours sauf un) : table purement en lecture,
+// une ligne par coup. La modification d'un coup existant ne se fait plus
+// ici (un formulaire par ligne occupait trop de place) — "Modifier"
+// charge ce coup dans le panneau "Solutions" déjà affiché sur la page
+// (voir ArbitrationGridPanel/ReferenceMoveSolverForm), seule zone
+// d'édition de la page. Colonnes en whitespace-nowrap : un tirage ou un
+// mot long ne doit jamais faire passer une ligne sur deux lignes (ce qui
+// gonflait la hauteur du tableau) — le conteneur défile horizontalement
+// si besoin à la place.
 export function ReferenceMoveHistory({
   moves,
   canManage,
-  updateActionBase,
-  deleteActionBase,
+  editingMoveId,
+  onEdit,
 }: {
   moves: NavigatorMove[];
   canManage: boolean;
-  updateActionBase?: (moveId: string, formData: FormData) => Promise<void>;
-  deleteActionBase?: (moveId: string) => Promise<void>;
+  editingMoveId?: string | null;
+  onEdit?: (move: NavigatorMove) => void;
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
@@ -46,90 +46,36 @@ export function ReferenceMoveHistory({
           </tr>
         </thead>
         <tbody>
-          {moves.map((move) => {
-            if (canManage && editingId === move.id && updateActionBase && deleteActionBase) {
-              return (
-                <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
-                  <td colSpan={7} className="py-2">
-                    <form
-                      action={updateActionBase.bind(null, move.id)}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <span className="w-10 text-black/60 dark:text-white/60 text-sm">
-                        #{move.turnNumber}
-                      </span>
-                      <input
-                        type="text"
-                        name="reference"
-                        defaultValue={move.reference}
-                        placeholder="Ex. H4 / 4H"
-                        className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-                      />
-                      <input
-                        type="text"
-                        name="rack"
-                        defaultValue={move.rack}
-                        placeholder="Tirage"
-                        className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-                      />
-                      <input
-                        type="text"
-                        name="word"
-                        defaultValue={move.word}
-                        placeholder="Mot joué"
-                        className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-                      />
-                      <span className="w-16 text-sm text-black/60 dark:text-white/60">
-                        {move.points} pts
-                      </span>
-                      <label className="flex items-center gap-1 text-xs">
-                        <input type="checkbox" name="isPass" defaultChecked={move.isPass} />
-                        Passe
-                      </label>
-                      <button type="submit" className="rounded bg-emerald-700 text-white px-3 py-1.5 text-sm">
-                        OK
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-sm"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        type="submit"
-                        formAction={deleteActionBase.bind(null, move.id)}
-                        className="rounded bg-brick hover:bg-brick/90 text-white px-3 py-1.5 text-xs font-medium transition-colors"
-                      >
-                        Supprimer
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              );
-            }
-            return (
-              <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
-                <td className="py-1.5 pr-4">{move.turnNumber}</td>
-                <td className="py-1.5 pr-4">{move.reference}</td>
-                <td className="py-1.5 pr-4">{move.rack || "—"}</td>
-                <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word || "—"}</td>
-                <td className="py-1.5 pr-4">{move.points}</td>
-                <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
-                {canManage && (
-                  <td className="py-1.5 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(move.id)}
-                      className="text-xs text-emerald-700 dark:text-emerald-400 underline"
-                    >
-                      Modifier
-                    </button>
-                  </td>
-                )}
-              </tr>
-            );
-          })}
+          {moves.map((move) => (
+            <tr
+              key={move.id}
+              className={`border-b border-black/5 dark:border-white/5 ${
+                editingMoveId === move.id ? "bg-gold/10 dark:bg-gold-light/10" : ""
+              }`}
+            >
+              <td className="py-1.5 pr-4 whitespace-nowrap">{move.turnNumber}</td>
+              <td className="py-1.5 pr-4 whitespace-nowrap">{move.reference}</td>
+              <td className="py-1.5 pr-4 whitespace-nowrap">{move.rack || "—"}</td>
+              <td className="py-1.5 pr-4 whitespace-nowrap">{move.isPass ? "Passe" : move.word || "—"}</td>
+              <td className="py-1.5 pr-4 whitespace-nowrap">{move.points}</td>
+              <td className="py-1.5 pr-4 whitespace-nowrap">{move.isPass ? "Oui" : ""}</td>
+              {canManage && (
+                <td className="py-1.5 pr-4 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => onEdit?.(move)}
+                    className={`text-xs underline ${
+                      editingMoveId === move.id
+                        ? "text-black/40 dark:text-white/40"
+                        : "text-emerald-700 dark:text-emerald-400"
+                    }`}
+                  >
+                    {editingMoveId === move.id ? "En cours…" : "Modifier"}
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
           {moves.length === 0 && (
             <tr>
               <td colSpan={canManage ? 7 : 6} className="py-2 text-black/50 dark:text-white/50">

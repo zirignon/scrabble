@@ -59,6 +59,12 @@ export function ArbitrationGridPanel({
 }) {
   const [previewed, setPreviewed] = useState<SolverSolution | null>(null);
   const preview = previewed ? previewSolutionOnBoard(board, previewed) : null;
+  // Coup en cours de modification (déclenché depuis ReferenceMoveHistory,
+  // "Modifier") : le panneau ReferenceMoveSolverForm, normalement dédié à
+  // l'ajout du prochain coup, bascule alors en mode édition de CE coup —
+  // seule zone d'édition de la page, jamais un formulaire dans le tableau
+  // d'historique lui-même.
+  const [editingMove, setEditingMove] = useState<NavigatorMove | null>(null);
 
   return (
     <div className="flex flex-wrap items-start gap-6">
@@ -87,22 +93,27 @@ export function ArbitrationGridPanel({
         {canManage && (
           <ReferenceMoveSolverForm
             // Remonte le formulaire (et réinitialise son état local) dès
-            // que le tirage validé par l'arbitre change, pour que le
-            // champ tirage reste synchronisé sans ressaisie.
-            key={`${turnNumber}:${pendingRack ?? ""}`}
+            // que le tirage validé par l'arbitre change, ou dès qu'on
+            // bascule vers/hors d'une modification, pour que les champs
+            // restent synchronisés sans ressaisie ni état résiduel.
+            key={editingMove ? `edit:${editingMove.id}` : `add:${turnNumber}:${pendingRack ?? ""}`}
             addAction={addReferenceMoveAction}
+            updateAction={updateReferenceMoveAction}
+            deleteAction={deleteReferenceMoveAction}
             findSolutions={findSolutionsAction}
             onPreviewChange={setPreviewed}
-            turnNumber={turnNumber}
-            initialRack={pendingRack ?? ""}
+            onCancelEdit={() => setEditingMove(null)}
+            editingMove={editingMove}
+            turnNumber={editingMove ? editingMove.turnNumber : turnNumber}
+            initialRack={editingMove ? editingMove.rack : pendingRack ?? ""}
           />
         )}
 
         <ReferenceMoveHistory
           moves={historyMoves}
           canManage={canManage}
-          updateActionBase={updateReferenceMoveAction}
-          deleteActionBase={deleteReferenceMoveAction}
+          editingMoveId={editingMove?.id ?? null}
+          onEdit={setEditingMove}
         />
       </div>
     </div>

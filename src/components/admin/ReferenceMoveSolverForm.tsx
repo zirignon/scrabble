@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import type { NavigatorMove } from "@/components/admin/ReferenceMoveHistory";
 import type { SolverSolution } from "@/lib/duplicate/solver";
 
 // Panneau de saisie du coup de référence : recherche de solutions mise en
@@ -18,16 +19,32 @@ import type { SolverSolution } from "@/lib/duplicate/solver";
 // solution choisie une fois la souris repartie. Seule exception à la
 // liste : une « Passe » (aucun mot jouable trouvé pour ce tirage), qui
 // n'a besoin d'aucune solution.
+//
+// Sert aussi à MODIFIER un coup déjà saisi (editingMove non nul) : plutôt
+// qu'un formulaire par ligne dans le tableau d'historique (qui en
+// occupait beaucoup trop), "Modifier" dans ReferenceMoveHistory charge le
+// coup choisi dans CE panneau (réutilisé, seule zone d'édition de la
+// page) — le tirage de ce coup préremplit la recherche, l'arbitre choisit
+// à nouveau une solution dans la liste pour la corriger (ou la confirmer
+// telle quelle), avec Annuler/Supprimer en plus du bouton d'enregistrement.
 export function ReferenceMoveSolverForm({
   addAction,
+  updateAction,
+  deleteAction,
   findSolutions,
   onPreviewChange,
+  onCancelEdit,
+  editingMove,
   turnNumber,
   initialRack = "",
 }: {
   addAction: (formData: FormData) => Promise<void>;
+  updateAction?: (moveId: string, formData: FormData) => Promise<void>;
+  deleteAction?: (moveId: string) => Promise<void>;
   findSolutions: (rack: string) => Promise<SolverSolution[]>;
   onPreviewChange?: (solution: SolverSolution | null) => void;
+  onCancelEdit?: () => void;
+  editingMove?: NavigatorMove | null;
   turnNumber: number;
   initialRack?: string;
 }) {
@@ -35,9 +52,10 @@ export function ReferenceMoveSolverForm({
   const [solutions, setSolutions] = useState<SolverSolution[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [isPass, setIsPass] = useState(false);
+  const [isPass, setIsPass] = useState(editingMove?.isPass ?? false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isSubmitting, startSubmitTransition] = useTransition();
 
   function handleSearch() {
     setError(null);
@@ -55,7 +73,7 @@ export function ReferenceMoveSolverForm({
   }
 
   const selected = solutions && selectedIndex !== null ? solutions[selectedIndex] : null;
-  const canSubmit = isPass || selected !== null;
+  const canSubmit = (isPass || selected !== null) && !isSubmitting;
 
   // L'aperçu montre la solution survolée, ou à défaut celle déjà choisie,
   // tant que l'arbitre n'est pas passé : la souris qui quitte la liste ne
@@ -79,14 +97,42 @@ export function ReferenceMoveSolverForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function buildFormData() {
+    const formData = new FormData();
+    formData.set("reference", selected ? selected.reference : isPass ? "H8" : "");
+    formData.set("word", selected ? selected.word : "");
+    formData.set("rack", rack);
+    if (isPass) formData.set("isPass", "on");
+    return formData;
+  }
+
+  function handleSubmit() {
+    const formData = buildFormData();
+    startSubmitTransition(async () => {
+      if (editingMove && updateAction) {
+        await updateAction(editingMove.id, formData);
+        onCancelEdit?.();
+      } else {
+        await addAction(formData);
+      }
+    });
+  }
+
+  function handleDelete() {
+    if (!editingMove || !deleteAction) return;
+    startSubmitTransition(async () => {
+      await deleteAction(editingMove.id);
+      onCancelEdit?.();
+    });
+  }
+
   return (
-    <form
-      action={addAction}
-      className="flex flex-col sm:flex-row gap-4 rounded border border-black/10 dark:border-white/20 p-3"
-    >
+    <div className="flex flex-col sm:flex-row gap-4 rounded border border-black/10 dark:border-white/20 p-3">
       <div className="flex-1 min-w-0 flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-black/50 dark:text-white/50">Tirage #{turnNumber}</span>
+          <span className="text-xs text-black/50 dark:text-white/50">
+            {editingMove ? `Modification du coup #${turnNumber}` : `Tirage #${turnNumber}`}
+          </span>
           <input
             type="text"
             value={rack}
@@ -165,7 +211,15 @@ export function ReferenceMoveSolverForm({
       </div>
 
       <div className="sm:w-56 shrink-0 flex flex-col gap-2">
-        <p className="text-xs font-medium text-black/60 dark:text-white/60">Coup à enregistrer</p>
+        <p className="text-xs font-medium text-black/60 dark:text-white/60">
+          {editingMove ? "Modifier ce coup" : "Coup à enregistrer"}
+        </p>
+        {editingMove && (
+          <p className="text-xs text-black/50 dark:text-white/50">
+            Actuellement : {editingMove.isPass ? "Passe" : editingMove.word || "—"}
+            {editingMove.reference ? ` ${editingMove.reference}` : ""} ({editingMove.points} pts)
+          </p>
+        )}
         {selected ? (
           <p className="text-sm">
             <span className="font-semibold">{selected.word.toUpperCase()}</span>{" "}
@@ -177,17 +231,9 @@ export function ReferenceMoveSolverForm({
             {isPass ? "Passe : aucun mot à enregistrer." : "Aucune solution sélectionnée."}
           </p>
         )}
-        {/* Le formulaire n'envoie jamais une référence/un mot saisis
-            librement : ils proviennent uniquement de la solution choisie
-            ci-dessus, sauf en cas de passe (position neutre, sans effet
-            sur la grille puisqu'aucun mot n'est posé). */}
-        <input type="hidden" name="reference" value={selected ? selected.reference : isPass ? "H8" : ""} />
-        <input type="hidden" name="word" value={selected ? selected.word : ""} />
-        <input type="hidden" name="rack" value={rack} />
         <label className="flex items-center gap-1 text-xs">
           <input
             type="checkbox"
-            name="isPass"
             checked={isPass}
             onChange={(e) => {
               setIsPass(e.target.checked);
@@ -200,13 +246,34 @@ export function ReferenceMoveSolverForm({
           Passe (aucun mot jouable trouvé)
         </label>
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={!canSubmit}
           className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40"
         >
-          + Coup de référence
+          {editingMove ? "Enregistrer la modification" : "+ Coup de référence"}
         </button>
+        {editingMove && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              disabled={isSubmitting}
+              className="flex-1 rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-xs disabled:opacity-40"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isSubmitting}
+              className="flex-1 rounded bg-brick hover:bg-brick/90 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+            >
+              Supprimer
+            </button>
+          </div>
+        )}
       </div>
-    </form>
+    </div>
   );
 }
