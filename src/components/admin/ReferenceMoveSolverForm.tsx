@@ -106,7 +106,13 @@ export function ReferenceMoveSolverForm({
 
         {error && <p className="text-xs text-brick">{error}</p>}
 
-        <p className="text-xs text-black/50 dark:text-white/50">
+        {/* Hauteur fixe (une seule ligne, tronquée) : un texte de longueur
+            variable ici ferait bouger la liste juste en dessous à chaque
+            survol, ce qui déplace les options sous un curseur pourtant
+            immobile et déclenche en cascade le survol de l'option
+            suivante — donnant l'impression que le défilement se déclenche
+            tout seul. */}
+        <p className="h-4 text-xs text-black/50 dark:text-white/50 truncate">
           {previewed
             ? `Aperçu sur la grille : ${previewed.word.toUpperCase()} ${previewed.reference}`
             : "Survolez une solution pour l'afficher en aperçu sur la grille."}
@@ -142,10 +148,14 @@ export function ReferenceMoveSolverForm({
                 className={`w-full flex items-center justify-between gap-2 px-2 py-1 text-left transition-colors disabled:opacity-40 disabled:pointer-events-none ${
                   selectedIndex === i
                     ? "bg-moss/15 dark:bg-moss-light/15 font-semibold"
-                    : "hover:bg-navy/5 dark:hover:bg-navy-light/10"
+                    : hoveredIndex === i
+                    ? "bg-sky-50 dark:bg-sky-900/30"
+                    : ""
                 }`}
               >
-                <span>{s.word.toUpperCase()}</span>
+                <span className={hoveredIndex === i ? "text-sky-600 dark:text-sky-400 font-semibold" : ""}>
+                  {s.word.toUpperCase()}
+                </span>
                 <span className="text-black/50 dark:text-white/50 tabular-nums">{s.reference}</span>
                 <span className="tabular-nums">{s.score} pts</span>
               </button>
