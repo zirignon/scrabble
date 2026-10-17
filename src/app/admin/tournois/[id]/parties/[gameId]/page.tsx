@@ -288,6 +288,7 @@ export default async function GameMovesPage({
                 key={`${maxTurn + 1}:${game.pendingRack ?? ""}`}
                 addAction={addReferenceMoveBound}
                 findSolutions={findSolutionsBound}
+                board={board}
                 turnNumber={maxTurn + 1}
                 initialRack={game.pendingRack ?? ""}
               />

@@ -102,6 +102,40 @@ export function applyResolvedJokers(
   return next;
 }
 
+export interface PreviewMoveLike {
+  word: string;
+  row: number;
+  col: number;
+  direction: "ACROSS" | "DOWN";
+}
+
+// Aperçu d'une solution (pas encore enregistrée) sur la grille actuelle :
+// utilisé par le panneau "Solutions" de la page d'arbitrage, pour montrer
+// à l'arbitre où une solution survolée dans la liste se placerait avant
+// qu'il ne la choisisse. Ne place que les lettres réellement nouvelles (une
+// case déjà occupée par un croisement reste celle du plateau, jamais
+// écrasée) ; previewCells identifie ces cases nouvelles ("r-c") pour que
+// l'affichage (voir ScrabbleGrid) les distingue visuellement des lettres
+// déjà réellement jouées. Ne modifie jamais la grille d'origine.
+export function previewSolutionOnBoard(
+  board: (BoardCell | null)[][],
+  solution: PreviewMoveLike
+): { grid: (BoardCell | null)[][]; previewCells: Set<string> } {
+  const grid = board.map((row) => row.map((cell) => (cell ? { ...cell } : null)));
+  const previewCells = new Set<string>();
+  const { word, row, col, direction } = solution;
+  for (let i = 0; i < word.length; i++) {
+    const r = direction === "DOWN" ? row - 1 + i : row - 1;
+    const c = direction === "ACROSS" ? col - 1 + i : col - 1;
+    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
+    if (grid[r][c]) continue;
+    const raw = word[i];
+    grid[r][c] = { letter: raw.toUpperCase(), isBlank: raw !== raw.toUpperCase() };
+    previewCells.add(`${r}-${c}`);
+  }
+  return { grid, previewCells };
+}
+
 // Formules de tournoi incluant le mécanisme du joker (voir le commentaire
 // sur getBingoRules) : seules celles-ci déclenchent la résolution
 // automatique d'un joker posé sur la grille (validateGameRackAction).

@@ -328,15 +328,23 @@ Après `npm run db:seed` :
 - Recherche automatique de solutions pour la grille de référence : à
   partir du tirage saisi, de la grille actuelle et du dictionnaire
   importé, le bouton « Solutions » du formulaire de coup de référence
-  propose, dans un menu déroulant large et toujours visible, la totalité
-  des mots jouables trouvés (mot, référence, points), sans plafond,
-  triés par score décroissant. Le coup de référence enregistré provient
+  propose, dans une liste large et toujours visible, la totalité des
+  mots jouables trouvés (mot, référence, points), sans plafond, triés
+  par score décroissant. Le coup de référence enregistré provient
   obligatoirement d'une solution choisie dans cette liste — aucune
   saisie libre de la référence ou du mot n'est possible, pour garantir
   que le coup officiel corresponde toujours à un placement réellement
   valide trouvé par le solveur. Seule exception : la case « Passe »
   (aucun mot jouable trouvé pour ce tirage), qui ne nécessite aucune
-  sélection
+  sélection. Survoler (ou donner le focus clavier à) une solution de la
+  liste l'affiche en aperçu sur une mini grille dédiée, à côté de la
+  liste : les lettres nouvelles qu'elle poserait sont mises en évidence
+  (fond et bordure en pointillés bleus), pour que l'arbitre juge du
+  placement avant de choisir — une case déjà occupée par un croisement
+  n'est jamais comptée comme un aperçu, seules les lettres réellement
+  nouvelles le sont. L'aperçu reste affiché sur la solution choisie une
+  fois la souris repartie, et disparaît si aucune solution n'est ni
+  survolée ni choisie
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré automatiquement par l'arbitre
   dès la validation du tirage du tour (page de détail coup par coup, sous

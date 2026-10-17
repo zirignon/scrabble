@@ -22,10 +22,15 @@ export function ScrabbleGrid({
   grid,
   cellSize = 28,
   dark = false,
+  previewCells,
 }: {
   grid: (BoardCell | null)[][];
   cellSize?: number;
   dark?: boolean;
+  // Cases ("r-c") affichées comme un aperçu (solution survolée mais pas
+  // encore enregistrée, voir previewSolutionOnBoard) : distinguées
+  // visuellement des lettres réellement jouées sur la grille.
+  previewCells?: Set<string>;
 }) {
   const bonus = getBonusGrid();
   const labelColor = dark ? "text-white/60" : "text-black/60";
@@ -54,10 +59,14 @@ export function ScrabbleGrid({
           </div>
           {row.map((cell, c) => {
             const b = bonus[r][c];
+            const isPreview = previewCells?.has(`${r}-${c}`) ?? false;
             const border = dark ? "border-white/10" : "border-black/10";
             let bg: string;
             let textColor: string;
-            if (cell) {
+            if (isPreview) {
+              bg = "bg-sky-200 dark:bg-sky-900/50";
+              textColor = "text-sky-900 dark:text-sky-200";
+            } else if (cell) {
               bg = "bg-amber-100";
               textColor = "text-black";
             } else if (b) {
@@ -77,10 +86,11 @@ export function ScrabbleGrid({
               .filter(Boolean)
               .join(" ");
             const value = cell && !cell.isBlank ? FRENCH_LETTER_VALUES[cell.letter] : undefined;
+            const previewBorder = isPreview ? "border-dashed border-2 border-sky-500" : "";
             return (
               <div
                 key={`${r}-${c}`}
-                className={`relative flex items-center justify-center border ${border} ${outerBorder} ${bg} ${textColor} font-bold`}
+                className={`relative flex items-center justify-center border ${border} ${outerBorder} ${previewBorder} ${bg} ${textColor} font-bold`}
                 style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.5 }}
               >
                 {cell ? cell.letter : b && cellSize >= 20 ? bonusLabel[b] : ""}

@@ -10,6 +10,7 @@ import {
   formatReliquat,
   isGameOver,
   isJokerFormula,
+  previewSolutionOnBoard,
   reconstructBoard,
   BOARD_SIZE,
   FRENCH_LETTER_DISTRIBUTION,
@@ -280,6 +281,49 @@ test("isGameOver : voyelles épuisées sac + reliquat termine la partie", () => 
     },
   ];
   assert.equal(isGameOver(moves, []), true);
+});
+
+// previewSolutionOnBoard : utilisé pour l'aperçu d'une solution survolée
+// dans la liste du panneau "Solutions" (page d'arbitrage), avant que
+// l'arbitre ne la choisisse — ne doit jamais écraser une case déjà posée
+// (croisement) ni muter la grille d'origine.
+test("previewSolutionOnBoard : place uniquement les lettres nouvelles, sans muter la grille d'origine", () => {
+  const board = reconstructBoard([
+    { turnNumber: 1, row: 8, col: 8, direction: "ACROSS", word: "RAT", isPass: false },
+  ]);
+  const { grid, previewCells } = previewSolutionOnBoard(board, {
+    word: "RATS",
+    row: 8,
+    col: 8,
+    direction: "ACROSS",
+  });
+
+  // Les 3 cases déjà posées restent inchangées (pas de double entrée dans
+  // previewCells), seule la 4e lettre nouvelle (S) est marquée en aperçu.
+  assert.equal(previewCells.size, 1);
+  assert.equal(previewCells.has("7-10"), true, "la case du S (ligne 8, colonne 11, 0-indexée) est en aperçu");
+  assert.equal(grid[7][10]?.letter, "S");
+  assert.equal(grid[7][7]?.letter, "R", "la case déjà posée garde sa lettre");
+
+  // La grille d'origine n'est pas mutée.
+  assert.equal(board[7][10], null);
+});
+
+test("previewSolutionOnBoard : une lettre déjà posée par croisement n'est pas comptée comme un aperçu", () => {
+  const board = reconstructBoard([
+    { turnNumber: 1, row: 8, col: 8, direction: "ACROSS", word: "RAT", isPass: false },
+  ]);
+  // Mot vertical croisant le "A" du RAT déjà posé (ligne 8, colonne 9).
+  const { previewCells } = previewSolutionOnBoard(board, {
+    word: "CAS",
+    row: 7,
+    col: 9,
+    direction: "DOWN",
+  });
+  assert.equal(previewCells.size, 2, "seules les 2 lettres nouvelles (C et S) sont en aperçu, pas le A croisé");
+  assert.equal(previewCells.has("6-8"), true);
+  assert.equal(previewCells.has("8-8"), true);
+  assert.equal(previewCells.has("7-8"), false, "le A croisé, déjà posé, n'est pas un aperçu");
 });
 
 test("applyResolvedJokers : ne lève le statut blanc que des cases résolues, sans muter l'original", () => {
