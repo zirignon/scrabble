@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { ScrabbleGrid } from "@/components/ScrabbleGrid";
-import { previewSolutionOnBoard, type BoardCell } from "@/lib/duplicate/board";
+import { useEffect, useState, useTransition } from "react";
 import type { SolverSolution } from "@/lib/duplicate/solver";
 
 // Panneau de saisie du coup de référence : recherche de solutions mise en
@@ -12,21 +10,24 @@ import type { SolverSolution } from "@/lib/duplicate/solver";
 // saisie manuelle possible, pour garantir que le coup de référence
 // correspond toujours à un placement réellement valide trouvé par le
 // solveur. Survoler (ou donner le focus à) une solution de la liste
-// l'affiche en aperçu sur une grille dédiée (lettres nouvelles mises en
-// évidence), pour que l'arbitre puisse juger du placement avant de la
-// choisir — l'aperçu reste affiché sur la solution choisie une fois la
-// souris repartie. Seule exception à la liste : une « Passe » (aucun mot
-// jouable trouvé pour ce tirage), qui n'a besoin d'aucune solution.
+// remonte (onPreviewChange) la solution survolée à la page, qui l'affiche
+// en aperçu directement sur la grande grille de référence (lettres
+// nouvelles mises en évidence) — cet aperçu n'est qu'un état local du
+// navigateur de l'arbitre, jamais enregistré ni diffusé sur l'affichage
+// grand écran tant que le coup n'est pas validé. Reste affiché sur la
+// solution choisie une fois la souris repartie. Seule exception à la
+// liste : une « Passe » (aucun mot jouable trouvé pour ce tirage), qui
+// n'a besoin d'aucune solution.
 export function ReferenceMoveSolverForm({
   addAction,
   findSolutions,
-  board,
+  onPreviewChange,
   turnNumber,
   initialRack = "",
 }: {
   addAction: (formData: FormData) => Promise<void>;
   findSolutions: (rack: string) => Promise<SolverSolution[]>;
-  board: (BoardCell | null)[][];
+  onPreviewChange?: (solution: SolverSolution | null) => void;
   turnNumber: number;
   initialRack?: string;
 }) {
@@ -65,7 +66,18 @@ export function ReferenceMoveSolverForm({
         ? solutions[hoveredIndex]
         : selected
       : null;
-  const preview = previewed ? previewSolutionOnBoard(board, previewed) : null;
+
+  useEffect(() => {
+    onPreviewChange?.(previewed);
+  }, [previewed, onPreviewChange]);
+
+  // Efface l'aperçu remonté au parent si ce panneau disparaît (ex. partie
+  // clôturée en cours de route) sans quoi la grande grille resterait
+  // bloquée sur le dernier aperçu affiché.
+  useEffect(() => {
+    return () => onPreviewChange?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <form
@@ -94,56 +106,51 @@ export function ReferenceMoveSolverForm({
 
         {error && <p className="text-xs text-brick">{error}</p>}
 
-        <div className="flex flex-col gap-3">
-          <div>
-            <p className="text-xs text-black/50 dark:text-white/50 mb-1">
-              Aperçu{previewed ? ` — ${previewed.word.toUpperCase()} ${previewed.reference}` : ""}
-            </p>
-            <div className="overflow-auto">
-              <ScrabbleGrid grid={preview?.grid ?? board} previewCells={preview?.previewCells} cellSize={16} />
-            </div>
-          </div>
+        <p className="text-xs text-black/50 dark:text-white/50">
+          {previewed
+            ? `Aperçu sur la grille : ${previewed.word.toUpperCase()} ${previewed.reference}`
+            : "Survolez une solution pour l'afficher en aperçu sur la grille."}
+        </p>
 
-          <div
-            role="listbox"
-            aria-label="Solutions"
-            className="min-h-[10rem] max-h-[16rem] overflow-auto rounded border border-black/10 dark:border-white/20 text-sm divide-y divide-black/5 dark:divide-white/5"
-          >
-            {solutions === null ? (
-              <p className="p-3 text-xs text-black/40 dark:text-white/40">
-                Saisissez le tirage puis lancez la recherche pour afficher tous les placements
-                possibles (mot, référence, score).
-              </p>
-            ) : solutions.length === 0 ? (
-              <p className="p-3 text-xs text-black/50 dark:text-white/50">
-                Aucune solution trouvée pour ce tirage (ou dictionnaire non importé).
-              </p>
-            ) : (
-              solutions.map((s, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  role="option"
-                  aria-selected={selectedIndex === i}
-                  disabled={isPass}
-                  onMouseEnter={() => setHoveredIndex(i)}
-                  onMouseLeave={() => setHoveredIndex((h) => (h === i ? null : h))}
-                  onFocus={() => setHoveredIndex(i)}
-                  onBlur={() => setHoveredIndex((h) => (h === i ? null : h))}
-                  onClick={() => setSelectedIndex(i)}
-                  className={`w-full flex items-center justify-between gap-2 px-2 py-1 text-left transition-colors disabled:opacity-40 disabled:pointer-events-none ${
-                    selectedIndex === i
-                      ? "bg-moss/15 dark:bg-moss-light/15 font-semibold"
-                      : "hover:bg-navy/5 dark:hover:bg-navy-light/10"
-                  }`}
-                >
-                  <span>{s.word.toUpperCase()}</span>
-                  <span className="text-black/50 dark:text-white/50 tabular-nums">{s.reference}</span>
-                  <span className="tabular-nums">{s.score} pts</span>
-                </button>
-              ))
-            )}
-          </div>
+        <div
+          role="listbox"
+          aria-label="Solutions"
+          className="min-h-[10rem] max-h-[20rem] overflow-auto rounded border border-black/10 dark:border-white/20 text-sm divide-y divide-black/5 dark:divide-white/5"
+        >
+          {solutions === null ? (
+            <p className="p-3 text-xs text-black/40 dark:text-white/40">
+              Saisissez le tirage puis lancez la recherche pour afficher tous les placements
+              possibles (mot, référence, score).
+            </p>
+          ) : solutions.length === 0 ? (
+            <p className="p-3 text-xs text-black/50 dark:text-white/50">
+              Aucune solution trouvée pour ce tirage (ou dictionnaire non importé).
+            </p>
+          ) : (
+            solutions.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                role="option"
+                aria-selected={selectedIndex === i}
+                disabled={isPass}
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex((h) => (h === i ? null : h))}
+                onFocus={() => setHoveredIndex(i)}
+                onBlur={() => setHoveredIndex((h) => (h === i ? null : h))}
+                onClick={() => setSelectedIndex(i)}
+                className={`w-full flex items-center justify-between gap-2 px-2 py-1 text-left transition-colors disabled:opacity-40 disabled:pointer-events-none ${
+                  selectedIndex === i
+                    ? "bg-moss/15 dark:bg-moss-light/15 font-semibold"
+                    : "hover:bg-navy/5 dark:hover:bg-navy-light/10"
+                }`}
+              >
+                <span>{s.word.toUpperCase()}</span>
+                <span className="text-black/50 dark:text-white/50 tabular-nums">{s.reference}</span>
+                <span className="tabular-nums">{s.score} pts</span>
+              </button>
+            ))
+          )}
         </div>
       </div>
 

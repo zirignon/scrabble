@@ -32,11 +32,7 @@ import {
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
 import { anonymizePlayersForGame } from "@/lib/duplicate/anonymize";
-import { ScrabbleGrid } from "@/components/ScrabbleGrid";
-import { ReferenceMoveSolverForm } from "@/components/admin/ReferenceMoveSolverForm";
-import { ReferenceMoveHistory } from "@/components/admin/ReferenceMoveHistory";
-import { RackTiles } from "@/components/admin/RackTiles";
-import { GameTimerControls } from "@/components/admin/GameTimerControls";
+import { ArbitrationGridPanel } from "@/components/admin/ArbitrationGridPanel";
 import { PlayerWordChecker } from "@/components/admin/PlayerWordChecker";
 
 // Étiquette + info d'affichage pour un coup : la marque de pénalité (indique
@@ -168,6 +164,10 @@ export default async function GameMovesPage({
   const currentRackDisplay =
     game.pendingRack ?? computeLastReliquat(game.referenceMoves, tournament.duplicateFormula) ?? "";
   const maxTurn = navigatorMoves.length > 0 ? navigatorMoves[navigatorMoves.length - 1].turnNumber : 0;
+  const bagStatusText =
+    `Il reste ${totalTokensLeft} jeton${totalTokensLeft === 1 ? "" : "s"} dans le sac et le reliquat` +
+    (jokerFormula ? `, dont ${jokersInPlay} joker${jokersInPlay === 1 ? "" : "s"}` : "") +
+    `, ${consonantsLeft} consonne${consonantsLeft === 1 ? "" : "s"} et ${vowelsLeft} voyelle${vowelsLeft === 1 ? "" : "s"}.`;
 
   return (
     <div className="flex flex-col gap-8">
@@ -249,59 +249,25 @@ export default async function GameMovesPage({
       <section className="flex flex-col gap-3">
         <h2 className="font-heading text-lg font-semibold">Grille de référence (arbitre)</h2>
 
-        <div className="flex flex-wrap items-start gap-6">
-          <div className="w-full sm:w-auto shrink-0 flex flex-col gap-3">
-            <div className="overflow-auto">
-              <ScrabbleGrid grid={board} cellSize={26} />
-            </div>
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50 mb-1">Tirage en cours</p>
-              <RackTiles rack={currentRackDisplay} />
-            </div>
-            <p className="text-xs text-black/50 dark:text-white/50">
-              Il reste {totalTokensLeft} jeton{totalTokensLeft === 1 ? "" : "s"} dans le sac et le
-              reliquat
-              {jokerFormula
-                ? `, dont ${jokersInPlay} joker${jokersInPlay === 1 ? "" : "s"}`
-                : ""}
-              , {consonantsLeft} consonne{consonantsLeft === 1 ? "" : "s"} et {vowelsLeft} voyelle
-              {vowelsLeft === 1 ? "" : "s"}.
-            </p>
-          </div>
-
-          <div className="w-full min-w-0 sm:w-auto sm:flex-1 sm:min-w-[420px] flex flex-col gap-4">
-            <GameTimerControls
-              game={game}
-              referenceMoves={game.referenceMoves}
-              canManage={canManage}
-              alertSeconds={alertSeconds}
-              tournamentId={tournament.id}
-              duplicateFormula={tournament.duplicateFormula}
-              locked={Boolean(game.playedAt) || bagExhausted}
-            />
-
-            {canManage && (
-              <ReferenceMoveSolverForm
-                // Remonte le formulaire (et réinitialise son état local) dès
-                // que le tirage validé par l'arbitre change, pour que le
-                // champ tirage reste synchronisé sans ressaisie.
-                key={`${maxTurn + 1}:${game.pendingRack ?? ""}`}
-                addAction={addReferenceMoveBound}
-                findSolutions={findSolutionsBound}
-                board={board}
-                turnNumber={maxTurn + 1}
-                initialRack={game.pendingRack ?? ""}
-              />
-            )}
-
-            <ReferenceMoveHistory
-              moves={navigatorMoves}
-              canManage={canManage}
-              updateActionBase={updateReferenceMoveBound}
-              deleteActionBase={deleteReferenceMoveBound}
-            />
-          </div>
-        </div>
+        <ArbitrationGridPanel
+          board={board}
+          rackDisplay={currentRackDisplay}
+          bagStatusText={bagStatusText}
+          game={game}
+          referenceMoves={game.referenceMoves}
+          canManage={canManage}
+          alertSeconds={alertSeconds}
+          tournamentId={tournament.id}
+          duplicateFormula={tournament.duplicateFormula}
+          locked={Boolean(game.playedAt) || bagExhausted}
+          addReferenceMoveAction={addReferenceMoveBound}
+          findSolutionsAction={findSolutionsBound}
+          turnNumber={maxTurn + 1}
+          pendingRack={game.pendingRack}
+          historyMoves={navigatorMoves}
+          updateReferenceMoveAction={updateReferenceMoveBound}
+          deleteReferenceMoveAction={deleteReferenceMoveBound}
+        />
       </section>
 
       <section className="flex flex-col gap-3">

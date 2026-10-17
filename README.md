@@ -337,14 +337,17 @@ Après `npm run db:seed` :
   valide trouvé par le solveur. Seule exception : la case « Passe »
   (aucun mot jouable trouvé pour ce tirage), qui ne nécessite aucune
   sélection. Survoler (ou donner le focus clavier à) une solution de la
-  liste l'affiche en aperçu sur une mini grille dédiée, à côté de la
-  liste : les lettres nouvelles qu'elle poserait sont mises en évidence
-  (fond et bordure en pointillés bleus), pour que l'arbitre juge du
-  placement avant de choisir — une case déjà occupée par un croisement
-  n'est jamais comptée comme un aperçu, seules les lettres réellement
-  nouvelles le sont. L'aperçu reste affiché sur la solution choisie une
-  fois la souris repartie, et disparaît si aucune solution n'est ni
-  survolée ni choisie
+  liste l'affiche directement en aperçu sur la grille de référence
+  elle-même (pas une grille séparée) : les lettres nouvelles qu'elle
+  poserait sont mises en évidence (fond et bordure en pointillés bleus),
+  pour que l'arbitre juge du placement avant de choisir — une case déjà
+  occupée par un croisement n'est jamais comptée comme un aperçu, seules
+  les lettres réellement nouvelles le sont. Cet aperçu est un simple état
+  local au navigateur de l'arbitre : il n'est jamais enregistré ni
+  diffusé sur l'affichage grand écran tant que le coup n'est pas
+  réellement validé. Il reste affiché sur la solution choisie une fois la
+  souris repartie, et disparaît si aucune solution n'est ni survolée ni
+  choisie
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré automatiquement par l'arbitre
   dès la validation du tirage du tour (page de détail coup par coup, sous
