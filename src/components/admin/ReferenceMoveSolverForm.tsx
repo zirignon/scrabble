@@ -265,7 +265,7 @@ export function ReferenceMoveSolverForm({
           <button
             type="button"
             onClick={onToggleHistory}
-            className="rounded border border-black/10 dark:border-white/20 px-3 py-1.5 text-xs"
+            className="rounded bg-gold/15 hover:bg-gold/25 text-navy border border-gold/50 dark:bg-gold-light/15 dark:hover:bg-gold-light/25 dark:text-gold-light dark:border-gold-light/50 px-3 py-1.5 text-xs font-medium transition-colors"
           >
             {historyVisible ? "Masquer les coups déjà saisis" : "Modifier un coup déjà saisi"}
           </button>
