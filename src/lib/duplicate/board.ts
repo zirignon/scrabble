@@ -323,14 +323,27 @@ export const FRENCH_VOWELS = new Set(["A", "E", "I", "O", "U", "Y"]);
 // joué, non formaté pour l'affichage donc sans "?" de joker suggéré) : un
 // reliquat tout en consonnes, par exemple, ne permet plus de jouer tant
 // que le sac n'a plus de voyelle non plus.
-export function isGameOver(moves: ReliquatMoveLike[], resolvedJokers: ResolvedJokerLike[]): boolean {
+// Lettres encore disponibles pour les tirages à venir : le sac
+// (computeRemainingLetters) complété du reliquat actuellement en main
+// (dernier tirage non entièrement joué, recalculé sans suggestion
+// automatique de "?" pour ne pas fausser le compte) — partagée par
+// isGameOver (fin de partie) et par la ligne de statut du sac affichée à
+// l'arbitre sur la page de saisie.
+export function computeAvailableLetters(
+  moves: ReliquatMoveLike[],
+  resolvedJokers: ResolvedJokerLike[]
+): Record<string, number> {
   const remaining = computeRemainingLetters(moves, resolvedJokers);
   const reliquat = (computeLastReliquat(moves) ?? "").replace(/\+$/, "");
   for (const letter of reliquat) {
     if (letter === "?") continue;
     if (letter in remaining) remaining[letter] += 1;
   }
+  return remaining;
+}
 
+export function isGameOver(moves: ReliquatMoveLike[], resolvedJokers: ResolvedJokerLike[]): boolean {
+  const remaining = computeAvailableLetters(moves, resolvedJokers);
   let vowels = 0;
   let consonants = 0;
   for (const [letter, count] of Object.entries(remaining)) {
@@ -339,6 +352,30 @@ export function isGameOver(moves: ReliquatMoveLike[], resolvedJokers: ResolvedJo
     else consonants += count;
   }
   return vowels === 0 || consonants === 0;
+}
+
+// Nombre de jokers actuellement bloqués sur la grille (posés mais jamais
+// résolus, voir applyResolvedJokers). Par construction, un joker non résolu
+// dont la lettre représentée est encore disponible aurait déjà été résolu à
+// la validation d'un tirage suivant (voir validateGameRackAction) : tout
+// joker encore non résolu ici représente donc une lettre épuisée dans le
+// sac, bloqué définitivement sur la grille (règle décrite dans le
+// commentaire sur getBingoRules). Sert uniquement à l'affichage (ligne de
+// statut du sac) — jamais au calcul du score, qui ne dépend pas de l'état
+// résolu/non résolu d'un joker.
+export function countStuckJokers(
+  moves: ReferenceMoveLike[],
+  resolvedJokers: ResolvedJokerLike[]
+): number {
+  const board = reconstructBoard(moves);
+  const resolvedSet = new Set(resolvedJokers.map((j) => `${j.row}-${j.col}`));
+  let count = 0;
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if (board[r][c]?.isBlank && !resolvedSet.has(`${r + 1}-${c + 1}`)) count++;
+    }
+  }
+  return count;
 }
 
 // Disposition standard des cases bonus du Scrabble, utilisée à la fois

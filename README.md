@@ -269,10 +269,17 @@ Après `npm run db:seed` :
   saisie manuelle des points. Chaque lettre affiche son coefficient en
   petit dans le coin de la case, comme sur un jeton physique ; une
   lettre blanche (joker) affiche la lettre qu'elle représente mais sans
-  coefficient, pour la repérer facilement sur la grille. La saisie se
-  fait via un sélecteur « Coup » à côté de la grille (un seul coup
-  affiché à la fois, à corriger ou supprimer) plutôt qu'une liste de
-  tous les coups joués, pour ne pas surcharger l'espace
+  coefficient, pour la repérer facilement sur la grille. La page
+  d'arbitrage est organisée en deux colonnes : à gauche la grille, le
+  tirage en cours affiché sous forme de tuiles (une par lettre) et une
+  ligne de statut indiquant le nombre de jetons encore disponibles
+  (sac + reliquat, consonnes/voyelles, et jokers restants en jeu pour
+  les formules joker) ; à droite les contrôles du tour (tirage, chrono),
+  le formulaire de saisie du coup de référence avec sa liste de
+  solutions, puis l'historique complet des coups déjà saisis, toujours
+  affiché sous forme de tableau (chaque ligne modifiable ou supprimable
+  individuellement via « Modifier »), plutôt qu'un sélecteur ne montrant
+  qu'un seul coup à la fois
 - Résolution du joker (formules « joker » uniquement) : le règlement
   FISF remplace physiquement, au tirage suivant, un joker posé sur la
   grille par la lettre qu'il représentait, si elle est encore présente
@@ -321,10 +328,11 @@ Après `npm run db:seed` :
 - Recherche automatique de solutions pour la grille de référence : à
   partir du tirage saisi, de la grille actuelle et du dictionnaire
   importé, le bouton « Solutions » du formulaire de coup de référence
-  propose la totalité des mots jouables trouvés (mot, référence,
-  points), sans plafond, triés par score décroissant ; l'arbitre
-  choisit une solution pour préremplir automatiquement la référence et
-  le mot avant de valider le coup
+  propose, dans un panneau large et toujours visible, la totalité des
+  mots jouables trouvés (mot, référence, points), sans plafond, triés
+  par score décroissant ; l'arbitre choisit une solution pour préremplir
+  automatiquement la référence et le mot (saisis à part, dans une
+  colonne à côté de la liste) avant de valider le coup
 - Compte à rebours unique par partie (temps de réflexion commun à tous
   les joueurs sur le même tirage), démarré automatiquement par l'arbitre
   dès la validation du tirage du tour (page de détail coup par coup, sous

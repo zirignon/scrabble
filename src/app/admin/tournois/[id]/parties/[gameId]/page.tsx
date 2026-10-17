@@ -22,13 +22,20 @@ import {
   computeAvertissementCosts,
   computeSoloWinners,
   computeGameTop,
+  computeLastReliquat,
+  computeAvailableLetters,
+  countStuckJokers,
   isGameOver,
+  isJokerFormula,
+  FRENCH_VOWELS,
   SOLO_BONUS_MIN_PLAYERS,
   SOLO_BONUS_POINTS,
 } from "@/lib/duplicate/board";
 import { anonymizePlayersForGame } from "@/lib/duplicate/anonymize";
 import { ScrabbleGrid } from "@/components/ScrabbleGrid";
-import { ReferenceMoveNavigator } from "@/components/admin/ReferenceMoveNavigator";
+import { ReferenceMoveSolverForm } from "@/components/admin/ReferenceMoveSolverForm";
+import { ReferenceMoveHistory } from "@/components/admin/ReferenceMoveHistory";
+import { RackTiles } from "@/components/admin/RackTiles";
 import { GameTimerControls } from "@/components/admin/GameTimerControls";
 import { PlayerWordChecker } from "@/components/admin/PlayerWordChecker";
 
@@ -141,6 +148,27 @@ export default async function GameMovesPage({
   const endGameBound = endGameAction.bind(null, tournament.id, game.id);
   const reopenGameBound = reopenGameAction.bind(null, tournament.id, game.id);
 
+  // Ligne de statut du sac affichée à l'arbitre (gauche de la grille) :
+  // estimation du nombre de jetons encore disponibles pour les tirages à
+  // venir, voir computeAvailableLetters/countStuckJokers (indicatif, le
+  // logiciel ne simule pas le sac physique).
+  const jokerFormula = isJokerFormula(tournament.duplicateFormula);
+  const availableLetters = computeAvailableLetters(game.referenceMoves, game.resolvedJokers);
+  let vowelsLeft = 0;
+  let consonantsLeft = 0;
+  for (const [letter, count] of Object.entries(availableLetters)) {
+    if (count <= 0) continue;
+    if (FRENCH_VOWELS.has(letter)) vowelsLeft += count;
+    else consonantsLeft += count;
+  }
+  const jokersInPlay = jokerFormula
+    ? Math.max(0, 2 - countStuckJokers(game.referenceMoves, game.resolvedJokers))
+    : 0;
+  const totalTokensLeft = vowelsLeft + consonantsLeft + jokersInPlay;
+  const currentRackDisplay =
+    game.pendingRack ?? computeLastReliquat(game.referenceMoves, tournament.duplicateFormula) ?? "";
+  const maxTurn = navigatorMoves.length > 0 ? navigatorMoves[navigatorMoves.length - 1].turnNumber : 0;
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -222,56 +250,26 @@ export default async function GameMovesPage({
         <h2 className="font-heading text-lg font-semibold">Grille de référence (arbitre)</h2>
 
         <div className="flex flex-wrap items-start gap-6">
-          <div className="overflow-auto">
-            <ScrabbleGrid grid={board} cellSize={26} />
+          <div className="w-full sm:w-auto shrink-0 flex flex-col gap-3">
+            <div className="overflow-auto">
+              <ScrabbleGrid grid={board} cellSize={26} />
+            </div>
+            <div>
+              <p className="text-xs text-black/50 dark:text-white/50 mb-1">Tirage en cours</p>
+              <RackTiles rack={currentRackDisplay} />
+            </div>
+            <p className="text-xs text-black/50 dark:text-white/50">
+              Il reste {totalTokensLeft} jeton{totalTokensLeft === 1 ? "" : "s"} dans le sac et le
+              reliquat
+              {jokerFormula
+                ? `, dont ${jokersInPlay} joker${jokersInPlay === 1 ? "" : "s"}`
+                : ""}
+              , {consonantsLeft} consonne{consonantsLeft === 1 ? "" : "s"} et {vowelsLeft} voyelle
+              {vowelsLeft === 1 ? "" : "s"}.
+            </p>
           </div>
 
-          <div className="w-full min-w-0 sm:w-auto sm:flex-1 sm:min-w-[420px] flex flex-col gap-3">
-            {canManage ? (
-              <ReferenceMoveNavigator
-                moves={navigatorMoves}
-                addAction={addReferenceMoveBound}
-                updateActionBase={updateReferenceMoveBound}
-                deleteActionBase={deleteReferenceMoveBound}
-                findSolutions={findSolutionsBound}
-                initialRack={game.pendingRack ?? ""}
-              />
-            ) : (
-              <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="text-left border-b border-black/10 dark:border-white/10">
-                    <th className="py-2 pr-4">Coup</th>
-                    <th className="py-2 pr-4">Référence</th>
-                    <th className="py-2 pr-4">Tirage</th>
-                    <th className="py-2 pr-4">Mot</th>
-                    <th className="py-2 pr-4">Points</th>
-                    <th className="py-2 pr-4">Passe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {navigatorMoves.map((move) => (
-                    <tr key={move.id} className="border-b border-black/5 dark:border-white/5">
-                      <td className="py-1.5 pr-4">{move.turnNumber}</td>
-                      <td className="py-1.5 pr-4">{move.reference}</td>
-                      <td className="py-1.5 pr-4">{move.rack || "—"}</td>
-                      <td className="py-1.5 pr-4">{move.isPass ? "Passe" : move.word || "—"}</td>
-                      <td className="py-1.5 pr-4">{move.points}</td>
-                      <td className="py-1.5 pr-4">{move.isPass ? "Oui" : ""}</td>
-                    </tr>
-                  ))}
-                  {navigatorMoves.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-2 text-black/50 dark:text-white/50">
-                        Aucun coup de référence saisi.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              </div>
-            )}
-
+          <div className="w-full min-w-0 sm:w-auto sm:flex-1 sm:min-w-[420px] flex flex-col gap-4">
             <GameTimerControls
               game={game}
               referenceMoves={game.referenceMoves}
@@ -280,6 +278,26 @@ export default async function GameMovesPage({
               tournamentId={tournament.id}
               duplicateFormula={tournament.duplicateFormula}
               locked={Boolean(game.playedAt) || bagExhausted}
+            />
+
+            {canManage && (
+              <ReferenceMoveSolverForm
+                // Remonte le formulaire (et réinitialise son état local) dès
+                // que le tirage validé par l'arbitre change, pour que le
+                // champ tirage reste synchronisé sans ressaisie.
+                key={`${maxTurn + 1}:${game.pendingRack ?? ""}`}
+                addAction={addReferenceMoveBound}
+                findSolutions={findSolutionsBound}
+                turnNumber={maxTurn + 1}
+                initialRack={game.pendingRack ?? ""}
+              />
+            )}
+
+            <ReferenceMoveHistory
+              moves={navigatorMoves}
+              canManage={canManage}
+              updateActionBase={updateReferenceMoveBound}
+              deleteActionBase={deleteReferenceMoveBound}
             />
           </div>
         </div>

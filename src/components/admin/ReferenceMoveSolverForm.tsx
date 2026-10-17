@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import type { SolverSolution } from "@/lib/duplicate/solver";
 
+// Panneau de saisie du coup de référence : recherche de solutions mise en
+// avant (zone large, toujours visible une fois la recherche lancée) à
+// gauche, champs du coup à enregistrer (référence/mot/passe + soumission)
+// dans une colonne latérale à droite — on choisit une solution dans la
+// liste pour préremplir ces champs, ou on les saisit à la main.
 export function ReferenceMoveSolverForm({
   addAction,
   findSolutions,
@@ -37,68 +42,49 @@ export function ReferenceMoveSolverForm({
   function pick(solution: SolverSolution) {
     setReference(solution.reference);
     setWord(solution.word);
-    setSolutions(null);
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <form action={addAction} className="flex flex-wrap items-center gap-2">
-        <span className="w-10 text-black/60 dark:text-white/60 text-sm">#{turnNumber}</span>
-        <input
-          type="text"
-          name="reference"
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-          placeholder="Ex. H4 / 4H"
-          className="w-20 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-        />
-        <input
-          type="text"
-          name="rack"
-          value={rack}
-          onChange={(e) => setRack(e.target.value)}
-          placeholder="Tirage"
-          className="w-24 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-        />
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={!rack.trim() || isPending}
-          className="rounded bg-navy hover:bg-navy/90 dark:bg-navy-light dark:text-navy text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
-        >
-          {isPending ? "Recherche…" : "Solutions"}
-        </button>
-        <input
-          type="text"
-          name="word"
-          value={word}
-          onChange={(e) => setWord(e.target.value)}
-          placeholder="Mot joué"
-          className="w-32 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-        />
-        <label className="flex items-center gap-1 text-xs">
-          <input type="checkbox" name="isPass" />
-          Passe
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-sm font-medium transition-colors"
-        >
-          + Coup de référence
-        </button>
-      </form>
+    <form
+      action={addAction}
+      className="flex flex-col sm:flex-row gap-4 rounded border border-black/10 dark:border-white/20 p-3"
+    >
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-black/50 dark:text-white/50">Tirage #{turnNumber}</span>
+          <input
+            type="text"
+            name="rack"
+            value={rack}
+            onChange={(e) => setRack(e.target.value)}
+            placeholder="Ex. AEHMNRS"
+            className="w-28 rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+          />
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={!rack.trim() || isPending}
+            className="rounded bg-navy hover:bg-navy/90 dark:bg-navy-light dark:text-navy text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+          >
+            {isPending ? "Recherche…" : "Solutions"}
+          </button>
+        </div>
 
-      {error && <p className="text-xs text-brick">{error}</p>}
+        {error && <p className="text-xs text-brick">{error}</p>}
 
-      {solutions && (
-        <div className="max-w-xl max-h-56 overflow-auto rounded border border-black/10 dark:border-white/20 text-sm">
-          {solutions.length === 0 ? (
-            <p className="p-2 text-black/50 dark:text-white/50 text-xs">
+        <div className="min-h-[10rem] max-h-[28rem] overflow-auto rounded border border-black/10 dark:border-white/20 text-sm">
+          {solutions === null ? (
+            <p className="p-3 text-xs text-black/40 dark:text-white/40">
+              Saisissez le tirage puis lancez la recherche pour afficher tous les placements
+              possibles (mot, référence, score).
+            </p>
+          ) : solutions.length === 0 ? (
+            <p className="p-3 text-xs text-black/50 dark:text-white/50">
               Aucune solution trouvée pour ce tirage (ou dictionnaire non importé).
             </p>
           ) : (
             <table className="w-full border-collapse">
-              <thead>
+              <thead className="sticky top-0 bg-white dark:bg-navy">
                 <tr className="text-left border-b border-black/10 dark:border-white/10 text-xs text-black/50 dark:text-white/50">
                   <th className="py-1.5 px-2">Mot</th>
                   <th className="py-1.5 px-2">Réf.</th>
@@ -127,7 +113,37 @@ export function ReferenceMoveSolverForm({
             </table>
           )}
         </div>
-      )}
-    </div>
+      </div>
+
+      <div className="sm:w-64 shrink-0 flex flex-col gap-2">
+        <p className="text-xs font-medium text-black/60 dark:text-white/60">Coup à enregistrer</p>
+        <input
+          type="text"
+          name="reference"
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder="Ex. H4 / 4H"
+          className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
+        />
+        <input
+          type="text"
+          name="word"
+          value={word}
+          onChange={(e) => setWord(e.target.value)}
+          placeholder="Mot joué"
+          className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
+        />
+        <label className="flex items-center gap-1 text-xs">
+          <input type="checkbox" name="isPass" />
+          Passe
+        </label>
+        <button
+          type="submit"
+          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-sm font-medium transition-colors"
+        >
+          + Coup de référence
+        </button>
+      </div>
+    </form>
   );
 }

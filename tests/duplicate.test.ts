@@ -3,8 +3,10 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 import {
   applyResolvedJokers,
+  computeAvailableLetters,
   computeLastReliquat,
   computeRemainingLetters,
+  countStuckJokers,
   formatReliquat,
   isGameOver,
   isJokerFormula,
@@ -206,6 +208,42 @@ test("isGameOver : les voyelles épuisées dans le sac mais pas dans le reliquat
     isGameOver(moves, []),
     false,
     "le Y restant dans le reliquat (non joué) doit encore compter comme disponible"
+  );
+});
+
+// computeAvailableLetters est la fusion sac + reliquat que réutilise
+// isGameOver (voir ci-dessus) et la ligne de statut du sac affichée à
+// l'arbitre : un Y laissé en reliquat (non joué) doit être recompté, pas
+// seulement rester dans le compte brut du sac.
+test("computeAvailableLetters : recompte dans le reliquat le Y laissé non joué", () => {
+  const moves = [
+    { turnNumber: 1, row: 8, col: 1, direction: "ACROSS", word: "RT", isPass: false, rack: "RTY" },
+  ];
+  const sacSeul = computeRemainingLetters(moves, []);
+  const avecReliquat = computeAvailableLetters(moves, []);
+  assert.equal(sacSeul.Y, FRENCH_LETTER_DISTRIBUTION.Y - 1, "le Y a été tiré (il est dans le reliquat, pas dans le sac)");
+  assert.equal(
+    avecReliquat.Y,
+    FRENCH_LETTER_DISTRIBUTION.Y,
+    "le Y non joué, resté en reliquat, est recompté comme disponible"
+  );
+});
+
+// countStuckJokers : un joker non résolu dont la lettre représentée est
+// encore disponible n'a pas vocation à rester compté comme "bloqué"
+// (l'automatisme de validateGameRackAction l'aurait déjà résolu), mais le
+// calcul ne fait que compter les cases non résolues, sans vérifier cette
+// invariante lui-même — ce test porte seulement sur le comptage brut.
+test("countStuckJokers : compte les cases jokers non résolues, ignore les résolues", () => {
+  const moves = [
+    { turnNumber: 1, row: 8, col: 8, direction: "ACROSS", word: "RaT", isPass: false },
+    { turnNumber: 2, row: 9, col: 8, direction: "ACROSS", word: "kA", isPass: false },
+  ];
+  assert.equal(countStuckJokers(moves, []), 2, "les deux jokers posés ne sont pas résolus");
+  assert.equal(
+    countStuckJokers(moves, [{ row: 8, col: 9 }]),
+    1,
+    "un seul des deux jokers est résolu"
   );
 });
 
