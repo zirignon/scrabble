@@ -5,9 +5,13 @@ import type { SolverSolution } from "@/lib/duplicate/solver";
 
 // Panneau de saisie du coup de référence : recherche de solutions mise en
 // avant (zone large, toujours visible une fois la recherche lancée) à
-// gauche, champs du coup à enregistrer (référence/mot/passe + soumission)
-// dans une colonne latérale à droite — on choisit une solution dans la
-// liste pour préremplir ces champs, ou on les saisit à la main.
+// gauche, choix du coup à enregistrer dans une colonne latérale à droite.
+// Le coup enregistré DOIT provenir d'une solution de la liste déroulante
+// (mot + référence + score) — pas de saisie manuelle possible, pour
+// garantir que le coup de référence correspond toujours à un placement
+// réellement valide trouvé par le solveur. Seule exception : une « Passe »
+// (aucun mot jouable trouvé pour ce tirage), qui n'a besoin d'aucune
+// solution.
 export function ReferenceMoveSolverForm({
   addAction,
   findSolutions,
@@ -20,15 +24,16 @@ export function ReferenceMoveSolverForm({
   initialRack?: string;
 }) {
   const [rack, setRack] = useState(initialRack);
-  const [reference, setReference] = useState("");
-  const [word, setWord] = useState("");
   const [solutions, setSolutions] = useState<SolverSolution[] | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState("");
+  const [isPass, setIsPass] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSearch() {
     setError(null);
     setSolutions(null);
+    setSelectedIndex("");
     startTransition(async () => {
       try {
         const results = await findSolutions(rack);
@@ -39,10 +44,8 @@ export function ReferenceMoveSolverForm({
     });
   }
 
-  function pick(solution: SolverSolution) {
-    setReference(solution.reference);
-    setWord(solution.word);
-  }
+  const selected = solutions && selectedIndex !== "" ? solutions[Number(selectedIndex)] : null;
+  const canSubmit = isPass || selected !== null;
 
   return (
     <form
@@ -54,7 +57,6 @@ export function ReferenceMoveSolverForm({
           <span className="text-xs text-black/50 dark:text-white/50">Tirage #{turnNumber}</span>
           <input
             type="text"
-            name="rack"
             value={rack}
             onChange={(e) => setRack(e.target.value)}
             placeholder="Ex. AEHMNRS"
@@ -72,74 +74,67 @@ export function ReferenceMoveSolverForm({
 
         {error && <p className="text-xs text-brick">{error}</p>}
 
-        <div className="min-h-[10rem] max-h-[28rem] overflow-auto rounded border border-black/10 dark:border-white/20 text-sm">
-          {solutions === null ? (
-            <p className="p-3 text-xs text-black/40 dark:text-white/40">
-              Saisissez le tirage puis lancez la recherche pour afficher tous les placements
-              possibles (mot, référence, score).
-            </p>
-          ) : solutions.length === 0 ? (
-            <p className="p-3 text-xs text-black/50 dark:text-white/50">
-              Aucune solution trouvée pour ce tirage (ou dictionnaire non importé).
-            </p>
-          ) : (
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 bg-white dark:bg-navy">
-                <tr className="text-left border-b border-black/10 dark:border-white/10 text-xs text-black/50 dark:text-white/50">
-                  <th className="py-1.5 px-2">Mot</th>
-                  <th className="py-1.5 px-2">Réf.</th>
-                  <th className="py-1.5 px-2 text-right">Pts</th>
-                  <th className="py-1.5 px-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {solutions.map((s, i) => (
-                  <tr key={i} className="border-b border-black/5 dark:border-white/5">
-                    <td className="py-1.5 px-2 font-semibold">{s.word.toUpperCase()}</td>
-                    <td className="py-1.5 px-2 tabular-nums">{s.reference}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{s.score}</td>
-                    <td className="py-1.5 px-2">
-                      <button
-                        type="button"
-                        onClick={() => pick(s)}
-                        className="rounded bg-moss text-white px-2 py-0.5 text-xs"
-                      >
-                        Choisir
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
+          Solution à retenir (mot — référence — score)
+          <select
+            value={selectedIndex}
+            onChange={(e) => setSelectedIndex(e.target.value)}
+            disabled={isPass || !solutions || solutions.length === 0}
+            size={Math.min(12, Math.max(4, solutions?.length ?? 1))}
+            className="rounded border border-black/10 dark:border-white/20 bg-transparent text-sm disabled:opacity-40"
+          >
+            <option value="" disabled>
+              {solutions === null
+                ? "Saisissez le tirage puis lancez la recherche…"
+                : solutions.length === 0
+                ? "Aucune solution trouvée pour ce tirage (ou dictionnaire non importé)."
+                : "— Choisir une solution —"}
+            </option>
+            {solutions?.map((s, i) => (
+              <option key={i} value={i}>
+                {s.word.toUpperCase()} — {s.reference} ({s.score} pts)
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="sm:w-64 shrink-0 flex flex-col gap-2">
         <p className="text-xs font-medium text-black/60 dark:text-white/60">Coup à enregistrer</p>
-        <input
-          type="text"
-          name="reference"
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-          placeholder="Ex. H4 / 4H"
-          className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm uppercase"
-        />
-        <input
-          type="text"
-          name="word"
-          value={word}
-          onChange={(e) => setWord(e.target.value)}
-          placeholder="Mot joué"
-          className="rounded border border-black/10 dark:border-white/20 px-2 py-1 bg-transparent text-sm"
-        />
+        {selected ? (
+          <p className="text-sm">
+            <span className="font-semibold">{selected.word.toUpperCase()}</span>{" "}
+            <span className="text-black/60 dark:text-white/60">{selected.reference}</span>{" "}
+            <span className="text-black/50 dark:text-white/50">({selected.score} pts)</span>
+          </p>
+        ) : (
+          <p className="text-xs text-black/40 dark:text-white/40">
+            {isPass ? "Passe : aucun mot à enregistrer." : "Aucune solution sélectionnée."}
+          </p>
+        )}
+        {/* Le formulaire n'envoie jamais une référence/un mot saisis
+            librement : ils proviennent uniquement de la solution choisie
+            ci-dessus, sauf en cas de passe (position neutre, sans effet
+            sur la grille puisqu'aucun mot n'est posé). */}
+        <input type="hidden" name="reference" value={selected ? selected.reference : isPass ? "H8" : ""} />
+        <input type="hidden" name="word" value={selected ? selected.word : ""} />
+        <input type="hidden" name="rack" value={rack} />
         <label className="flex items-center gap-1 text-xs">
-          <input type="checkbox" name="isPass" />
-          Passe
+          <input
+            type="checkbox"
+            name="isPass"
+            checked={isPass}
+            onChange={(e) => {
+              setIsPass(e.target.checked);
+              if (e.target.checked) setSelectedIndex("");
+            }}
+          />
+          Passe (aucun mot jouable trouvé)
         </label>
         <button
           type="submit"
-          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-sm font-medium transition-colors"
+          disabled={!canSubmit}
+          className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40"
         >
           + Coup de référence
         </button>
